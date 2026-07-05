@@ -1,6 +1,12 @@
 // src/context/AuthContext.tsx — Supabase Auth real
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../services/supabaseClient';
+import {
+  assertLoginAllowed,
+  recordLoginFailure,
+  recordLoginSuccess,
+  loginAttemptDelay,
+} from '../utils/loginGuard';
 import type { AppUser } from '../types';
 
 interface AuthContextType {
@@ -13,6 +19,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const GENERIC_LOGIN_ERROR =
+  'Credenciales inválidas. Verifique su correo y contraseña o intente más tarde.';
+
+function mapAuthError(error: { message?: string; status?: number }): string {
+  const msg = (error.message ?? '').toLowerCase();
+  if (error.status === 429 || msg.includes('rate limit') || msg.includes('too many')) {
+    return 'Demasiados intentos. Espere unos minutos e intente de nuevo.';
+  }
+  if (msg.includes('invalid api key')) {
+    return 'Error de conexión. Recargue la página o contacte al administrador.';
+  }
+  if (msg.includes('email not confirmed')) {
+    return 'Debe confirmar su correo antes de ingresar.';
+  }
+  return GENERIC_LOGIN_ERROR;
+}
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +47,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   useEffect(() => {
-    // Check existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(mapUser(session.user));
@@ -32,7 +54,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(false);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(mapUser(session.user));
@@ -45,23 +66,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setIsLoading(false);
-      const msg = error.message.toLowerCase();
-      if (msg.includes('invalid api key')) {
-        throw new Error('Error de conexión con Supabase. Recargue la página o contacte al administrador.');
-      }
-      if (error.message === 'Invalid login credentials') {
-        throw new Error('Credenciales inválidas. Verifique su correo y contraseña.');
-      }
-      throw new Error(error.message);
+    assertLoginAllowed();
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || password.length < 6 || password.length > 128) {
+      recordLoginFailure();
+      throw new Error(GENERIC_LOGIN_ERROR);
     }
+
+    await loginAttemptDelay();
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+
+    if (error) {
+      recordLoginFailure();
+      throw new Error(mapAuthError(error));
+    }
+
+    recordLoginSuccess();
     if (data.user) {
       setUser(mapUser(data.user));
     }
-    setIsLoading(false);
   };
 
   const logout = async () => {
@@ -75,7 +103,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isAuthenticated: !!user,
       login,
       logout,
-      isLoading
+      isLoading,
     }}>
       {children}
     </AuthContext.Provider>
