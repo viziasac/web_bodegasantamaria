@@ -5,7 +5,6 @@ import {
   assertLoginAllowed,
   recordLoginFailure,
   recordLoginSuccess,
-  loginAttemptDelay,
 } from '../utils/loginGuard';
 import type { AppUser } from '../types';
 
@@ -73,8 +72,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       recordLoginFailure();
       throw new Error(GENERIC_LOGIN_ERROR);
     }
-
-    await loginAttemptDelay();
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,

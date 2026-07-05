@@ -1,14 +1,15 @@
 /**
  * Protección client-side contra fuerza bruta en login.
- * Complementa el rate limiting de Supabase Auth (servidor).
+ * Sin espera en intentos 1–4; a partir del 5.º fallo, 5 s antes del siguiente intento.
  */
 
-const STORAGE_KEY = 'bsm_login_guard_v1';
+const STORAGE_KEY = 'bsm_login_guard_v2';
 const MAX_ATTEMPTS = 10;
-const LOCKOUT_MS = 15 * 60 * 1000; // 15 min
-const ATTEMPT_WINDOW_MS = 10 * 60 * 1000; // ventana deslizante 10 min
-const MIN_DELAY_MS = 800;
-const MAX_DELAY_MS = 8000;
+const LOCKOUT_MS = 15 * 60 * 1000;
+const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+/** Tras este número de fallos, exigir pausa antes del siguiente intento */
+const WAIT_AFTER_FAILURES = 4;
+const WAIT_MS = 5000;
 
 interface GuardState {
   failures: number;
@@ -78,15 +79,16 @@ export function getLoginGuardStatus(): LoginGuardStatus {
     writeState(state);
   }
 
-  const sinceLast = now - state.lastAttemptAt;
-  const backoff = Math.min(MIN_DELAY_MS * Math.pow(2, Math.max(0, state.failures - 1)), MAX_DELAY_MS);
-  if (state.lastAttemptAt > 0 && sinceLast < backoff) {
-    return {
-      allowed: false,
-      lockedUntil: null,
-      waitMs: backoff - sinceLast,
-      message: `Espere ${Math.ceil((backoff - sinceLast) / 1000)} s antes del siguiente intento.`,
-    };
+  if (state.failures >= WAIT_AFTER_FAILURES && state.lastAttemptAt > 0) {
+    const sinceLast = now - state.lastAttemptAt;
+    if (sinceLast < WAIT_MS) {
+      return {
+        allowed: false,
+        lockedUntil: null,
+        waitMs: WAIT_MS - sinceLast,
+        message: `Espere ${Math.ceil((WAIT_MS - sinceLast) / 1000)} s antes del siguiente intento.`,
+      };
+    }
   }
 
   return { allowed: true, lockedUntil: null, waitMs: 0, message: null };
@@ -116,7 +118,12 @@ export function recordLoginSuccess(): void {
   writeState({ failures: 0, windowStart: Date.now(), lockedUntil: 0, lastAttemptAt: 0 });
 }
 
-/** Retraso mínimo por intento para frenar scripts automatizados */
-export async function loginAttemptDelay(): Promise<void> {
-  await new Promise((r) => setTimeout(r, MIN_DELAY_MS));
+/** Limpia bloqueo local (útil si quedó un estado antiguo en el navegador). */
+export function clearLoginGuard(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('bsm_login_guard_v1');
+  } catch {
+    /* ignore */
+  }
 }
