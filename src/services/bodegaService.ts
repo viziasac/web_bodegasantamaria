@@ -116,10 +116,24 @@ export const bodegaService = {
     const pres = (await api.getPresentaciones()).find((p) => p.id === opts.presentacionId);
     if (!pres?.item_id) throw new Error('Presentación no encontrada');
     const cant = Math.round(opts.cantidadBotellas);
-    const precio = opts.precioUnitarioBotella;
+    let precio = opts.precioUnitarioBotella;
+    if (!Number.isFinite(precio) || precio <= 0) {
+      const ref = await api.getPrecioReferencia(opts.presentacionId);
+      precio = ref ?? 0;
+    }
+    if (precio <= 0) throw new Error('Precio no válido. Ingrese precio o configure ven_precio_ref.');
 
     let lineas: VentaLinea[];
     if (opts.loteId) {
+      const stock = await api.validarStockDisponible({
+        itemId: pres.item_id,
+        loteId: opts.loteId,
+        ubicacionId: opts.ubicacionId,
+        cantidad: cant,
+      });
+      if (!stock.tiene_stock) {
+        throw new Error(`Stock insuficiente. Faltante: ${stock.faltante ?? cant}`);
+      }
       lineas = [{
         item_id: pres.item_id,
         lote_id: opts.loteId,
@@ -267,7 +281,9 @@ export const bodegaService = {
   ) {
     const batchTxn = newTxnId();
     for (const line of lineas) {
-      await api.registrarGasto({
+      const tipoDoc = line.tipoDocumento?.trim() ?? '';
+      const nroDoc = line.nroDocumento?.trim() ?? '';
+      const payload: Record<string, unknown> = {
         fecha: header.fecha,
         monto: line.monto,
         descripcion: line.descripcion,
@@ -275,9 +291,11 @@ export const bodegaService = {
         centro_costo: header.centroCosto ?? 'BODEGA',
         moneda: header.moneda ?? 'PEN',
         proveedor_nombre: line.proveedorNombre ?? null,
-        tipo_documento: line.tipoDocumento ?? null,
-        nro_documento: line.nroDocumento ?? null,
-      }, batchTxn);
+        con_comprobante: tipoDoc.length > 0 || nroDoc.length > 0,
+      };
+      if (tipoDoc) payload.tipo_comprobante = tipoDoc;
+      if (nroDoc) payload.nro_comprobante = nroDoc;
+      await api.registrarGasto(payload, `${batchTxn}:${line.id}`);
     }
   },
 

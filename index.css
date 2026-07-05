@@ -1394,6 +1394,24 @@ label {
 .dash-page .grid-2 .card,
 .dash-page .grid-2-1 .card { margin-bottom: 0; }
 
+.dash-inv-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.dash-inv-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+.dash-inv-hint a {
+  color: var(--accent);
+  font-weight: 500;
+}
+
 .dash-health {
   display: flex;
   align-items: flex-start;

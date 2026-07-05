@@ -107,14 +107,11 @@ export async function getItems(opts?: { tipo?: string }): Promise<MaItem[]> {
 }
 
 export async function getInsumos(): Promise<MaItem[]> {
-  const { data, error } = await supabase
-    .from(Tables.maItem)
-    .select('*')
-    .eq('activo', true)
-    .in('tipo', ['INSUMO', 'EMPAQUE', 'MATERIAL'])
-    .order('nombre');
-  if (error) throw error;
-  return data || [];
+  const items = await getItems();
+  return items.filter((i) => {
+    const t = (i.tipo ?? '').trim().toUpperCase();
+    return t.length > 0 && t !== 'PT';
+  });
 }
 
 export async function getItemsGranel(): Promise<MaItem[]> {
@@ -155,13 +152,17 @@ export async function getCategoriasGasto(): Promise<GasCategoria[]> {
   return data || [];
 }
 
-export async function getPrecioReferencia(presentacionId: string): Promise<number | null> {
+export async function getPrecioReferencia(presentacionId: string, segmento = 'GENERAL'): Promise<number | null> {
   const { data } = await supabase
     .from(Tables.venPrecioRef)
-    .select('precio')
+    .select('precio_minimo')
     .eq('presentacion_id', presentacionId)
+    .eq('segmento', segmento)
+    .eq('activo', true)
+    .order('vigente_desde', { ascending: false })
+    .limit(1)
     .maybeSingle();
-  return data?.precio ?? null;
+  return data?.precio_minimo != null ? Number(data.precio_minimo) : null;
 }
 
 // ─── Inventario ───
@@ -414,13 +415,15 @@ export async function getHistorialMovimientos(opts: {
   fechaHasta?: string;
   itemId?: string;
   ubicacionId?: string;
+  direccion?: string;
 }) {
-  const { data, error } = await supabase.rpc(ErpRpc.historialMovimientos, {
-    p_fecha_desde: opts.fechaDesde ?? null,
-    p_fecha_hasta: opts.fechaHasta ?? null,
-    p_item_id: opts.itemId ?? null,
-    p_ubicacion_id: opts.ubicacionId ?? null,
-  });
+  const params: Record<string, unknown> = {};
+  if (opts.itemId) params.p_item_id = opts.itemId;
+  if (opts.ubicacionId) params.p_ubicacion_id = opts.ubicacionId;
+  if (opts.direccion) params.p_direccion = opts.direccion;
+  if (opts.fechaDesde) params.p_desde = opts.fechaDesde;
+  if (opts.fechaHasta) params.p_hasta = opts.fechaHasta;
+  const { data, error } = await supabase.rpc(ErpRpc.historialMovimientos, params);
   if (error) throw error;
   return (data as Record<string, unknown>[]) || [];
 }
@@ -437,12 +440,17 @@ export async function getRecetas(): Promise<RecReceta[]> {
   const { data, error } = await supabase
     .from(Tables.recReceta)
     .select(`
-      *,
-      ma_item_producido:item_producido_id(id, codigo, nombre, tipo),
-      ma_item_componente:item_componente_id(id, codigo, nombre, tipo, unidad_medida)
+      id, item_producido_id, componente_id, cantidad, es_variable,
+      item_producido:ma_item!rec_receta_item_producido_id_fkey(id, codigo, nombre, tipo, categoria),
+      componente:ma_item!rec_receta_base_componente_id_fkey(id, codigo, nombre, tipo, unidad_medida)
     `);
   if (error) throw error;
-  return data || [];
+  return (data || []).map((r: Record<string, unknown>) => ({
+    ...r,
+    item_componente_id: r.componente_id,
+    ma_item_producido: r.item_producido,
+    ma_item_componente: r.componente,
+  })) as RecReceta[];
 }
 
 // ─── Producción ───
@@ -509,14 +517,16 @@ export async function validarInsumosPreview(opts: {
   }
 
   return componentes.map((r) => {
+    const compId = r.componente_id ?? r.item_componente_id;
+    const comp = r.componente ?? r.ma_item_componente;
     const req = r.cantidad * opts.cantPlanificada;
-    const disp = stockPorItem[r.item_componente_id] ?? 0;
+    const disp = stockPorItem[compId] ?? 0;
     const faltante = Math.max(0, req - disp);
     return {
-      item_id: r.item_componente_id,
-      codigo: r.ma_item_componente?.codigo,
-      nombre: r.ma_item_componente?.nombre ?? '—',
-      unidad_medida: r.unidad ?? r.ma_item_componente?.unidad_medida,
+      item_id: compId,
+      codigo: comp?.codigo,
+      nombre: comp?.nombre ?? '—',
+      unidad_medida: comp?.unidad_medida,
       requerido: req,
       disponible: disp,
       faltante,
@@ -601,15 +611,28 @@ export async function crearOrdenProduccion(opts: {
 
 // ─── Transferencias ───
 
+function mapTransferenciaRow(row: TrnTransferencia): TrnTransferencia {
+  const legacy = row as TrnTransferencia & { fecha_creacion?: string };
+  return {
+    ...row,
+    fecha_envio: row.fecha_envio ?? legacy.fecha_creacion,
+  };
+}
+
 export async function getTransferencias(estado?: string): Promise<TrnTransferencia[]> {
   let q = supabase
     .from(Tables.trnTransferencia)
-    .select('*, origen:origen_id(id, codigo, nombre), destino:destino_id(id, codigo, nombre)')
-    .order('fecha_creacion', { ascending: false });
+    .select(`
+      *,
+      origen:origen_id(id, codigo, nombre),
+      destino:destino_id(id, codigo, nombre),
+      trn_transferencia_detalle(id, item_id, presentacion_id, lote_id, cantidad)
+    `)
+    .order('fecha_envio', { ascending: false });
   if (estado) q = q.eq('estado', estado);
   const { data, error } = await q;
   if (error) throw error;
-  return data || [];
+  return (data || []).map(mapTransferenciaRow);
 }
 
 // ─── Gastos ───
@@ -725,11 +748,11 @@ export async function getTransferenciasPeriodo(fechaDesde: string, fechaHasta: s
   const { data, error } = await supabase
     .from(Tables.trnTransferencia)
     .select('*, origen:origen_id(id, codigo, nombre), destino:destino_id(id, codigo, nombre)')
-    .gte('fecha_creacion', fechaDesde)
-    .lte('fecha_creacion', `${fechaHasta}T23:59:59`)
-    .order('fecha_creacion', { ascending: true });
+    .gte('fecha_envio', `${fechaDesde}T00:00:00`)
+    .lte('fecha_envio', `${fechaHasta}T23:59:59`)
+    .order('fecha_envio', { ascending: true });
   if (error) throw error;
-  return data || [];
+  return (data || []).map(mapTransferenciaRow);
 }
 
 export async function getMovimientosPeriodo(
@@ -761,8 +784,8 @@ export async function getMovimientosPeriodo(
 
 export async function getReporteVentasPeriodo(fechaDesde: string, fechaHasta: string, ubicacionId?: string) {
   const params: Record<string, unknown> = {
-    p_fecha_desde: fechaDesde,
-    p_fecha_hasta: fechaHasta,
+    p_desde: fechaDesde,
+    p_hasta: fechaHasta,
   };
   if (ubicacionId) params.p_ubicacion_id = ubicacionId;
   const { data, error } = await supabase.rpc(ErpRpc.reporteVentasPeriodo, params);
@@ -772,8 +795,8 @@ export async function getReporteVentasPeriodo(fechaDesde: string, fechaHasta: st
 
 export async function getReporteGastosPeriodo(fechaDesde: string, fechaHasta: string, centroCosto?: string) {
   const params: Record<string, unknown> = {
-    p_fecha_desde: fechaDesde,
-    p_fecha_hasta: fechaHasta,
+    p_desde: fechaDesde,
+    p_hasta: fechaHasta,
   };
   if (centroCosto) params.p_centro_costo = centroCosto;
   const { data, error } = await supabase.rpc(ErpRpc.reporteGastosPeriodo, params);
@@ -782,20 +805,64 @@ export async function getReporteGastosPeriodo(fechaDesde: string, fechaHasta: st
 }
 
 export async function getResumenReportes(fechaDesde: string, fechaHasta: string, opts?: { ubicacionId?: string; centroCosto?: string }) {
-  const [ventas, gastos, ordenes] = await Promise.all([
+  const [ventas, gastos, ordenesRes, comprasRes] = await Promise.all([
     getReporteVentasPeriodo(fechaDesde, fechaHasta, opts?.ubicacionId),
     getReporteGastosPeriodo(fechaDesde, fechaHasta, opts?.centroCosto),
-    supabase
-      .from(Tables.prdOrden)
-      .select('cant_real, estado')
-      .eq('estado', 'COMPLETADA')
-      .gte('fecha_completada', fechaDesde)
-      .lte('fecha_completada', fechaHasta),
+    (async () => {
+      let q = supabase
+        .from(Tables.prdOrden)
+        .select('cant_real, ubicacion_destino_id')
+        .eq('estado', 'COMPLETADA')
+        .gte('fecha_completada', `${fechaDesde}T00:00:00`)
+        .lte('fecha_completada', `${fechaHasta}T23:59:59`);
+      if (opts?.ubicacionId) q = q.eq('ubicacion_destino_id', opts.ubicacionId);
+      return q;
+    })(),
+    (async () => {
+      let q = supabase
+        .from(Tables.invMovimiento)
+        .select('cantidad, ubicacion_id, item_id, ma_item!inner(tipo)')
+        .eq('tipo_mov', 'COMPRA')
+        .gte('fecha', `${fechaDesde}T00:00:00`)
+        .lte('fecha', `${fechaHasta}T23:59:59`);
+      if (opts?.ubicacionId) q = q.eq('ubicacion_id', opts.ubicacionId);
+      return q;
+    })(),
   ]);
-  const totalVentas = ventas.reduce((s, v) => s + ((v.total as number) || (v.monto as number) || 0), 0);
-  const totalGastos = gastos.reduce((s, g) => s + ((g.monto as number) || 0), 0);
-  const produccion = (ordenes.data || []).reduce((s, o) => s + (o.cant_real || 0), 0);
-  return { totalVentas, totalGastos, balance: totalVentas - totalGastos, produccion, ventas, gastos };
+
+  if (ordenesRes.error) throw ordenesRes.error;
+  if (comprasRes.error) throw comprasRes.error;
+
+  let totalVentas = 0;
+  let ventasUnidades = 0;
+  for (const v of ventas) {
+    totalVentas += Number(v.total_vendido) || 0;
+    ventasUnidades += Number(v.cant_vendida) || 0;
+  }
+  const totalGastos = gastos.reduce((s, g) => s + (Number(g.total_gastado) || 0), 0);
+  const produccion = (ordenesRes.data || []).reduce((s, o) => s + (Number(o.cant_real) || 0), 0);
+
+  let entradasInsumo = 0;
+  for (const c of comprasRes.data || []) {
+    const tipo = String((c.ma_item as { tipo?: string } | null)?.tipo ?? '').toUpperCase();
+    if (tipo !== 'INSUMO' && tipo !== 'EMPAQUE') continue;
+    entradasInsumo += Number(c.cantidad) || 0;
+  }
+
+  return {
+    ingresos_monto: totalVentas,
+    egresos_monto: totalGastos,
+    ventas_unidades: ventasUnidades,
+    produccion_unidades: produccion,
+    entradas_insumo_cantidad: entradasInsumo,
+    gastos_detalle: gastos,
+    totalVentas,
+    totalGastos,
+    balance: totalVentas - totalGastos,
+    produccion,
+    ventas,
+    gastos,
+  };
 }
 
 // ─── Dashboard ───
@@ -1305,6 +1372,34 @@ export async function registrarReempaque(opts: {
   }, 'No se pudo registrar el reempaque.');
 }
 
+// ─── Ventas ───
+
+export async function validarStockDisponible(opts: {
+  itemId: string;
+  loteId: string;
+  ubicacionId: string;
+  cantidad: number;
+}): Promise<{ tiene_stock: boolean; faltante?: number }> {
+  const { data, error } = await supabase.rpc(ErpRpc.validarStockDisponible, {
+    p_item_id: opts.itemId,
+    p_lote_id: opts.loteId,
+    p_ubicacion_id: opts.ubicacionId,
+    p_cantidad: opts.cantidad,
+  });
+  if (error) throw new Error(friendlyDbError(error));
+  const row = ((data as Record<string, unknown>[]) || [])[0];
+  return {
+    tiene_stock: row?.tiene_stock === true,
+    faltante: row?.faltante != null ? Number(row.faltante) : undefined,
+  };
+}
+
+export async function calcularTotalVenta(ventaId: string): Promise<number> {
+  const { data, error } = await supabase.rpc(ErpRpc.calcularTotalVenta, { p_venta_id: ventaId });
+  if (error) throw error;
+  return Number(data) || 0;
+}
+
 export async function registrarVentaAtomica(opts: {
   ubicacionId: string;
   canal: string;
@@ -1331,10 +1426,11 @@ export async function registrarVentaAtomica(opts: {
 
 export async function registrarGasto(payload: Record<string, unknown>, txnId?: string) {
   const uid = await getUserId();
+  const body = { ...payload };
+  if (uid && body.usuario_id == null) body.usuario_id = uid;
   await callRpc(ErpRpc.gastoRegistrar, {
     p_txn_id: txnId ?? newTxnId(),
-    p_payload: payload,
-    p_usuario_id: uid ?? null,
+    p_payload: body,
   }, 'No se pudo registrar el gasto.');
 }
 

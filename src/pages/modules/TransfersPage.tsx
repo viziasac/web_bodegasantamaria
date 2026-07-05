@@ -197,7 +197,7 @@ const TransfersPage: React.FC = () => {
                     <td>{t.origen?.nombre ?? '—'}</td>
                     <td>{t.destino?.nombre ?? '—'}</td>
                     <td><span className={`status-tag ${t.estado === 'RECIBIDA' ? 'status-ok' : 'status-warn'}`}>{t.estado}</span></td>
-                    <td>{t.fecha_creacion ? fmtDate(t.fecha_creacion.split('T')[0]) : '—'}</td>
+                    <td>{t.fecha_envio ? fmtDate(String(t.fecha_envio).split('T')[0]) : '—'}</td>
                     <td className="cell-actions">
                       {t.estado === 'EN_TRANSITO' && (
                         <button type="button" className="btn btn-sm btn-primary"

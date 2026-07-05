@@ -10,7 +10,6 @@ import { ProtectedModuleRoute } from './components/ProtectedModuleRoute';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const InventoryPage = lazy(() => import('./pages/modules/InventoryPage'));
-const InventoryAdjustPage = lazy(() => import('./pages/modules/InventoryAdjustPage'));
 const PurchasesPage = lazy(() => import('./pages/modules/PurchasesPage'));
 const RecipesPage = lazy(() => import('./pages/modules/RecipesPage'));
 const ProductionPage = lazy(() => import('./pages/modules/ProductionPage'));
@@ -43,7 +42,7 @@ const AppRoutes = () => (
       <Route element={<Layout />}>
         <Route index element={<Lazy><Dashboard /></Lazy>} />
         <Route path="inventory" element={<Lazy><InventoryPage /></Lazy>} />
-        <Route path="inventory/adjust" element={<Lazy><InventoryAdjustPage /></Lazy>} />
+        <Route path="inventory/adjust" element={<Navigate to="/inventory?tab=ajuste" replace />} />
         <Route path="purchases" element={<Lazy><PurchasesPage /></Lazy>} />
         <Route path="recipes" element={<Lazy><RecipesPage /></Lazy>} />
         <Route path="production" element={<Lazy><ProductionPage /></Lazy>} />

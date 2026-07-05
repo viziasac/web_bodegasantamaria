@@ -8,7 +8,7 @@ import {
 } from '../components/ui';
 import MonthSelector from '../components/MonthSelector';
 import { useInventarioData } from '../components/inventory/useInventarioData';
-import { InventoryPanorama } from '../components/inventory/InventoryPanorama';
+import DashInventarioTab from '../components/dashboard/DashInventarioTab';
 import DashExecutiveTab from '../components/dashboard/DashExecutiveTab';
 import DashOperacionesTab from '../components/dashboard/DashOperacionesTab';
 import DashVentasTab from '../components/dashboard/DashVentasTab';
@@ -129,14 +129,7 @@ const Dashboard: React.FC = () => {
       {tab === 'stock' && (
         <>
           {inv.error && <Alert type="error" message={inv.error} onClose={() => inv.setError(null)} />}
-          {inv.loading ? <PageLoader /> : (
-            <InventoryPanorama
-              data={inv}
-              ubicaciones={ubicaciones}
-              showFullFilters={false}
-              showLinkToInventory
-            />
-          )}
+          <DashInventarioTab inv={inv} ubicaciones={ubicaciones} />
         </>
       )}
     </div>

@@ -1,6 +1,6 @@
 {
-  "name": "Bodega Santa María ERP",
-  "description": "An ERP application for a beverage and wine production company.",
+  "name": "Panel ERP interno",
+  "description": "Internal management panel. Not indexed by search engines.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

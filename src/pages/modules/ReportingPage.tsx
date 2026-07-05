@@ -6,6 +6,12 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 
+function ventaRowLabel(v: Record<string, unknown>): string {
+  return String(
+    v.canal ?? v.ubicacion_nombre ?? v.punto_venta ?? v.presentacion ?? v.item_nombre ?? 'Ventas',
+  );
+}
+
 const ReportingPage: React.FC = () => {
   const { ubicaciones } = useCatalog();
   const inicioMes = new Date();
@@ -43,8 +49,8 @@ const ReportingPage: React.FC = () => {
   useEffect(() => { generar(); }, []);
 
   const gastosPorCategoria = resumen?.gastos.reduce<Record<string, number>>((acc, g) => {
-    const cat = String(g.categoria ?? g.categoria_nombre ?? 'Sin categoría');
-    acc[cat] = (acc[cat] ?? 0) + ((g.monto as number) || 0);
+    const cat = String(g.categoria ?? 'Sin categoría');
+    acc[cat] = (acc[cat] ?? 0) + (Number(g.total_gastado) || 0);
     return acc;
   }, {}) ?? {};
 
@@ -91,8 +97,16 @@ const ReportingPage: React.FC = () => {
               <div className="kpi-value">{fmtMoney(resumen.balance)}</div>
             </div>
             <div className="kpi-card">
+              <span className="kpi-label">Unidades vendidas</span>
+              <div className="kpi-value">{resumen.ventas_unidades.toLocaleString()}</div>
+            </div>
+            <div className="kpi-card">
               <span className="kpi-label">Producción completada</span>
               <div className="kpi-value">{resumen.produccion.toLocaleString()} bot.</div>
+            </div>
+            <div className="kpi-card">
+              <span className="kpi-label">Entradas insumo (COMPRA)</span>
+              <div className="kpi-value">{resumen.entradas_insumo_cantidad.toLocaleString()}</div>
             </div>
           </div>
           {Object.keys(gastosPorCategoria).length > 0 && (
@@ -110,17 +124,18 @@ const ReportingPage: React.FC = () => {
           )}
           <div className="grid-2-1">
             <div className="card card-section">
-              <h3 className="card-section-title">Detalle ventas</h3>
+              <h3 className="card-section-title">Detalle ventas (agregado)</h3>
               {resumen.ventas.length === 0 ? (
                 <EmptyState icon="receipt_long" title="Sin ventas en el periodo" />
               ) : (
                 <DataTable>
-                  <thead><tr><th>Fecha</th><th>Total</th></tr></thead>
+                  <thead><tr><th>Grupo</th><th>Unidades</th><th>Total</th></tr></thead>
                   <tbody>
                     {resumen.ventas.slice(0, 20).map((v, i) => (
                       <tr key={i}>
-                        <td>{String(v.fecha ?? v.dia ?? '—')}</td>
-                        <td className="cell-money">{fmtMoney((v.total as number) || (v.monto as number) || 0)}</td>
+                        <td>{ventaRowLabel(v)}</td>
+                        <td className="cell-num">{Number(v.cant_vendida) || 0}</td>
+                        <td className="cell-money">{fmtMoney(Number(v.total_vendido) || 0)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -128,17 +143,18 @@ const ReportingPage: React.FC = () => {
               )}
             </div>
             <div className="card card-section">
-              <h3 className="card-section-title">Detalle gastos</h3>
+              <h3 className="card-section-title">Detalle gastos (agregado)</h3>
               {resumen.gastos.length === 0 ? (
                 <EmptyState icon="money_off" title="Sin gastos en el periodo" />
               ) : (
                 <DataTable>
-                  <thead><tr><th>Fecha</th><th>Monto</th></tr></thead>
+                  <thead><tr><th>Categoría</th><th>Proveedor</th><th>Total</th></tr></thead>
                   <tbody>
                     {resumen.gastos.slice(0, 20).map((g, i) => (
                       <tr key={i}>
-                        <td>{String(g.fecha ?? '—')}</td>
-                        <td className="cell-money">{fmtMoney((g.monto as number) || 0)}</td>
+                        <td>{String(g.categoria ?? 'Sin categoría')}</td>
+                        <td>{String(g.proveedor ?? '—')}</td>
+                        <td className="cell-money">{fmtMoney(Number(g.total_gastado) || 0)}</td>
                       </tr>
                     ))}
                   </tbody>

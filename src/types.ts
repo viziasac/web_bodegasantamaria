@@ -110,9 +110,13 @@ export interface PrdOrden {
 export interface RecReceta {
   id: string;
   item_producido_id: string;
-  item_componente_id: string;
+  componente_id: string;
   cantidad: number;
-  unidad?: string;
+  es_variable?: boolean;
+  item_producido?: MaItem;
+  componente?: MaItem;
+  /** Alias legacy — mismo valor que componente_id */
+  item_componente_id?: string;
   ma_item_producido?: MaItem;
   ma_item_componente?: MaItem;
 }
@@ -140,6 +144,8 @@ export interface TrnTransferencia {
   origen_id: string;
   destino_id: string;
   estado: string;
+  fecha_envio?: string;
+  /** Alias legacy — preferir fecha_envio */
   fecha_creacion?: string;
   fecha_recepcion?: string | null;
   observaciones?: string | null;

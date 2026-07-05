@@ -17,6 +17,7 @@ export const Tables = {
   venVenta: 'ven_venta',
   venPrecioRef: 'ven_precio_ref',
   trnTransferencia: 'trn_transferencia',
+  trnTransferenciaDetalle: 'trn_transferencia_detalle',
   gasCategoria: 'gas_categoria',
   gasGasto: 'gas_gasto',
 } as const;

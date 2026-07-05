@@ -130,8 +130,8 @@ export const InventoryPanorama: React.FC<Props> = ({
       {showLinkToInventory && (
         <div className="form-actions" style={{ marginTop: '1rem', borderTop: 'none', paddingTop: 0 }}>
           <Link to="/inventory" className="btn btn-primary">
-            <span className="material-icons-round">open_in_new</span>
-            Ver inventario completo (matriz y lotes)
+            <span className="material-icons-round">inventory_2</span>
+            Ir a inventario (ajustes)
           </Link>
         </div>
       )}

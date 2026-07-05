@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { bodegaService } from '../../services/bodegaService';
 import { getLotesDisponibles } from '../../services/apiProvider';
 import { labelLote } from '../../utils/lotePolicy';
@@ -11,7 +11,11 @@ import type { AjusteItemOption } from '../../types';
 
 const LOTE_AUTO = '__auto__';
 
-const InventoryAdjustPage: React.FC = () => {
+interface Props {
+  embedded?: boolean;
+}
+
+const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const { ubicaciones, ensureCatalogLoaded } = useCatalog();
   const [ubicacionId, setUbicacionId] = useState('');
   const [itemsStock, setItemsStock] = useState<AjusteItemOption[]>([]);
@@ -28,7 +32,16 @@ const InventoryAdjustPage: React.FC = () => {
   const almacenes = ubicaciones.filter((u) => !u.es_punto_venta);
   const selected = itemsStock.find((o) => o.key === selectedKey);
   const conteoNum = parseFloat(conteo);
-  const delta = selected && Number.isFinite(conteoNum) ? conteoNum - selected.stockTeorico : null;
+
+  const stockReferencia = useMemo(() => {
+    if (loteId !== LOTE_AUTO) {
+      const lote = lotes.find((l) => String(l.lote_id) === loteId);
+      if (lote?.cantidad != null) return Number(lote.cantidad);
+    }
+    return selected?.stockTeorico ?? 0;
+  }, [loteId, lotes, selected]);
+
+  const delta = selected && Number.isFinite(conteoNum) ? conteoNum - stockReferencia : null;
 
   useEffect(() => {
     if (!ubicacionId && almacenes.length > 0) {
@@ -81,6 +94,17 @@ const InventoryAdjustPage: React.FC = () => {
     setConteo('');
     const opt = itemsStock.find((o) => o.key === key);
     loadLotes(ubicacionId, opt);
+    if (opt) setConteo(String(opt.stockTeorico));
+  };
+
+  const onLoteChange = (id: string) => {
+    setLoteId(id);
+    if (id === LOTE_AUTO) {
+      if (selected) setConteo(String(selected.stockTeorico));
+      return;
+    }
+    const lote = lotes.find((l) => String(l.lote_id) === id);
+    if (lote?.cantidad != null) setConteo(String(lote.cantidad));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,8 +146,10 @@ const InventoryAdjustPage: React.FC = () => {
   };
 
   return (
-    <div className="animate-in">
-      <PageHeader title="Ajuste Manual" subtitle="Conteo físico — calcula delta automáticamente" />
+    <div className={embedded ? '' : 'animate-in'}>
+      {!embedded && (
+        <PageHeader title="Ajuste Manual" subtitle="Conteo físico — calcula delta automáticamente" />
+      )}
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       <div className="card">
@@ -138,11 +164,11 @@ const InventoryAdjustPage: React.FC = () => {
             }))} />
           {selected && (
             <p className="qty-base-summary">
-              Stock teórico: {fmtNum(selected.stockTeorico, 2)} {selected.unidadMedida ?? ''}
-              {selected.isProducto && ' (botellas)'}
+              Stock de referencia: {fmtNum(stockReferencia, 2)} {selected.unidadMedida ?? ''}
+              {loteId !== LOTE_AUTO ? ' (lote seleccionado)' : selected.isProducto ? ' (botellas)' : ''}
             </p>
           )}
-          <FormSelect label="Lote" value={loteId} onChange={setLoteId}
+          <FormSelect label="Lote" value={loteId} onChange={onLoteChange}
             options={[
               { value: LOTE_AUTO, label: 'Automático (FIFO/FEFO)' },
               ...lotes.map((l) => ({ value: l.lote_id as string, label: labelLote(l) })),

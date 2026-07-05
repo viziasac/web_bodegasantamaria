@@ -37,9 +37,9 @@ const RecipesPage: React.FC = () => {
               <tbody>
                 {items.map(r => (
                   <tr key={r.id}>
-                    <td>{r.ma_item_componente?.nombre}</td>
+                    <td>{(r.componente ?? r.ma_item_componente)?.nombre}</td>
                     <td className="cell-num">{r.cantidad}</td>
-                    <td>{r.unidad || r.ma_item_componente?.unidad_medida}</td>
+                    <td>{(r.componente ?? r.ma_item_componente)?.unidad_medida ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -24,6 +24,9 @@ export const ErpErrorMessages: Record<string, string> = {
 
 export const ErpRpc = {
   generarNroOrden: 'fn_generar_nro_orden',
+  generarNroVenta: 'fn_generar_nro_venta',
+  generarNroTransferencia: 'fn_generar_nro_transferencia',
+  generarNroLote: 'fn_generar_nro_lote',
   validarStockDisponible: 'fn_validar_stock_disponible',
   validarInsumosOrden: 'fn_validar_insumos_orden',
   calcularTotalVenta: 'fn_calcular_total_venta',

@@ -48,6 +48,7 @@ const AuditPage: React.FC = () => {
   const [fechaHasta, setFechaHasta] = useState('');
   const [itemId, setItemId] = useState('');
   const [ubicacionId, setUbicacionId] = useState('');
+  const [direccion, setDireccion] = useState('');
   const [nroLote, setNroLote] = useState('');
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
@@ -74,6 +75,7 @@ const AuditPage: React.FC = () => {
         fechaHasta: fechaHasta || undefined,
         itemId: itemId || undefined,
         ubicacionId: ubicacionId || undefined,
+        direccion: direccion || undefined,
       });
       setRows(data);
       setColumns(data.length > 0 ? pickColumns(data[0]) : []);
@@ -129,9 +131,15 @@ const AuditPage: React.FC = () => {
             </FormRow>
             <FormRow actions>
               <FormSelect label="Ubicación" value={ubicacionId} onChange={setUbicacionId}
-                options={ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
+                options={[{ value: '', label: 'Todas' }, ...ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))]} />
               <FormSelect label="Ítem" value={itemId} onChange={setItemId}
-                options={items.slice(0, 200).map((i) => ({ value: i.id, label: `${i.codigo} — ${i.nombre}` }))} />
+                options={[{ value: '', label: 'Todos' }, ...items.slice(0, 200).map((i) => ({ value: i.id, label: `${i.codigo} — ${i.nombre}` }))]} />
+              <FormSelect label="Dirección" value={direccion} onChange={setDireccion}
+                options={[
+                  { value: '', label: 'Todas' },
+                  { value: 'ENTRADA', label: 'Entradas' },
+                  { value: 'SALIDA', label: 'Salidas' },
+                ]} />
               <SubmitButton loading={loading} label="Buscar" icon="search" />
             </FormRow>
           </form>

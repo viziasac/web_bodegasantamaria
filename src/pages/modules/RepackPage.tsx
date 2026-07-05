@@ -16,7 +16,9 @@ const RepackPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const ptItems = items.filter(i => i.tipo === 'PT');
+  const ptItems = items.filter((i) => i.tipo === 'PT');
+  const insumoItems = items.filter((i) => i.tipo !== 'PT');
+  const reempaqueItems = [...ptItems, ...insumoItems];
   const itemLabel = (i: { id: string; codigo: string; nombre: string }) => `${i.codigo} — ${i.nombre}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,17 +57,17 @@ const RepackPage: React.FC = () => {
       <PageHeader title="Reempaque" subtitle="Cambio de formato o etiqueta" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
-      {ptItems.length === 0 ? (
-        <EmptyState icon="transform" title="Sin productos terminados" />
+      {reempaqueItems.length === 0 ? (
+        <EmptyState icon="transform" title="Sin ítems disponibles para reempaque" />
       ) : (
         <div className="card">
           <form onSubmit={handleSubmit}>
             <FormSelect label="Ubicación" value={ubicacionId} onChange={setUbicacionId} required
               options={ubicaciones.filter(u => !u.es_punto_venta).map(u => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
             <FormSelect label="Ítem origen" value={origenId} onChange={setOrigenId} required
-              options={ptItems.map(i => ({ value: i.id, label: itemLabel(i) }))} />
+              options={reempaqueItems.map(i => ({ value: i.id, label: itemLabel(i) }))} />
             <FormSelect label="Ítem destino" value={destinoId} onChange={setDestinoId} required
-              options={ptItems.map(i => ({ value: i.id, label: itemLabel(i) }))} />
+              options={reempaqueItems.map(i => ({ value: i.id, label: itemLabel(i) }))} />
             <FormInput label="Cantidad origen" type="number" value={cantOrigen} onChange={setCantOrigen} required min={0.001} step="any" />
             <FormInput label="Cantidad destino" type="number" value={cantDestino} onChange={setCantDestino} required min={0.001} step="any" />
             <FormInput label="Observación" value={observacion} onChange={setObservacion} />
