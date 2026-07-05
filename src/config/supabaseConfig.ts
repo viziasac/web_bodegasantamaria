@@ -1,6 +1,8 @@
 /**
  * Supabase — misma configuración que lib/config/supabase_config.dart (app INPUT).
- * Las variables VITE_* en .env.local pueden sobreescribir estos valores.
+ * Las variables VITE_* en .env.local / Cloudflare Pages pueden sobreescribir estos valores.
+ *
+ * Cloudflare: use SOLO la clave anon JWT (eyJ...), NO sb_publishable_...
  */
 export const SupabaseConfig = {
   /** Project ID: cztnnkxvwiwpeifqygta */
@@ -11,22 +13,54 @@ export const SupabaseConfig = {
   sessionTimeoutMinutes: 60,
 } as const;
 
+const PLACEHOLDER_KEYS = new Set([
+  '',
+  'your-anon-key-here',
+  'placeholder',
+  'placeholder-key-for-ci-build',
+]);
+
+function isLegacyAnonJwt(key: string): boolean {
+  return key.startsWith('eyJ') && key.split('.').length === 3;
+}
+
 export function getSupabaseUrl(): string {
   const fromEnv = import.meta.env.VITE_SUPABASE_URL?.trim();
-  return fromEnv || SupabaseConfig.url;
+  const url = fromEnv || SupabaseConfig.url;
+  if (fromEnv && !fromEnv.includes('supabase.co')) {
+    console.warn('[Supabase] VITE_SUPABASE_URL no parece válida; usando valor embebido.');
+    return SupabaseConfig.url;
+  }
+  return url;
 }
 
 export function getSupabaseAnonKey(): string {
   const fromEnv = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
   const key = fromEnv || SupabaseConfig.anonKey;
-  // Rechazar placeholders que causan "Invalid API key"
-  if (
-    !key ||
-    key === 'your-anon-key-here' ||
-    key === 'placeholder' ||
-    key === 'placeholder-key-for-ci-build'
-  ) {
+
+  if (PLACEHOLDER_KEYS.has(key)) {
     return SupabaseConfig.anonKey;
   }
+
+  if (key.startsWith('sb_publishable_')) {
+    console.warn(
+      '[Supabase] VITE_SUPABASE_ANON_KEY es publishable (sb_publishable_). ' +
+      'Auth requiere la clave anon JWT (eyJ...). Usando clave embebida.',
+    );
+    return SupabaseConfig.anonKey;
+  }
+
+  if (fromEnv && !isLegacyAnonJwt(key)) {
+    console.warn('[Supabase] VITE_SUPABASE_ANON_KEY no parece JWT anon; usando clave embebida.');
+    return SupabaseConfig.anonKey;
+  }
+
   return key;
+}
+
+/** Diagnóstico en consola (login / soporte) */
+export function logSupabaseConfigHint(): void {
+  if (import.meta.env.DEV) {
+    console.info('[Supabase]', getSupabaseUrl(), '· anon JWT', isLegacyAnonJwt(getSupabaseAnonKey()) ? 'OK' : 'fallback');
+  }
 }

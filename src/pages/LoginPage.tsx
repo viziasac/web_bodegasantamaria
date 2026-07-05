@@ -120,7 +120,7 @@ const LoginPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="••••••••"
+              placeholder="Mín. 8 caracteres, letras y números"
               autoComplete="current-password"
               maxLength={128}
               disabled={submitDisabled}

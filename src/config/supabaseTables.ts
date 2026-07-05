@@ -20,4 +20,5 @@ export const Tables = {
   trnTransferenciaDetalle: 'trn_transferencia_detalle',
   gasCategoria: 'gas_categoria',
   gasGasto: 'gas_gasto',
+  appUserRole: 'app_user_role',
 } as const;
