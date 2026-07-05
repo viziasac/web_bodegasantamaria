@@ -1,0 +1,22 @@
+/** Tablas PostgREST — modelo Jul 2026 */
+export const Tables = {
+  catUbicacion: 'cat_ubicacion',
+  catTipoItem: 'cat_tipo_item',
+  catTipoMovimiento: 'cat_tipo_movimiento',
+  catCanalVenta: 'cat_canal_venta',
+  maItem: 'ma_item',
+  maPresentacion: 'ma_presentacion',
+  maEmpaqueTipo: 'ma_empaque_tipo',
+  maCliente: 'ma_cliente',
+  maProveedor: 'ma_proveedor',
+  invStockSaldo: 'inv_stock_saldo',
+  invLote: 'inv_lote',
+  invMovimiento: 'inv_movimiento',
+  recReceta: 'rec_receta',
+  prdOrden: 'prd_orden',
+  venVenta: 'ven_venta',
+  venPrecioRef: 'ven_precio_ref',
+  trnTransferencia: 'trn_transferencia',
+  gasCategoria: 'gas_categoria',
+  gasGasto: 'gas_gasto',
+} as const;
