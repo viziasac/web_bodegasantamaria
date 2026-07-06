@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toUserMessage } from '../components/ui';
 import { getLoginGuardStatus } from '../utils/loginGuard';
 
@@ -143,6 +143,10 @@ const LoginPage: React.FC = () => {
           &copy; {new Date().getFullYear()} Bodega Santa María — Sistema de Gestión Integral
         </div>
       </div>
+
+      <Link to="/privacidad" className="login-privacy-link">
+        Política de privacidad
+      </Link>
     </div>
   );
 };

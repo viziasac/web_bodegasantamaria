@@ -1,10 +1,11 @@
 // src/App.tsx
 import React, { Suspense, lazy } from 'react';
-import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CatalogProvider } from './context/CatalogContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import PrivacyPage from './pages/PrivacyPage';
 import { PageLoader } from './components/ui';
 import { ProtectedModuleRoute } from './components/ProtectedModuleRoute';
 
@@ -38,6 +39,7 @@ const Lazy = ({ children }: { children: React.ReactNode }) => (
 const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<LoginPage />} />
+    <Route path="/privacidad" element={<PrivacyPage />} />
     <Route element={<ProtectedRoute />}>
       <Route element={<Layout />}>
         <Route index element={<Lazy><Dashboard /></Lazy>} />
@@ -67,13 +69,13 @@ const AppRoutes = () => (
 );
 
 const App = () => (
-  <HashRouter>
+  <BrowserRouter>
     <AuthProvider>
       <CatalogProvider>
         <AppRoutes />
       </CatalogProvider>
     </AuthProvider>
-  </HashRouter>
+  </BrowserRouter>
 );
 
 export default App;
