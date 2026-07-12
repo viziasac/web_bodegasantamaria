@@ -1,4 +1,6 @@
-/** Utilidades de periodo mensual (YYYY-MM) */
+/** Utilidades de periodo mensual (YYYY-MM) — zona America/Lima */
+
+import { hoyYmd, mesKeyInZone, ymdInZone } from './fechaLocal';
 
 export interface RangoMes {
   mesKey: string;
@@ -9,26 +11,23 @@ export interface RangoMes {
 }
 
 export function mesActualKey(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  return mesKeyInZone(d);
 }
 
 export function rangoMes(mesKey: string): RangoMes {
   const [y, m] = mesKey.split('-').map(Number);
   const inicio = new Date(y, m - 1, 1);
   const fin = new Date(y, m, 0);
-  const hoy = new Date();
-  const esMesActual = y === hoy.getFullYear() && m === hoy.getMonth() + 1;
-  const hastaDate = esMesActual ? hoy : fin;
+  const hoyKey = hoyYmd();
+  const esMesActual = mesKey === hoyKey.slice(0, 7);
+  const hasta = esMesActual ? hoyKey : ymdInZone(fin);
 
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-  const label = inicio.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+  const label = inicio.toLocaleDateString('es-PE', { month: 'long', year: 'numeric', timeZone: 'America/Lima' });
 
   return {
     mesKey,
-    desde: fmt(inicio),
-    hasta: fmt(hastaDate),
+    desde: `${mesKey}-01`,
+    hasta,
     label: label.charAt(0).toUpperCase() + label.slice(1),
     esMesActual,
   };

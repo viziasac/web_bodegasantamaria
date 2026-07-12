@@ -5,6 +5,7 @@ import {
   DataTable, EmptyState, fmtMoney, toUserMessage,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { hoyYmd, inicioMesYmd } from '../../utils/fechaLocal';
 
 function ventaRowLabel(v: Record<string, unknown>): string {
   return String(
@@ -14,10 +15,8 @@ function ventaRowLabel(v: Record<string, unknown>): string {
 
 const ReportingPage: React.FC = () => {
   const { ubicaciones } = useCatalog();
-  const inicioMes = new Date();
-  inicioMes.setDate(1);
-  const [fechaDesde, setFechaDesde] = useState(inicioMes.toISOString().split('T')[0]);
-  const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split('T')[0]);
+  const [fechaDesde, setFechaDesde] = useState(inicioMesYmd());
+  const [fechaHasta, setFechaHasta] = useState(hoyYmd());
   const [ubicacionId, setUbicacionId] = useState('');
   const [centroCosto, setCentroCosto] = useState('');
   const [resumen, setResumen] = useState<Awaited<ReturnType<typeof getResumenReportes>> | null>(null);

@@ -417,7 +417,8 @@ const ProductionPage: React.FC = () => {
             </div>
             {!todosSuficientes && (
               <p className="text-danger" style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
-                No se puede completar: hay insumos con stock insuficiente en ALM_MP.
+                No se puede completar: hay insumos con stock insuficiente
+                (GRANEL en ALM_GR / resto en ALM_MP).
               </p>
             )}
           </div>

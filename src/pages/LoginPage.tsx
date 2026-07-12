@@ -72,7 +72,7 @@ const LoginPage: React.FC = () => {
         rel="noopener noreferrer"
       >
         <span className="material-icons-round">language</span>
-        ¿Buscando nuestra web? <strong>Click aquí</strong>
+        ¿Buscando la web pública? <strong>santamarialunahuana.com</strong>
       </a>
 
       <div className="login-card">
@@ -120,7 +120,7 @@ const LoginPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Mín. 8 caracteres, letras y números"
+              placeholder="Contraseña"
               autoComplete="current-password"
               maxLength={128}
               disabled={submitDisabled}

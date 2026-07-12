@@ -9,6 +9,7 @@ import { messageFromRpc, friendlyDbError } from '../utils/erpErrors';
 import { sortLotesParaConsumo } from '../utils/lotePolicy';
 import { newTxnId } from '../utils/txnId';
 import { diasEnRango } from '../utils/periodoMes';
+import { hoyYmd, inicioMesYmd, ymdInZone } from '../utils/fechaLocal';
 import type {
   CatUbicacion, MaItem, MaPresentacion, MaEmpaqueTipo, MaProveedor, MaCliente,
   InvMovimiento, InvStockSaldo, PrdOrden, RecReceta, GasCategoria, GasGasto,
@@ -70,13 +71,7 @@ export async function callRpc<T = unknown>(
   return (result.data ?? data) as T;
 }
 
-export function inicioMesYmd(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-}
-
-function hoyYmd(): string {
-  return new Date().toISOString().split('T')[0];
-}
+export { hoyYmd, inicioMesYmd } from '../utils/fechaLocal';
 
 // ─── Catálogos ───
 
@@ -1166,7 +1161,7 @@ export async function getMovimientosTrendDetalle(dias = 14, rango?: { desde: str
   } else {
     const desde = new Date();
     desde.setDate(desde.getDate() - dias);
-    desdeYmd = desde.toISOString().split('T')[0];
+    desdeYmd = ymdInZone(desde);
     hastaYmd = hoyYmd();
     dayKeys = diasEnRango(desdeYmd, hastaYmd);
   }

@@ -51,10 +51,16 @@ const AppRoutes = () => (
         <Route path="production" element={<Lazy><ProductionPage /></Lazy>} />
         <Route path="production/bulk" element={<Lazy><BulkProductionPage /></Lazy>} />
         <Route path="repack" element={<Lazy><RepackPage /></Lazy>} />
-        <Route path="sales/dispatch" element={<Lazy><DispatchPage /></Lazy>} />
-        <Route path="sales/income" element={<Lazy><IncomePage /></Lazy>} />
+        <Route element={<ProtectedModuleRoute path="/sales/dispatch" />}>
+          <Route path="sales/dispatch" element={<Lazy><DispatchPage /></Lazy>} />
+        </Route>
+        <Route element={<ProtectedModuleRoute path="/sales/income" />}>
+          <Route path="sales/income" element={<Lazy><IncomePage /></Lazy>} />
+        </Route>
         <Route path="transfers" element={<Lazy><TransfersPage /></Lazy>} />
-        <Route path="expenses" element={<Lazy><ExpensesPage /></Lazy>} />
+        <Route element={<ProtectedModuleRoute path="/expenses" />}>
+          <Route path="expenses" element={<Lazy><ExpensesPage /></Lazy>} />
+        </Route>
         <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
         <Route path="downloads" element={<Lazy><DownloadsPage /></Lazy>} />
         <Route element={<ProtectedModuleRoute path="/materials" />}>

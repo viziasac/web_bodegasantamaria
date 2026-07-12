@@ -65,7 +65,7 @@ const DashFinancieroTab: React.FC<Props> = ({ ventas, gastos, movimientos, perio
 
   return (
     <>
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div className="kpi-grid kpi-grid--dense">
         <DashKpiCard
           label={`Ingresos${period}`}
           value={fmtMoney(kpis.ingresos)}
@@ -112,7 +112,7 @@ const DashFinancieroTab: React.FC<Props> = ({ ventas, gastos, movimientos, perio
           {!mejor ? (
             <EmptyState icon="event" title="Sin ventas en el periodo" />
           ) : (
-            <div className="kpi-grid" style={{ gridTemplateColumns: '1fr 1fr', margin: 0 }}>
+            <div className="kpi-grid kpi-grid--2">
               <div>
                 <p className="kpi-sub">Mayor venta</p>
                 <p className="cell-money" style={{ fontSize: '1.25rem', fontWeight: 600 }}>

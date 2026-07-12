@@ -37,6 +37,7 @@ const SettingsPage: React.FC = () => {
         {user?.nombre && <p><strong>Nombre:</strong> {user.nombre}</p>}
         <p><strong>Rol:</strong> {user?.role}</p>
         <p><strong>Acceso web:</strong> {user?.accesoWeb === false ? 'No' : 'Sí'}</p>
+        <p><strong>Acceso ventas:</strong> {user?.accesoVentas === false ? 'No' : 'Sí'}</p>
         <p><strong>ID:</strong> <code className="code-tag">{user?.id}</code></p>
       </div>
 

@@ -18,24 +18,39 @@ export const ALL_MODULES: ModuleDef[] = [
   { id: 'configuracion', title: 'Configuración', icon: 'settings', subtitle: 'Cuenta y sesión', path: '/settings' },
 ];
 
+/** Módulos de ventas: requieren acceso_ventas (alineado Flutter + RLS). */
+export const VENTAS_MODULE_IDS = new Set(['ingresos', 'gastos', 'despacho']);
+
 const ADMIN_ROLES: UserRole[] = ['admin', 'administrador'];
 
 export function isAdminRole(role?: string): boolean {
   return ADMIN_ROLES.includes((role ?? 'operario') as UserRole);
 }
 
-export function getModulesForRole(role?: string): ModuleDef[] {
-  // Con acceso_web el usuario entra a la web con todos los módulos operativos.
-  // Solo se restringen módulos adminOnly (Materiales/SKUs, Reportes).
-  if (isAdminRole(role)) return ALL_MODULES;
-  return ALL_MODULES.filter((m) => !m.adminOnly);
+export interface ModuleAccessOpts {
+  role?: string;
+  accesoVentas?: boolean;
+}
+
+export function getModulesForRole(role?: string, opts?: { accesoVentas?: boolean }): ModuleDef[] {
+  const accesoVentas = opts?.accesoVentas !== false;
+  let list = isAdminRole(role) ? ALL_MODULES : ALL_MODULES.filter((m) => !m.adminOnly);
+  if (!accesoVentas) {
+    list = list.filter((m) => !VENTAS_MODULE_IDS.has(m.id));
+  }
+  return list;
 }
 
 export function getModuleByPath(path: string): ModuleDef | undefined {
   return ALL_MODULES.find((m) => m.path === path);
 }
 
-export function canAccessModule(role: string | undefined, module: ModuleDef): boolean {
-  if (!module.adminOnly) return true;
-  return isAdminRole(role);
+export function canAccessModule(
+  role: string | undefined,
+  module: ModuleDef,
+  opts?: { accesoVentas?: boolean },
+): boolean {
+  if (module.adminOnly && !isAdminRole(role)) return false;
+  if (VENTAS_MODULE_IDS.has(module.id) && opts?.accesoVentas === false) return false;
+  return true;
 }

@@ -42,7 +42,7 @@ const DashProduccionTab: React.FC<Props> = ({ ordenes, ej, periodoLabel }) => {
 
   return (
     <>
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div className="kpi-grid kpi-grid--dense">
         <DashKpiCard label="Órdenes totales" value={ordenes.length} icon="list_alt" iconTone="blue" />
         <DashKpiCard label="Completadas" value={ordenesCompletadas.length} icon="check_circle" iconTone="green" accent="success" />
         <DashKpiCard label="En borrador" value={ordenesBorrador.length} icon="edit_note" iconTone="gold" accent={ordenesBorrador.length > 0 ? 'gold' : undefined} />

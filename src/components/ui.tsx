@@ -57,15 +57,22 @@ export const TabBar: React.FC<{
   </div>
 );
 
-export const EmptyState: React.FC<{ icon?: string; title: string; hint?: string }> = ({
+export const EmptyState: React.FC<{
+  icon?: string;
+  title: string;
+  hint?: string;
+  action?: React.ReactNode;
+}> = ({
   icon = 'inbox',
   title,
   hint,
+  action,
 }) => (
   <div className="empty-state padded">
     <span className="material-icons-round">{icon}</span>
-    <p>{title}</p>
+    <h3>{title}</h3>
     {hint && <small>{hint}</small>}
+    {action && <div className="empty-state-action">{action}</div>}
   </div>
 );
 
@@ -212,8 +219,8 @@ export const FormSection: React.FC<{ title: string; children: React.ReactNode }>
 );
 
 export const ModuleHelp: React.FC<{ message: string }> = ({ message }) => (
-  <div className="alert alert-info module-help">
-    <span className="material-icons-round" style={{ fontSize: 18 }}>info</span>
+  <div className="module-help" role="note">
+    <span className="material-icons-round">info</span>
     <span>{message}</span>
   </div>
 );

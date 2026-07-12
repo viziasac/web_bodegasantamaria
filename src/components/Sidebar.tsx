@@ -10,10 +10,18 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrador',
+  administrador: 'Administrador',
+  supervisor: 'Supervisor',
+  operario: 'Operario',
+};
+
 const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   const { user } = useAuth();
   const initials = user?.email ? user.email.substring(0, 2).toUpperCase() : 'U';
-  const modules = getModulesForRole(user?.role);
+  const modules = getModulesForRole(user?.role, { accesoVentas: user?.accesoVentas });
+  const roleLabel = ROLE_LABELS[user?.role ?? ''] ?? (user?.role || 'Operario');
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `sidebar-link ${isActive ? 'active' : ''}`;
@@ -51,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
 
           {admin.length > 0 && (
             <>
-              <div className="nav-section" style={{ marginTop: '1rem' }}>Administración</div>
+              <div className="nav-section nav-section--admin">Administración</div>
               {admin.map(m => (
                 <NavLink key={m.id} to={m.path} className={linkClass} onClick={onClose}>
                   <span className="material-icons-round">{m.icon}</span>
@@ -66,10 +74,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
           <div className="sidebar-user-avatar">{initials}</div>
           <div className="sidebar-user-info">
             <div className="user-email">{user?.nombre || user?.email || 'Usuario'}</div>
-            <div className="user-role">{user?.role || 'operario'}</div>
+            <div className="user-role">{roleLabel}</div>
           </div>
-          <button onClick={onLogout} className="btn-icon" title="Cerrar Sesión" style={{ flexShrink: 0 }}>
-            <span className="material-icons-round" style={{ fontSize: '18px' }}>logout</span>
+          <button type="button" onClick={onLogout} className="btn-icon" title="Cerrar Sesión">
+            <span className="material-icons-round">logout</span>
           </button>
         </div>
       </aside>

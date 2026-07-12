@@ -29,7 +29,7 @@ const DashVentasTab: React.FC<Props> = ({ kpis, ventas, periodoLabel }) => {
 
   return (
     <>
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+      <div className="kpi-grid kpi-grid--dense">
         <DashKpiCard
           label={`Total ventas${periodoLabel ? ` — ${periodoLabel}` : ''}`}
           value={fmtMoney(kpis?.ventasMes ?? fin.ingresos)}

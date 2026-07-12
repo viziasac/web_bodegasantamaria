@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   PageHeader, PageLoader, TabBar, Alert,
 } from '../../components/ui';
@@ -11,14 +11,19 @@ import InventoryAdjustPage from './InventoryAdjustPage';
 
 type InvTab = 'resumen' | 'ajuste';
 
+function tabFromSearch(search: URLSearchParams): InvTab {
+  return search.get('tab') === 'ajuste' ? 'ajuste' : 'resumen';
+}
+
 const InventoryPage: React.FC = () => {
   const { ubicaciones, ensureCatalogLoaded } = useCatalog();
   const inv = useInventarioData(ensureCatalogLoaded);
-  const [tab, setTab] = React.useState<InvTab>(() => {
-    const fromSearch = new URLSearchParams(window.location.search).get('tab');
-    const fromHash = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('tab');
-    return (fromSearch || fromHash) === 'ajuste' ? 'ajuste' : 'resumen';
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = tabFromSearch(searchParams);
+
+  const setTab = (id: InvTab) => {
+    setSearchParams(id === 'ajuste' ? { tab: 'ajuste' } : {}, { replace: true });
+  };
 
   const { loading, error, setError, reload } = inv;
 

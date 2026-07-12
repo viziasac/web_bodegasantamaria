@@ -18,7 +18,7 @@ import {
   ModuleHelp, DataTable, EmptyState, fmtMoney, fmtDate, toUserMessage,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
-import type { ProductoPv, VentaResumen } from '../../types';
+import { hoyYmd } from '../../utils/fechaLocal';
 
 interface CartLine {
   presentacionId: string;
@@ -39,7 +39,7 @@ const IncomePage: React.FC = () => {
   const [modo, setModo] = useState<ModoVentaIngresos>('agrupada');
   const [draftReady, setDraftReady] = useState(false);
   const [ubicacionId, setUbicacionId] = useState('');
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha] = useState(hoyYmd());
   const [clienteId, setClienteId] = useState('');
   const [clienteTexto, setClienteTexto] = useState('');
   const [nroDoc, setNroDoc] = useState('');
@@ -335,7 +335,7 @@ const IncomePage: React.FC = () => {
         />
       ) : (
       <>
-      <div className="qty-mode-toggle" role="group" aria-label="Modo de venta" style={{ marginBottom: '1rem' }}>
+      <div className="qty-mode-toggle" role="group" aria-label="Modo de venta">
         <button
           type="button"
           className={`qty-mode-btn ${modo === 'agrupada' ? 'active' : ''}`}
@@ -366,7 +366,7 @@ const IncomePage: React.FC = () => {
             required
           />
         </FormRow>
-        <p className="kpi-sub" style={{ marginTop: '-0.5rem' }}>
+        <p className="kpi-sub form-hint-inline">
           Fecha de registro de nuevas ventas = hoy (el RPC no acepta fecha histórica).
         </p>
         <FormRow>
@@ -479,14 +479,17 @@ const IncomePage: React.FC = () => {
         </FormSection>
       )}
 
-      <FormSection title="Ventas del día">
+      <FormSection title="Ventas del día consultado">
         {loadingVentas ? (
           <p className="kpi-sub">Cargando…</p>
         ) : ventasDia.length === 0 ? (
-          <EmptyState icon="receipt_long" title="Sin ventas hoy en este PV" />
+          <EmptyState
+            icon="receipt_long"
+            title={fecha === hoyYmd() ? 'Sin ventas hoy en este PV' : `Sin ventas el ${fecha} en este PV`}
+          />
         ) : (
           <DataTable>
-            <thead><tr><th>Hora</th><th>N° Venta</th><th>Cliente</th><th>Canal</th><th>Total</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>N° Venta</th><th>Cliente</th><th>Canal</th><th>Total</th></tr></thead>
             <tbody>
               {ventasDia.map((v) => (
                 <tr key={v.id}>

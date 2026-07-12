@@ -6,7 +6,7 @@ import {
   DataTable, EmptyState, fmtMoney, fmtDate, toUserMessage,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
-import type { EgresoLineaDraft, GasGasto } from '../../types';
+import { hoyYmd } from '../../utils/fechaLocal';
 
 const TIPOS_DOC = [
   { value: '', label: '— Sin tipo —' },
@@ -20,7 +20,7 @@ const ExpensesPage: React.FC = () => {
   const [gastos, setGastos] = useState<GasGasto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha] = useState(hoyYmd());
   const [moneda, setMoneda] = useState('PEN');
   const [centroCosto, setCentroCosto] = useState('BODEGA');
 
