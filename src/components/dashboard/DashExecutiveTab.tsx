@@ -86,7 +86,7 @@ const DashExecutiveTab: React.FC<Props> = ({ kpis, ej, trend, stockUbi, periodoL
       <div className="grid-2-1">
         <div className="card">
           <div className="card-header">
-            <h3>Flujo operativo — 14 días</h3>
+            <h3>Flujo operativo{periodoLabel ? ` — ${periodoLabel}` : ''}</h3>
             <span className="cell-muted">Entradas · Salidas · Ajustes · Merma</span>
           </div>
           <div className="chart-container">

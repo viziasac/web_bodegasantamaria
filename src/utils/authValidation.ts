@@ -45,5 +45,8 @@ export function mapSupabaseAuthError(error: { message?: string; status?: number;
   if (msg.includes('user banned')) {
     return 'Usuario bloqueado. Contacte al administrador.';
   }
+  if (msg.includes('sin acceso web') || msg.includes('acceso_web')) {
+    return 'Usuario sin acceso web. Contacte al administrador para habilitar el permiso acceso_web.';
+  }
   return 'No se pudo iniciar sesión. Verifique correo y contraseña.';
 }

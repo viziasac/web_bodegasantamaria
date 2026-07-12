@@ -301,8 +301,9 @@ export const bodegaService = {
   async ingresarEgresosBatch(
     lineas: EgresoLineaDraft[],
     header: { fecha: string; moneda?: string; centroCosto?: string },
-  ) {
+  ): Promise<{ registeredIds: string[] }> {
     const batchTxn = newTxnId();
+    const registeredIds: string[] = [];
     for (const line of lineas) {
       const tipoDoc = line.tipoDocumento?.trim() ?? '';
       const nroDoc = line.nroDocumento?.trim() ?? '';
@@ -318,8 +319,23 @@ export const bodegaService = {
       };
       if (tipoDoc) payload.tipo_comprobante = tipoDoc;
       if (nroDoc) payload.nro_comprobante = nroDoc;
-      await api.registrarGasto(payload, `${batchTxn}:${line.id}`);
+      try {
+        await api.registrarGasto(payload, `${batchTxn}:${line.id}`);
+        registeredIds.push(line.id);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        const label = line.descripcion?.trim() || line.id;
+        const msg = new Error(
+          `Falló la línea «${label}» (${registeredIds.length + 1}/${lineas.length}): ${detail}`
+          + (registeredIds.length > 0
+            ? ` — ${registeredIds.length} egreso(s) ya quedaron registrados.`
+            : ''),
+        ) as Error & { registeredIds: string[] };
+        msg.registeredIds = registeredIds;
+        throw msg;
+      }
     }
+    return { registeredIds };
   },
 
   async producirGranel(opts: {

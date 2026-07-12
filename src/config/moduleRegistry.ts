@@ -25,6 +25,8 @@ export function isAdminRole(role?: string): boolean {
 }
 
 export function getModulesForRole(role?: string): ModuleDef[] {
+  // Con acceso_web el usuario entra a la web con todos los módulos operativos.
+  // Solo se restringen módulos adminOnly (Materiales/SKUs, Reportes).
   if (isAdminRole(role)) return ALL_MODULES;
   return ALL_MODULES.filter((m) => !m.adminOnly);
 }

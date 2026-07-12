@@ -98,8 +98,9 @@ export async function getCanalesVenta() {
   return data || [];
 }
 
-export async function getItems(opts?: { tipo?: string }): Promise<MaItem[]> {
-  let q = supabase.from(Tables.maItem).select('*').eq('activo', true).order('nombre');
+export async function getItems(opts?: { tipo?: string; includeInactive?: boolean }): Promise<MaItem[]> {
+  let q = supabase.from(Tables.maItem).select('*').order('nombre');
+  if (!opts?.includeInactive) q = q.eq('activo', true);
   if (opts?.tipo) q = q.eq('tipo', opts.tipo);
   const { data, error } = await q;
   if (error) throw error;
@@ -122,12 +123,12 @@ export async function getItemsPt(): Promise<MaItem[]> {
   return getItems({ tipo: 'PT' });
 }
 
-export async function getPresentaciones(itemId?: string): Promise<MaPresentacion[]> {
+export async function getPresentaciones(itemId?: string, opts?: { includeInactive?: boolean }): Promise<MaPresentacion[]> {
   let q = supabase
     .from(Tables.maPresentacion)
     .select('*, ma_item(id, codigo, nombre, tipo, unidad_medida, categoria), ma_empaque_tipo:empaque_id(id, nombre, factor)')
-    .eq('activo', true)
     .order('nombre');
+  if (!opts?.includeInactive) q = q.eq('activo', true);
   if (itemId) q = q.eq('item_id', itemId);
   const { data, error } = await q;
   if (error) throw error;
@@ -250,6 +251,26 @@ export async function createPresentacion(opts: {
       cant_unidades: cant,
       activo: true,
     })
+    .select('*, ma_item(id, codigo, nombre, tipo), ma_empaque_tipo:empaque_id(id, nombre, factor)')
+    .single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaPresentacion;
+}
+
+export async function updatePresentacion(opts: {
+  id: string;
+  nombre?: string;
+  activo?: boolean;
+}): Promise<MaPresentacion> {
+  const patch: Record<string, unknown> = {};
+  if (opts.nombre != null) patch.nombre = opts.nombre.trim();
+  if (opts.activo != null) patch.activo = opts.activo;
+  if (Object.keys(patch).length === 0) throw new Error('Sin cambios.');
+
+  const { data, error } = await supabase
+    .from(Tables.maPresentacion)
+    .update(patch)
+    .eq('id', opts.id)
     .select('*, ma_item(id, codigo, nombre, tipo), ma_empaque_tipo:empaque_id(id, nombre, factor)')
     .single();
   if (error) throw new Error(friendlyDbError(error));

@@ -15,8 +15,9 @@ const InventoryPage: React.FC = () => {
   const { ubicaciones, ensureCatalogLoaded } = useCatalog();
   const inv = useInventarioData(ensureCatalogLoaded);
   const [tab, setTab] = React.useState<InvTab>(() => {
-    const p = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
-    return p.get('tab') === 'ajuste' ? 'ajuste' : 'resumen';
+    const fromSearch = new URLSearchParams(window.location.search).get('tab');
+    const fromHash = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('tab');
+    return (fromSearch || fromHash) === 'ajuste' ? 'ajuste' : 'resumen';
   });
 
   const { loading, error, setError, reload } = inv;

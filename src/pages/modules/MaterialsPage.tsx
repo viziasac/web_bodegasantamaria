@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   createItem, createPresentacion, getEmpaqueTipos, getItems, getPresentaciones,
+  updateItem, updatePresentacion,
 } from '../../services/apiProvider';
 import {
   PageHeader, PageLoader, Alert, DataTable, EmptyState, FormSelect, FormInput,
@@ -27,7 +28,7 @@ const UNIDADES_POR_TIPO: Record<string, string> = {
 };
 
 /**
- * Catálogo admin: ver + crear materiales e ítems PT / SKUs comerciales.
+ * Catálogo admin: ver + crear + editar materiales e ítems PT / SKUs comerciales.
  * No elimina registros (RLS sin DELETE en ma_item / ma_presentacion).
  */
 const MaterialsPage: React.FC = () => {
@@ -43,7 +44,9 @@ const MaterialsPage: React.FC = () => {
   const [search, setSearch] = useState('');
 
   const [itemModal, setItemModal] = useState(false);
+  const [editItem, setEditItem] = useState<MaItem | null>(null);
   const [skuModal, setSkuModal] = useState(false);
+  const [editSku, setEditSku] = useState<MaPresentacion | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [codigo, setCodigo] = useState('');
@@ -52,12 +55,14 @@ const MaterialsPage: React.FC = () => {
   const [unidad, setUnidad] = useState('Unidades');
   const [categoria, setCategoria] = useState('');
   const [stockMin, setStockMin] = useState('0');
+  const [activo, setActivo] = useState(true);
   const [granelBaseId, setGranelBaseId] = useState('');
 
   const [skuCodigo, setSkuCodigo] = useState('');
   const [skuNombre, setSkuNombre] = useState('');
   const [skuItemId, setSkuItemId] = useState('');
   const [skuEmpaqueId, setSkuEmpaqueId] = useState('');
+  const [skuActivo, setSkuActivo] = useState(true);
 
   const graneles = useMemo(() => items.filter((i) => i.tipo === 'GRANEL'), [items]);
   const pts = useMemo(() => items.filter((i) => i.tipo === 'PT'), [items]);
@@ -88,8 +93,8 @@ const MaterialsPage: React.FC = () => {
     setError(null);
     try {
       const [its, pres, emps] = await Promise.all([
-        getItems(),
-        getPresentaciones(),
+        getItems({ includeInactive: true }),
+        getPresentaciones(undefined, { includeInactive: true }),
         getEmpaqueTipos(),
       ]);
       setItems(its);
@@ -109,9 +114,10 @@ const MaterialsPage: React.FC = () => {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
+    if (editItem) return;
     setUnidad(UNIDADES_POR_TIPO[tipo] ?? 'Unidades');
     if (tipo !== 'PT') setGranelBaseId('');
-  }, [tipo]);
+  }, [tipo, editItem]);
 
   const resetItemForm = () => {
     setCodigo('');
@@ -120,64 +126,122 @@ const MaterialsPage: React.FC = () => {
     setUnidad('Unidades');
     setCategoria('');
     setStockMin('0');
+    setActivo(true);
     setGranelBaseId('');
+    setEditItem(null);
   };
 
   const resetSkuForm = () => {
     setSkuCodigo('');
     setSkuNombre('');
     setSkuItemId('');
+    setSkuActivo(true);
+    setEditSku(null);
   };
 
-  const handleCreateItem = async (e: React.FormEvent) => {
+  const openCreateItem = () => {
+    resetItemForm();
+    setItemModal(true);
+  };
+
+  const openEditItem = (item: MaItem) => {
+    setEditItem(item);
+    setCodigo(item.codigo);
+    setNombre(item.nombre);
+    setTipo(item.tipo);
+    setUnidad(item.unidad_medida);
+    setCategoria(item.categoria ?? '');
+    setStockMin(String(item.stock_minimo ?? 0));
+    setActivo(item.activo !== false);
+    setGranelBaseId('');
+    setItemModal(true);
+  };
+
+  const openCreateSku = () => {
+    resetSkuForm();
+    setSkuModal(true);
+  };
+
+  const openEditSku = (sku: MaPresentacion) => {
+    setEditSku(sku);
+    setSkuCodigo(sku.codigo ?? '');
+    setSkuNombre(sku.nombre);
+    setSkuItemId(sku.item_id);
+    setSkuEmpaqueId(sku.empaque_id ?? skuEmpaqueId);
+    setSkuActivo(sku.activo !== false);
+    setSkuModal(true);
+  };
+
+  const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
       const min = parseFloat(stockMin);
-      await createItem({
-        codigo,
-        nombre,
-        tipo,
-        unidad_medida: unidad,
-        categoria: categoria || undefined,
-        stock_minimo: Number.isFinite(min) ? min : 0,
-        granel_base_id: tipo === 'PT' && granelBaseId ? granelBaseId : undefined,
-      });
-      setSuccess(`Ítem ${codigo.trim().toUpperCase()} creado.`);
+      if (editItem) {
+        await updateItem({
+          id: editItem.id,
+          nombre,
+          unidad_medida: unidad,
+          categoria: categoria || null,
+          stock_minimo: Number.isFinite(min) ? min : 0,
+          activo,
+        });
+        setSuccess(`Ítem ${editItem.codigo} actualizado.`);
+      } else {
+        await createItem({
+          codigo,
+          nombre,
+          tipo,
+          unidad_medida: unidad,
+          categoria: categoria || undefined,
+          stock_minimo: Number.isFinite(min) ? min : 0,
+          granel_base_id: tipo === 'PT' && granelBaseId ? granelBaseId : undefined,
+        });
+        setSuccess(`Ítem ${codigo.trim().toUpperCase()} creado.`);
+      }
       setItemModal(false);
       resetItemForm();
       await load();
       await refreshCatalog();
     } catch (err) {
-      setError(toUserMessage(err, 'No se pudo crear el ítem'));
+      setError(toUserMessage(err, editItem ? 'No se pudo actualizar el ítem' : 'No se pudo crear el ítem'));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCreateSku = async (e: React.FormEvent) => {
+  const handleSaveSku = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      if (!empSel) throw new Error('Seleccione un empaque.');
-      await createPresentacion({
-        codigo: skuCodigo,
-        nombre: skuNombre,
-        itemId: skuItemId,
-        empaqueId: skuEmpaqueId,
-        cantUnidades: empSel.factor,
-      });
-      setSuccess(`SKU ${skuCodigo.trim().toUpperCase()} creado.`);
+      if (editSku) {
+        await updatePresentacion({
+          id: editSku.id,
+          nombre: skuNombre,
+          activo: skuActivo,
+        });
+        setSuccess(`SKU ${editSku.codigo ?? ''} actualizado.`);
+      } else {
+        if (!empSel) throw new Error('Seleccione un empaque.');
+        await createPresentacion({
+          codigo: skuCodigo,
+          nombre: skuNombre,
+          itemId: skuItemId,
+          empaqueId: skuEmpaqueId,
+          cantUnidades: empSel.factor,
+        });
+        setSuccess(`SKU ${skuCodigo.trim().toUpperCase()} creado.`);
+      }
       setSkuModal(false);
       resetSkuForm();
       await load();
       await refreshCatalog();
     } catch (err) {
-      setError(toUserMessage(err, 'No se pudo crear el SKU'));
+      setError(toUserMessage(err, editSku ? 'No se pudo actualizar el SKU' : 'No se pudo crear el SKU'));
     } finally {
       setSaving(false);
     }
@@ -196,9 +260,9 @@ const MaterialsPage: React.FC = () => {
     <div className="animate-in">
       <PageHeader
         title="Materiales y SKUs"
-        subtitle="Catálogo maestro — ver y crear (sin eliminar)"
+        subtitle="Catálogo maestro — ver, crear y editar (sin eliminar)"
       />
-      <ModuleHelp message="Crear un ítem o SKU no genera stock. El inventario entra por compras, granel o producción. Códigos: ítem máx. 6 chars; SKU máx. 5. cant_unidades = factor del empaque." />
+      <ModuleHelp message="Crear o editar un ítem/SKU no genera stock. El inventario entra por compras, granel o producción. Códigos: ítem máx. 6 chars; SKU máx. 5. Al editar, el código y tipo no se modifican." />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
@@ -225,7 +289,7 @@ const MaterialsPage: React.FC = () => {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => (tab === 'items' ? setItemModal(true) : setSkuModal(true))}
+            onClick={() => (tab === 'items' ? openCreateItem() : openCreateSku())}
           >
             <span className="material-icons-round">add</span>
             {tab === 'items' ? 'Nuevo ítem' : 'Nuevo SKU'}
@@ -253,6 +317,8 @@ const MaterialsPage: React.FC = () => {
                   <th>UM</th>
                   <th>Categoría</th>
                   <th>Stock mín.</th>
+                  <th>Activo</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -264,6 +330,12 @@ const MaterialsPage: React.FC = () => {
                     <td>{i.unidad_medida}</td>
                     <td>{i.categoria || '—'}</td>
                     <td className="cell-num">{fmtNum(i.stock_minimo, 2)}</td>
+                    <td>{i.activo === false ? 'No' : 'Sí'}</td>
+                    <td>
+                      <button type="button" className="btn-icon" title="Editar" onClick={() => openEditItem(i)}>
+                        <span className="material-icons-round">edit</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -282,6 +354,8 @@ const MaterialsPage: React.FC = () => {
                 <th>Ítem PT</th>
                 <th>Empaque</th>
                 <th>Unid./pack</th>
+                <th>Activo</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -296,6 +370,12 @@ const MaterialsPage: React.FC = () => {
                   </td>
                   <td>{s.ma_empaque_tipo?.nombre ?? '—'}</td>
                   <td className="cell-num">{s.cant_unidades ?? 1}</td>
+                  <td>{s.activo === false ? 'No' : 'Sí'}</td>
+                  <td>
+                    <button type="button" className="btn-icon" title="Editar" onClick={() => openEditSku(s)}>
+                      <span className="material-icons-round">edit</span>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -303,16 +383,37 @@ const MaterialsPage: React.FC = () => {
         </div>
       )}
 
-      <Modal title="Nuevo ítem / material" isOpen={itemModal} onClose={() => setItemModal(false)}>
-        <form onSubmit={handleCreateItem}>
+      <Modal
+        title={editItem ? `Editar ítem ${editItem.codigo}` : 'Nuevo ítem / material'}
+        isOpen={itemModal}
+        onClose={() => { setItemModal(false); resetItemForm(); }}
+      >
+        <form onSubmit={handleSaveItem}>
           <FormSection title="Datos del ítem">
-            <FormInput label="Código (máx. 6)" value={codigo} onChange={setCodigo} required maxLength={6} />
+            {editItem ? (
+              <p className="kpi-sub">Código <code className="code-tag">{codigo}</code> · Tipo {tipo} (no editables)</p>
+            ) : (
+              <>
+                <FormInput label="Código (máx. 6)" value={codigo} onChange={setCodigo} required maxLength={6} />
+                <FormSelect label="Tipo" value={tipo} onChange={setTipo} required options={TIPOS_ITEM} />
+              </>
+            )}
             <FormInput label="Nombre" value={nombre} onChange={setNombre} required />
-            <FormSelect label="Tipo" value={tipo} onChange={setTipo} required options={TIPOS_ITEM} />
             <FormInput label="Unidad de medida" value={unidad} onChange={setUnidad} required />
             <FormInput label="Categoría (opcional)" value={categoria} onChange={setCategoria} />
             <FormInput label="Stock mínimo" type="number" value={stockMin} onChange={setStockMin} min={0} step="any" />
-            {tipo === 'PT' && (
+            {editItem && (
+              <FormSelect
+                label="Activo"
+                value={activo ? '1' : '0'}
+                onChange={(v) => setActivo(v === '1')}
+                options={[
+                  { value: '1', label: 'Sí' },
+                  { value: '0', label: 'No' },
+                ]}
+              />
+            )}
+            {!editItem && tipo === 'PT' && (
               <FormSelect
                 label="Granel base (opcional)"
                 value={granelBaseId}
@@ -325,14 +426,43 @@ const MaterialsPage: React.FC = () => {
             )}
           </FormSection>
           <div className="form-actions">
-            <SubmitButton loading={saving} label="Crear ítem" icon="add" />
+            <SubmitButton
+              loading={saving}
+              label={editItem ? 'Guardar cambios' : 'Crear ítem'}
+              icon={editItem ? 'save' : 'add'}
+            />
           </div>
         </form>
       </Modal>
 
-      <Modal title="Nuevo SKU (presentación)" isOpen={skuModal} onClose={() => setSkuModal(false)}>
-        <form onSubmit={handleCreateSku}>
-          {pts.length === 0 ? (
+      <Modal
+        title={editSku ? `Editar SKU ${editSku.codigo ?? ''}` : 'Nuevo SKU (presentación)'}
+        isOpen={skuModal}
+        onClose={() => { setSkuModal(false); resetSkuForm(); }}
+      >
+        <form onSubmit={handleSaveSku}>
+          {editSku ? (
+            <>
+              <p className="kpi-sub">
+                Código <code className="code-tag">{skuCodigo}</code>
+                {' · '}
+                {editSku.ma_item ? `${editSku.ma_item.codigo} — ${editSku.ma_item.nombre}` : 'PT'}
+              </p>
+              <FormInput label="Nombre comercial" value={skuNombre} onChange={setSkuNombre} required />
+              <FormSelect
+                label="Activo"
+                value={skuActivo ? '1' : '0'}
+                onChange={(v) => setSkuActivo(v === '1')}
+                options={[
+                  { value: '1', label: 'Sí' },
+                  { value: '0', label: 'No' },
+                ]}
+              />
+              <div className="form-actions">
+                <SubmitButton loading={saving} label="Guardar cambios" icon="save" />
+              </div>
+            </>
+          ) : pts.length === 0 ? (
             <EmptyState icon="precision_manufacturing" title="Primero cree un ítem tipo PT" />
           ) : (
             <>

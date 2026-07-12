@@ -323,10 +323,18 @@ const IncomePage: React.FC = () => {
         title="Ingresos POS"
         subtitle={esRapida ? 'Venta rápida de una línea' : 'Venta agrupada con carrito multi-línea'}
       />
-      <ModuleHelp message="Venta agrupada: carrito y registro en lote. Venta rápida: una línea al confirmar. El borrador del carrito se guarda en este navegador." />
+      <ModuleHelp message="Venta agrupada: carrito y registro en lote. Venta rápida: una línea al confirmar. El borrador del carrito se guarda en este navegador. La fecha de registro de nuevas ventas es siempre hoy (fn_venta_registrar no acepta p_fecha); el selector solo consulta el historial del día." />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
+      {pvUbicaciones.length === 0 ? (
+        <EmptyState
+          icon="storefront"
+          title="Sin puntos de venta"
+          hint="Configure ubicaciones con es_punto_venta en el catálogo"
+        />
+      ) : (
+      <>
       <div className="qty-mode-toggle" role="group" aria-label="Modo de venta" style={{ marginBottom: '1rem' }}>
         <button
           type="button"
@@ -350,9 +358,17 @@ const IncomePage: React.FC = () => {
         <FormRow>
           <FormSelect label="Punto de venta" value={ubicacionId} onChange={onUbicacionChange} required
             options={pvUbicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
-          <FormInput label="Fecha" type="date" value={fecha}
-            onChange={(v) => { setFecha(v); loadVentasDia(ubicacionId, v); }} required />
+          <FormInput
+            label="Consultar ventas del día"
+            type="date"
+            value={fecha}
+            onChange={(v) => { setFecha(v); loadVentasDia(ubicacionId, v); }}
+            required
+          />
         </FormRow>
+        <p className="kpi-sub" style={{ marginTop: '-0.5rem' }}>
+          Fecha de registro de nuevas ventas = hoy (el RPC no acepta fecha histórica).
+        </p>
         <FormRow>
           <FormSelect label="Cliente (catálogo)" value={clienteId} onChange={setClienteId}
             options={clientes.map((c) => ({ value: c.id, label: c.nombre }))} />
@@ -485,6 +501,8 @@ const IncomePage: React.FC = () => {
           </DataTable>
         )}
       </FormSection>
+      </>
+      )}
     </div>
   );
 };

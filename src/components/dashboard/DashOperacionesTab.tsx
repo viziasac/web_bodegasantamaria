@@ -13,9 +13,11 @@ interface Props {
   recentMoves: InvMovimiento[];
   trend: MovimientoTrendDia[];
   stockUbi: { ubicacion: string; cantidad: number }[];
+  periodoLabel?: string;
 }
 
-const DashOperacionesTab: React.FC<Props> = ({ kpis, recentMoves, trend, stockUbi }) => (
+const DashOperacionesTab: React.FC<Props> = ({ kpis, recentMoves, trend, stockUbi, periodoLabel }) => (
+
   <>
     <div className="kpi-grid">
       <DashKpiCard label="Stock PT" value={fmtNum(kpis?.totalStockPT ?? 0)} icon="inventory_2" iconTone="green" />
@@ -45,7 +47,9 @@ const DashOperacionesTab: React.FC<Props> = ({ kpis, recentMoves, trend, stockUb
 
     <div className="grid-2-1">
       <div className="card">
-        <div className="card-header"><h3>Flujo de movimientos — 14 días</h3></div>
+        <div className="card-header">
+          <h3>Flujo de movimientos{periodoLabel ? ` — ${periodoLabel}` : ''}</h3>
+        </div>
         <div className="chart-container">
           {trend.some((d) => d.entradas + d.salidas + d.ajustes + d.merma > 0) ? (
             <DashTrendChart data={trend} />

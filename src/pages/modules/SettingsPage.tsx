@@ -34,7 +34,9 @@ const SettingsPage: React.FC = () => {
       <div className="card card-section">
         <h3 className="card-section-title">Perfil de usuario</h3>
         <p><strong>Email:</strong> {user?.email}</p>
+        {user?.nombre && <p><strong>Nombre:</strong> {user.nombre}</p>}
         <p><strong>Rol:</strong> {user?.role}</p>
+        <p><strong>Acceso web:</strong> {user?.accesoWeb === false ? 'No' : 'Sí'}</p>
         <p><strong>ID:</strong> <code className="code-tag">{user?.id}</code></p>
       </div>
 

@@ -110,6 +110,17 @@ const ExpensesPage: React.FC = () => {
       setSelectedIds(new Set());
       await load();
     } catch (err) {
+      const registered = (err as Error & { registeredIds?: string[] }).registeredIds ?? [];
+      if (registered.length > 0) {
+        const done = new Set(registered);
+        setCart((prev) => prev.filter((l) => !done.has(l.id)));
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          registered.forEach((id) => next.delete(id));
+          return next;
+        });
+        await load();
+      }
       setError(toUserMessage(err, 'Error al registrar egresos'));
     } finally {
       setSubmitting(false);

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   getDashboardKPIs, getMovimientos, getStockPorUbicacion, getMovimientosTrendDetalle,
   getVentasPeriodo, getOrdenesPeriodo, getDashboardEjecutivoData,
+  getGastosPeriodo, getMovimientosPeriodo,
 } from '../services/apiProvider';
 import {
   PageLoader, TabBar, Alert, toUserMessage,
@@ -13,14 +14,15 @@ import DashExecutiveTab from '../components/dashboard/DashExecutiveTab';
 import DashOperacionesTab from '../components/dashboard/DashOperacionesTab';
 import DashVentasTab from '../components/dashboard/DashVentasTab';
 import DashProduccionTab from '../components/dashboard/DashProduccionTab';
+import DashFinancieroTab from '../components/dashboard/DashFinancieroTab';
 import { useCatalog } from '../context/CatalogContext';
 import { mesActualKey, rangoMes } from '../utils/periodoMes';
 import type {
   DashboardKPIs, DashboardEjecutivoData, InvMovimiento,
-  MovimientoTrendDia, PrdOrden, VentaResumen,
+  MovimientoTrendDia, PrdOrden, VentaResumen, GasGasto,
 } from '../types';
 
-type DashTab = 'ejecutivo' | 'operaciones' | 'ventas' | 'produccion' | 'stock';
+type DashTab = 'ejecutivo' | 'financiero' | 'operaciones' | 'ventas' | 'produccion' | 'stock';
 
 const Dashboard: React.FC = () => {
   const { ubicaciones, ensureCatalogLoaded } = useCatalog();
@@ -33,6 +35,8 @@ const Dashboard: React.FC = () => {
   const [stockUbi, setStockUbi] = useState<{ ubicacion: string; cantidad: number }[]>([]);
   const [trendData, setTrendData] = useState<MovimientoTrendDia[]>([]);
   const [ventas, setVentas] = useState<VentaResumen[]>([]);
+  const [gastos, setGastos] = useState<GasGasto[]>([]);
+  const [movimientosPeriodo, setMovimientosPeriodo] = useState<InvMovimiento[]>([]);
   const [ordenes, setOrdenes] = useState<PrdOrden[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -45,12 +49,14 @@ const Dashboard: React.FC = () => {
       try {
         setLoadError(null);
         const { desde, hasta } = rangoMes(mesKey);
-        const [k, moves, ubi, trend, v, ord, ej] = await Promise.all([
+        const [k, moves, ubi, trend, v, g, movs, ord, ej] = await Promise.all([
           getDashboardKPIs(desde, hasta),
           getMovimientos({ limit: 12 }),
           getStockPorUbicacion(),
           getMovimientosTrendDetalle(14, { desde, hasta }),
           getVentasPeriodo(desde, hasta),
+          getGastosPeriodo(desde, hasta),
+          getMovimientosPeriodo(desde, hasta, { limit: 100 }),
           getOrdenesPeriodo(desde, hasta),
           getDashboardEjecutivoData(desde, hasta),
         ]);
@@ -59,6 +65,8 @@ const Dashboard: React.FC = () => {
         setStockUbi(ubi);
         setTrendData(trend);
         setVentas(v);
+        setGastos(g);
+        setMovimientosPeriodo(movs);
         setOrdenes(ord);
         setEjecutivo(ej);
       } catch (err) {
@@ -95,6 +103,7 @@ const Dashboard: React.FC = () => {
         onChange={(id) => setTab(id as DashTab)}
         tabs={[
           { id: 'ejecutivo', label: 'Ejecutivo', icon: 'insights' },
+          { id: 'financiero', label: 'Financiero', icon: 'account_balance_wallet' },
           { id: 'operaciones', label: 'Operaciones', icon: 'dashboard' },
           { id: 'ventas', label: 'Comercial', icon: 'point_of_sale' },
           { id: 'produccion', label: 'Producción', icon: 'precision_manufacturing' },
@@ -114,8 +123,23 @@ const Dashboard: React.FC = () => {
         />
       )}
 
+      {!loading && tab === 'financiero' && (
+        <DashFinancieroTab
+          ventas={ventas}
+          gastos={gastos}
+          movimientos={movimientosPeriodo}
+          periodoLabel={rango.label}
+        />
+      )}
+
       {!loading && tab === 'operaciones' && (
-        <DashOperacionesTab kpis={kpis} recentMoves={recentMoves} trend={trendData} stockUbi={stockUbi} />
+        <DashOperacionesTab
+          kpis={kpis}
+          recentMoves={recentMoves}
+          trend={trendData}
+          stockUbi={stockUbi}
+          periodoLabel={rango.label}
+        />
       )}
 
       {!loading && tab === 'ventas' && (

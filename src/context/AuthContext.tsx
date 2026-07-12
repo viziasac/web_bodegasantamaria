@@ -1,7 +1,6 @@
-// src/context/AuthContext.tsx — Supabase Auth real
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+// src/context/AuthContext.tsx — Supabase Auth + gate acceso_web
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Tables } from '../config/supabaseTables';
 import {
   assertLoginAllowed,
   recordLoginFailure,
@@ -13,6 +12,10 @@ import {
   mapSupabaseAuthError,
 } from '../utils/authValidation';
 import { clearIngresosCartDraft } from '../utils/ingresosDraft';
+import {
+  resolveAuthenticatedWebUser,
+  WEB_ACCESS_DENIED_MESSAGE,
+} from '../services/userAccess';
 import type { AppUser } from '../types';
 
 interface AuthContextType {
@@ -25,56 +28,58 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function resolveUserRole(
-  userId: string,
-  appMetadata?: { role?: string },
-): Promise<AppUser['role']> {
-  const metaRole = appMetadata?.role?.trim();
-  if (metaRole) return metaRole as AppUser['role'];
-
-  const { data } = await supabase
-    .from(Tables.appUserRole)
-    .select('role')
-    .eq('user_id', userId)
-    .eq('activo', true)
-    .maybeSingle();
-
-  if (data?.role) return String(data.role).trim() as AppUser['role'];
-  return 'operario';
-}
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const mapUser = async (supaUser: {
+  const applySessionUser = useCallback(async (supaUser: {
     id: string;
     email?: string;
     app_metadata?: { role?: string };
-  }): Promise<AppUser> => ({
-    id: supaUser.id,
-    email: supaUser.email || '',
-    role: await resolveUserRole(supaUser.id, supaUser.app_metadata),
-  });
+  } | null): Promise<AppUser | null> => {
+    if (!supaUser) {
+      setUser(null);
+      return null;
+    }
+    try {
+      const mapped = await resolveAuthenticatedWebUser(supaUser);
+      setUser(mapped);
+      return mapped;
+    } catch {
+      // Gate falló o perfil ilegible → sin sesión web
+      setUser(null);
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (cancelled) return;
       if (session?.user) {
-        setUser(await mapUser(session.user));
+        await applySessionUser(session.user);
+      } else {
+        setUser(null);
       }
-      setIsLoading(false);
+      if (!cancelled) setIsLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Evita doble trabajo en SIGNED_IN justo tras login (login() ya resolvió el user)
+      if (event === 'INITIAL_SESSION') return;
       if (session?.user) {
-        setUser(await mapUser(session.user));
+        await applySessionUser(session.user);
       } else {
         setUser(null);
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [applySessionUser]);
 
   const login = async (email: string, password: string) => {
     assertLoginAllowed();
@@ -97,9 +102,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error(mapSupabaseAuthError(error));
     }
 
-    recordLoginSuccess();
-    if (data.user) {
-      setUser(await mapUser(data.user));
+    if (!data.user) {
+      recordLoginFailure();
+      throw new Error('No se pudo iniciar sesión. Verifique correo y contraseña.');
+    }
+
+    try {
+      const mapped = await resolveAuthenticatedWebUser(data.user);
+      recordLoginSuccess();
+      setUser(mapped);
+    } catch (gateErr) {
+      recordLoginFailure();
+      const msg = gateErr instanceof Error ? gateErr.message : WEB_ACCESS_DENIED_MESSAGE;
+      throw new Error(msg);
     }
   };
 

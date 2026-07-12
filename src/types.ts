@@ -6,6 +6,14 @@ export interface AppUser {
   id: string;
   email: string;
   role: UserRole;
+  /** Nombre de saludo desde app_user_role */
+  nombre?: string | null;
+  /** Gate de la web ERP (`app_user_role.acceso_web`) */
+  accesoWeb?: boolean;
+  /** Flag app móvil (informativo en web) */
+  accesoApp?: boolean;
+  /** Flag ventas móvil (informativo en web; la web no filtra por este flag) */
+  accesoVentas?: boolean;
 }
 
 export interface CatUbicacion {
@@ -143,6 +151,7 @@ export interface GasGasto {
   monto: number;
   descripcion?: string;
   categoria_id?: string;
+  proveedor_nombre?: string | null;
   comprobante_url?: string | null;
   gas_categoria?: GasCategoria;
 }

@@ -11,7 +11,7 @@ import {
 } from '../../utils/presentacionLabels';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
-  PageHeader, Alert, FormSelect, FormInput, SubmitButton, ModuleHelp, FormRow, toUserMessage, fmtMoney,
+  PageHeader, Alert, FormSelect, FormInput, SubmitButton, ModuleHelp, FormRow, EmptyState, toUserMessage, fmtMoney,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import type { ProductoPv } from '../../types';
@@ -163,6 +163,13 @@ const DispatchPage: React.FC = () => {
       <ModuleHelp message="Use este módulo para ventas inmediatas de un solo producto. Para varias líneas en un comprobante, use Ingresos POS." />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      {pvUbicaciones.length === 0 ? (
+        <EmptyState
+          icon="storefront"
+          title="Sin puntos de venta"
+          hint="Configure ubicaciones con es_punto_venta en el catálogo"
+        />
+      ) : (
       <div className="card">
         <form onSubmit={handleSubmit}>
           <FormSelect label="Punto de venta" value={ubicacionId} onChange={onUbicacionChange} required
@@ -212,6 +219,7 @@ const DispatchPage: React.FC = () => {
           </div>
         </form>
       </div>
+      )}
     </div>
   );
 };

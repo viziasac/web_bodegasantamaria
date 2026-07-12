@@ -3,6 +3,12 @@ import ChartDonut from '../ChartDonut';
 import { DONUT_COLORS } from '../ChartDonut';
 import DashKpiCard from './DashKpiCard';
 import { DataTable, EmptyState, fmtDate, fmtMoney } from '../ui';
+import {
+  financeKpis,
+  topVentasPorCanal,
+  topVentasPorCliente,
+  topVentasPorPuntoVenta,
+} from '../../utils/dashboardFinance';
 import type { DashboardKPIs, VentaResumen } from '../../types';
 
 interface Props {
@@ -12,27 +18,21 @@ interface Props {
 }
 
 const DashVentasTab: React.FC<Props> = ({ kpis, ventas, periodoLabel }) => {
-  const porCanal = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const v of ventas) {
-      const c = v.canal || 'Sin canal';
-      map[c] = (map[c] || 0) + (v.total || 0);
-    }
-    return Object.entries(map)
-      .map(([label, value]) => ({ label, value: Math.round(value) }))
-      .sort((a, b) => b.value - a.value);
-  }, [ventas]);
+  const porCanal = useMemo(() => topVentasPorCanal(ventas, 8), [ventas]);
+  const topPv = useMemo(() => topVentasPorPuntoVenta(ventas, 5), [ventas]);
+  const topCliente = useMemo(() => topVentasPorCliente(ventas, 5), [ventas]);
+  const fin = useMemo(() => financeKpis(ventas, []), [ventas]);
 
-  const ticketPromedio = ventas.length > 0 && kpis?.ventasMes
-    ? kpis.ventasMes / ventas.length
-    : 0;
+  const ticketPromedio = fin.ticketPromedio || (
+    ventas.length > 0 && kpis?.ventasMes ? kpis.ventasMes / ventas.length : 0
+  );
 
   return (
     <>
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <DashKpiCard
           label={`Total ventas${periodoLabel ? ` — ${periodoLabel}` : ''}`}
-          value={fmtMoney(kpis?.ventasMes ?? 0)}
+          value={fmtMoney(kpis?.ventasMes ?? fin.ingresos)}
           icon="attach_money"
           iconTone="blue"
           accent="gold"
@@ -49,6 +49,53 @@ const DashVentasTab: React.FC<Props> = ({ kpis, ventas, periodoLabel }) => {
           icon="payments"
           iconTone="gold"
         />
+      </div>
+
+      <div className="grid-2">
+        <div className="card card-section">
+          <div className="card-header"><h3>Top por punto de venta</h3></div>
+          {topPv.length === 0 ? (
+            <EmptyState icon="storefront" title="Sin datos" />
+          ) : (
+            <DataTable>
+              <thead>
+                <tr><th>#</th><th>PV</th><th>Ops</th><th>Total</th></tr>
+              </thead>
+              <tbody>
+                {topPv.map((r, i) => (
+                  <tr key={r.label}>
+                    <td className="cell-num">{i + 1}</td>
+                    <td>{r.label}</td>
+                    <td className="cell-num">{r.count}</td>
+                    <td className="cell-money">{fmtMoney(r.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          )}
+        </div>
+        <div className="card card-section">
+          <div className="card-header"><h3>Top por cliente</h3></div>
+          {topCliente.length === 0 ? (
+            <EmptyState icon="groups" title="Sin datos" />
+          ) : (
+            <DataTable>
+              <thead>
+                <tr><th>#</th><th>Cliente</th><th>Ops</th><th>Total</th></tr>
+              </thead>
+              <tbody>
+                {topCliente.map((r, i) => (
+                  <tr key={r.label}>
+                    <td className="cell-num">{i + 1}</td>
+                    <td>{r.label}</td>
+                    <td className="cell-num">{r.count}</td>
+                    <td className="cell-money">{fmtMoney(r.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          )}
+        </div>
       </div>
 
       <div className="grid-2">
@@ -82,7 +129,7 @@ const DashVentasTab: React.FC<Props> = ({ kpis, ventas, periodoLabel }) => {
             <ChartDonut
               data={porCanal.map((c, i) => ({
                 label: c.label,
-                value: c.value,
+                value: Math.round(c.value),
                 color: DONUT_COLORS[i % DONUT_COLORS.length],
               }))}
               totalLabel="S/"
