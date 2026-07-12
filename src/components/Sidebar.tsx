@@ -19,10 +19,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
     `sidebar-link ${isActive ? 'active' : ''}`;
 
   const operaciones = modules.filter(m =>
-    !['reportes', 'configuracion'].includes(m.id),
+    !['reportes', 'configuracion', 'materiales_skus'].includes(m.id),
   );
   const admin = modules.filter(m =>
-    ['reportes', 'configuracion'].includes(m.id),
+    ['materiales_skus', 'reportes', 'configuracion'].includes(m.id),
   );
 
   return (

@@ -34,8 +34,17 @@ export interface MaPresentacion {
   codigo?: string;
   nombre: string;
   cant_unidades?: number;
+  empaque_id?: string | null;
   activo?: boolean;
   ma_item?: MaItem;
+  ma_empaque_tipo?: MaEmpaqueTipo;
+}
+
+export interface MaEmpaqueTipo {
+  id: string;
+  nombre: string;
+  factor: number;
+  activo?: boolean;
 }
 
 export interface MaProveedor {
@@ -158,6 +167,10 @@ export interface InsumoValidacionOrden {
   codigo?: string;
   nombre: string;
   unidad_medida?: string;
+  /** Tipo de ítem (GRANEL → stock en ALM_GR; resto → ALM_MP). */
+  tipo?: string;
+  /** Código de almacén donde se valida el stock. */
+  ubicacion_codigo?: 'ALM_GR' | 'ALM_MP';
   requerido: number;
   disponible: number;
   faltante: number;

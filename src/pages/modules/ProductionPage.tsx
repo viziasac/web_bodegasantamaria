@@ -127,7 +127,7 @@ const ProductionPage: React.FC = () => {
     }
     if (previewStock && !previewStock.tiene_stock) {
       const ok = confirm(
-        'Hay insumos faltantes en ALM_MP. Puede crear la orden, pero al completarla el inventario puede quedar negativo si no repone insumos. ¿Continuar?',
+        'Hay insumos faltantes (GRANEL en ALM_GR / resto en ALM_MP). Puede crear la orden, pero al completarla el inventario puede quedar negativo si no repone insumos. ¿Continuar?',
       );
       if (!ok) return;
     }
@@ -230,7 +230,7 @@ const ProductionPage: React.FC = () => {
         title="Producción Envasado"
         subtitle="Órdenes por presentación — botellas o packs (six pack, caja, etc.)"
       />
-      <ModuleHelp message="Planifique en la presentación comercial a producir (botella suelta o pack). El stock PT siempre se registra en botellas. Los insumos se validan en ALM_MP según la receta del producto." />
+      <ModuleHelp message="Planifique en la presentación comercial a producir (botella suelta o pack). El stock PT siempre se registra en botellas. GRANEL se valida en ALM_GR; el resto de insumos en ALM_MP." />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
@@ -334,7 +334,7 @@ const ProductionPage: React.FC = () => {
                 <div className={`preview-insumos ${previewStock.tiene_stock ? 'preview-ok' : 'preview-warn'}`}>
                   <p className="preview-insumos-title">
                     {previewStock.tiene_stock
-                      ? 'Insumos suficientes en ALM_MP'
+                      ? 'Insumos suficientes (GRANEL→ALM_GR / resto→ALM_MP)'
                       : 'Aviso: faltan insumos en bodega'}
                   </p>
                   {!previewStock.tiene_stock && (
@@ -344,7 +344,12 @@ const ProductionPage: React.FC = () => {
                   )}
                   {previewStock.detalle.map((d) => (
                     <div key={`${d.codigo ?? ''}-${d.nombre}`} className="preview-insumo-row">
-                      <span>{d.nombre}</span>
+                      <span>
+                        {d.nombre}
+                        {d.ubicacion_codigo && (
+                          <code className="code-tag" style={{ marginLeft: 6 }}>{d.ubicacion_codigo}</code>
+                        )}
+                      </span>
                       <span>
                         req {fmtNum(d.necesario, 2)} / disp {fmtNum(d.disponible, 2)}
                         {d.faltante > 0 && <strong className="text-danger"> · falta {fmtNum(d.faltante, 2)}</strong>}
@@ -377,6 +382,7 @@ const ProductionPage: React.FC = () => {
                   <div className="validation-head">
                     <strong>{v.nombre}</strong>
                     {v.codigo && <code className="code-tag">{v.codigo}</code>}
+                    {v.ubicacion_codigo && <code className="code-tag">{v.ubicacion_codigo}</code>}
                     <StatusBadge ok={v.suficiente} />
                   </div>
                   <div className="validation-stats">

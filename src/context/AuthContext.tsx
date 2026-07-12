@@ -12,6 +12,7 @@ import {
   validateLoginPassword,
   mapSupabaseAuthError,
 } from '../utils/authValidation';
+import { clearIngresosCartDraft } from '../utils/ingresosDraft';
 import type { AppUser } from '../types';
 
 interface AuthContextType {
@@ -103,6 +104,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
+    clearIngresosCartDraft();
     await supabase.auth.signOut();
     setUser(null);
   };

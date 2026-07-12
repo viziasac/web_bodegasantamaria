@@ -89,7 +89,30 @@ export const bodegaService = {
     precioUnitario?: number;
     fechaVencimiento?: string;
     clientTxnId?: string;
+    registrarGasto?: boolean;
+    gastoCategoriaId?: string;
+    gastoCentroCosto?: string;
+    gastoDescripcion?: string;
+    gastoProveedorNombre?: string;
   }) {
+    const txnId = opts.clientTxnId ?? newTxnId();
+    if (opts.registrarGasto) {
+      return api.registrarCompraConGasto({
+        itemId: opts.insumoId,
+        cantidad: opts.cantidad,
+        ubicacionId: opts.almacenId,
+        registrarGasto: true,
+        gastoCategoriaId: opts.gastoCategoriaId,
+        motivo: opts.referencia,
+        observacion: opts.observaciones,
+        precioUnitario: opts.precioUnitario,
+        fechaVencimiento: opts.fechaVencimiento,
+        txnId,
+        gastoCentroCosto: opts.gastoCentroCosto ?? 'BODEGA',
+        gastoDescripcion: opts.gastoDescripcion,
+        gastoProveedorNombre: opts.gastoProveedorNombre,
+      });
+    }
     return api.registrarCompra({
       itemId: opts.insumoId,
       cantidad: opts.cantidad,
@@ -98,7 +121,7 @@ export const bodegaService = {
       observacion: opts.observaciones,
       precioUnitario: opts.precioUnitario,
       fechaVencimiento: opts.fechaVencimiento,
-      txnId: opts.clientTxnId ?? newTxnId(),
+      txnId,
     });
   },
 

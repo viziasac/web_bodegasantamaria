@@ -123,10 +123,11 @@ interface FormInputProps {
   min?: number;
   step?: string;
   placeholder?: string;
+  maxLength?: number;
 }
 
 export const FormInput: React.FC<FormInputProps> = ({
-  label, type = 'text', value, onChange, required, min, step, placeholder,
+  label, type = 'text', value, onChange, required, min, step, placeholder, maxLength,
 }) => (
   <label className="form-group">
     <span className="form-label">{label}</span>
@@ -139,6 +140,7 @@ export const FormInput: React.FC<FormInputProps> = ({
       min={min}
       step={step}
       placeholder={placeholder}
+      maxLength={maxLength}
     />
   </label>
 );

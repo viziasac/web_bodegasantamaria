@@ -36,6 +36,8 @@ export const ErpRpc = {
   transferenciaRegistrar: 'fn_transferencia_registrar',
   transferenciaRecibir: 'fn_transferencia_recibir',
   compraRegistrar: 'fn_compra_registrar',
+  /** Compra + egreso opcional. Params: mismos de compra + p_registrar_gasto, p_gasto_categoria_id, p_gasto_centro_costo, p_gasto_descripcion, p_gasto_proveedor_nombre */
+  compraRegistrarConGasto: 'fn_compra_registrar_con_gasto',
   compraRegistrarDoc: 'fn_compra_registrar_doc',
   ordenCompletar: 'fn_orden_completar',
   anularOrden: 'fn_anular_orden',

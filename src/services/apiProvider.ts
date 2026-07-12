@@ -10,7 +10,7 @@ import { sortLotesParaConsumo } from '../utils/lotePolicy';
 import { newTxnId } from '../utils/txnId';
 import { diasEnRango } from '../utils/periodoMes';
 import type {
-  CatUbicacion, MaItem, MaPresentacion, MaProveedor, MaCliente,
+  CatUbicacion, MaItem, MaPresentacion, MaEmpaqueTipo, MaProveedor, MaCliente,
   InvMovimiento, InvStockSaldo, PrdOrden, RecReceta, GasCategoria, GasGasto,
   TrnTransferencia, InsumoValidacionOrden, DashboardKPIs, MovimientoFilters,
   VentaLinea, CompraLinea, TransferLinea,
@@ -125,13 +125,135 @@ export async function getItemsPt(): Promise<MaItem[]> {
 export async function getPresentaciones(itemId?: string): Promise<MaPresentacion[]> {
   let q = supabase
     .from(Tables.maPresentacion)
-    .select('*, ma_item(id, codigo, nombre, tipo, unidad_medida, categoria)')
+    .select('*, ma_item(id, codigo, nombre, tipo, unidad_medida, categoria), ma_empaque_tipo:empaque_id(id, nombre, factor)')
     .eq('activo', true)
     .order('nombre');
   if (itemId) q = q.eq('item_id', itemId);
   const { data, error } = await q;
   if (error) throw error;
-  return data || [];
+  return (data || []).map((p: Record<string, unknown>) => ({
+    ...p,
+    ma_empaque_tipo: p.ma_empaque_tipo as MaEmpaqueTipo | undefined,
+  })) as MaPresentacion[];
+}
+
+export async function getEmpaqueTipos(): Promise<MaEmpaqueTipo[]> {
+  const { data, error } = await supabase
+    .from(Tables.maEmpaqueTipo)
+    .select('id, nombre, factor, activo')
+    .eq('activo', true)
+    .order('factor');
+  if (error) throw error;
+  return (data || []).map((e) => ({
+    id: String(e.id),
+    nombre: String(e.nombre),
+    factor: parseNum(e.factor) || 1,
+    activo: e.activo !== false,
+  }));
+}
+
+export async function createItem(opts: {
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  unidad_medida: string;
+  categoria?: string;
+  stock_minimo?: number;
+  granel_base_id?: string;
+  pct_merma?: number;
+}): Promise<MaItem> {
+  const codigo = opts.codigo.trim().toUpperCase();
+  if (!codigo || codigo.length > 6) throw new Error('Código de ítem: máximo 6 caracteres.');
+  if (!opts.nombre.trim()) throw new Error('Nombre obligatorio.');
+  if (!opts.tipo) throw new Error('Tipo obligatorio.');
+  if (!opts.unidad_medida.trim()) throw new Error('Unidad de medida obligatoria.');
+
+  const payload: Record<string, unknown> = {
+    codigo,
+    nombre: opts.nombre.trim(),
+    tipo: opts.tipo,
+    unidad_medida: opts.unidad_medida.trim(),
+    activo: true,
+    stock_minimo: opts.stock_minimo ?? 0,
+    pct_merma: opts.pct_merma ?? 0,
+  };
+  if (opts.categoria?.trim()) payload.categoria = opts.categoria.trim();
+  if (opts.tipo === 'PT' && opts.granel_base_id) payload.granel_base_id = opts.granel_base_id;
+
+  const { data, error } = await supabase
+    .from(Tables.maItem)
+    .insert(payload)
+    .select('*')
+    .single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaItem;
+}
+
+export async function updateItem(opts: {
+  id: string;
+  nombre?: string;
+  categoria?: string | null;
+  stock_minimo?: number;
+  unidad_medida?: string;
+  activo?: boolean;
+  granel_base_id?: string | null;
+  pct_merma?: number;
+}): Promise<MaItem> {
+  const patch: Record<string, unknown> = {};
+  if (opts.nombre != null) patch.nombre = opts.nombre.trim();
+  if (opts.categoria !== undefined) patch.categoria = opts.categoria?.trim() || null;
+  if (opts.stock_minimo != null) patch.stock_minimo = opts.stock_minimo;
+  if (opts.unidad_medida != null) patch.unidad_medida = opts.unidad_medida.trim();
+  if (opts.activo != null) patch.activo = opts.activo;
+  if (opts.granel_base_id !== undefined) patch.granel_base_id = opts.granel_base_id;
+  if (opts.pct_merma != null) patch.pct_merma = opts.pct_merma;
+  if (Object.keys(patch).length === 0) throw new Error('Sin cambios.');
+
+  const { data, error } = await supabase
+    .from(Tables.maItem)
+    .update(patch)
+    .eq('id', opts.id)
+    .select('*')
+    .single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaItem;
+}
+
+export async function createPresentacion(opts: {
+  codigo: string;
+  nombre: string;
+  itemId: string;
+  empaqueId: string;
+  cantUnidades?: number;
+}): Promise<MaPresentacion> {
+  const codigo = opts.codigo.trim().toUpperCase();
+  if (!codigo || codigo.length > 5) throw new Error('Código SKU: máximo 5 caracteres.');
+  if (!opts.nombre.trim()) throw new Error('Nombre obligatorio.');
+  if (!opts.itemId) throw new Error('Seleccione el ítem PT.');
+  if (!opts.empaqueId) throw new Error('Seleccione tipo de empaque.');
+
+  const empaques = await getEmpaqueTipos();
+  const emp = empaques.find((e) => e.id === opts.empaqueId);
+  if (!emp) throw new Error('Empaque no encontrado.');
+  const cant = opts.cantUnidades ?? emp.factor;
+  if (cant !== emp.factor) {
+    throw new Error(`cant_unidades debe coincidir con el factor del empaque (${emp.factor}).`);
+  }
+
+  const { data, error } = await supabase
+    .from(Tables.maPresentacion)
+    .insert({
+      codigo,
+      nombre: opts.nombre.trim(),
+      item_id: opts.itemId,
+      empaque_id: opts.empaqueId,
+      cant_unidades: cant,
+      activo: true,
+    })
+    .select('*, ma_item(id, codigo, nombre, tipo), ma_empaque_tipo:empaque_id(id, nombre, factor)')
+    .single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaPresentacion;
 }
 
 export async function getProveedores(): Promise<MaProveedor[]> {
@@ -453,6 +575,66 @@ export async function getRecetas(): Promise<RecReceta[]> {
   })) as RecReceta[];
 }
 
+/** Cantidad siempre por 1 botella (contrato producción). */
+export async function createRecetaLinea(opts: {
+  itemProducidoId: string;
+  componenteId: string;
+  cantidad: number;
+  esVariable?: boolean;
+}): Promise<RecReceta> {
+  if (!opts.itemProducidoId) throw new Error('Seleccione el producto terminado.');
+  if (!opts.componenteId) throw new Error('Seleccione el componente.');
+  if (!Number.isFinite(opts.cantidad) || opts.cantidad <= 0) {
+    throw new Error('Cantidad debe ser > 0 (por 1 botella).');
+  }
+  const { data, error } = await supabase
+    .from(Tables.recReceta)
+    .insert({
+      item_producido_id: opts.itemProducidoId,
+      componente_id: opts.componenteId,
+      cantidad: opts.cantidad,
+      es_variable: opts.esVariable ?? false,
+    })
+    .select(`
+      id, item_producido_id, componente_id, cantidad, es_variable,
+      item_producido:ma_item!rec_receta_item_producido_id_fkey(id, codigo, nombre, tipo, categoria),
+      componente:ma_item!rec_receta_base_componente_id_fkey(id, codigo, nombre, tipo, unidad_medida)
+    `)
+    .single();
+  if (error) throw new Error(friendlyDbError(error));
+  const r = data as Record<string, unknown>;
+  return {
+    ...(r as unknown as RecReceta),
+    item_componente_id: String(r.componente_id),
+    ma_item_producido: r.item_producido as RecReceta['ma_item_producido'],
+    ma_item_componente: r.componente as RecReceta['ma_item_componente'],
+  };
+}
+
+export async function updateRecetaLinea(opts: {
+  id: string;
+  cantidad?: number;
+  esVariable?: boolean;
+}): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (opts.cantidad != null) {
+    if (!Number.isFinite(opts.cantidad) || opts.cantidad <= 0) {
+      throw new Error('Cantidad debe ser > 0 (por 1 botella).');
+    }
+    patch.cantidad = opts.cantidad;
+  }
+  if (opts.esVariable != null) patch.es_variable = opts.esVariable;
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await supabase.from(Tables.recReceta).update(patch).eq('id', opts.id);
+  if (error) throw new Error(friendlyDbError(error));
+}
+
+/** Solo líneas BOM — no elimina materiales ni SKUs. */
+export async function deleteRecetaLinea(id: string): Promise<void> {
+  const { error } = await supabase.from(Tables.recReceta).delete().eq('id', id);
+  if (error) throw new Error(friendlyDbError(error));
+}
+
 // ─── Producción ───
 
 export async function getOrdenes(estado?: string): Promise<PrdOrden[]> {
@@ -486,6 +668,23 @@ export async function resolveItemPtId(presentacionOrPtId: string): Promise<strin
   return presentacionOrPtId;
 }
 
+async function stockPorItemEnUbicacion(ubicacionId: string | undefined): Promise<Record<string, number>> {
+  if (!ubicacionId) return {};
+  const { data: stockRows, error: stockErr } = await supabase
+    .from(Tables.invStockSaldo)
+    .select('item_id, cantidad')
+    .eq('ubicacion_id', ubicacionId)
+    .gt('cantidad', 0);
+  if (stockErr) throw stockErr;
+  const stockPorItem: Record<string, number> = {};
+  for (const r of stockRows ?? []) {
+    const id = String(r.item_id);
+    stockPorItem[id] = (stockPorItem[id] ?? 0) + parseNum(r.cantidad);
+  }
+  return stockPorItem;
+}
+
+/** Preview alineado con fn_validar_insumos_orden: GRANEL en ALM_GR; resto en ALM_MP. */
 export async function validarInsumosPreview(opts: {
   itemProducidoId: string;
   cantPlanificada: number;
@@ -493,40 +692,36 @@ export async function validarInsumosPreview(opts: {
   const ptId = await resolveItemPtId(opts.itemProducidoId);
   const { data: ubiRows } = await supabase
     .from(Tables.catUbicacion)
-    .select('id')
-    .eq('codigo', 'ALM_MP')
-    .maybeSingle();
-  const almMpId = ubiRows?.id;
+    .select('id, codigo')
+    .in('codigo', ['ALM_MP', 'ALM_GR']);
+  const almMpId = (ubiRows ?? []).find((u) => u.codigo === 'ALM_MP')?.id as string | undefined;
+  const almGrId = (ubiRows ?? []).find((u) => u.codigo === 'ALM_GR')?.id as string | undefined;
   if (!almMpId) return [];
 
   const recetas = await getRecetas();
   const componentes = recetas.filter((r) => r.item_producido_id === ptId);
   if (componentes.length === 0) return [];
 
-  const { data: stockRows, error: stockErr } = await supabase
-    .from(Tables.invStockSaldo)
-    .select('item_id, cantidad')
-    .eq('ubicacion_id', almMpId)
-    .gt('cantidad', 0);
-  if (stockErr) throw stockErr;
-
-  const stockPorItem: Record<string, number> = {};
-  for (const r of stockRows ?? []) {
-    const id = String(r.item_id);
-    stockPorItem[id] = (stockPorItem[id] ?? 0) + parseNum(r.cantidad);
-  }
+  const [stockMp, stockGr] = await Promise.all([
+    stockPorItemEnUbicacion(almMpId),
+    stockPorItemEnUbicacion(almGrId),
+  ]);
 
   return componentes.map((r) => {
     const compId = r.componente_id ?? r.item_componente_id;
     const comp = r.componente ?? r.ma_item_componente;
+    const tipo = (comp?.tipo ?? '').toUpperCase();
+    const esGranel = tipo === 'GRANEL';
     const req = r.cantidad * opts.cantPlanificada;
-    const disp = stockPorItem[compId] ?? 0;
+    const disp = esGranel ? (stockGr[compId] ?? 0) : (stockMp[compId] ?? 0);
     const faltante = Math.max(0, req - disp);
     return {
       item_id: compId,
       codigo: comp?.codigo,
       nombre: comp?.nombre ?? '—',
       unidad_medida: comp?.unidad_medida,
+      tipo: tipo || undefined,
+      ubicacion_codigo: esGranel ? 'ALM_GR' : 'ALM_MP',
       requerido: req,
       disponible: disp,
       faltante,
@@ -538,7 +733,18 @@ export async function validarInsumosPreview(opts: {
 export async function checkStockProduccion(
   presentacionOrPtId: string,
   cantidadBotellas: number,
-): Promise<{ tiene_stock: boolean; detalle: { nombre: string; codigo?: string; necesario: number; disponible: number; faltante: number }[] }> {
+): Promise<{
+  tiene_stock: boolean;
+  detalle: {
+    nombre: string;
+    codigo?: string;
+    tipo?: string;
+    ubicacion_codigo?: 'ALM_GR' | 'ALM_MP';
+    necesario: number;
+    disponible: number;
+    faltante: number;
+  }[];
+}> {
   const preview = await validarInsumosPreview({
     itemProducidoId: presentacionOrPtId,
     cantPlanificada: Math.round(cantidadBotellas),
@@ -546,6 +752,8 @@ export async function checkStockProduccion(
   const detalle = preview.map((v) => ({
     nombre: v.nombre,
     codigo: v.codigo,
+    tipo: v.tipo,
+    ubicacion_codigo: v.ubicacion_codigo,
     necesario: v.requerido,
     disponible: v.disponible,
     faltante: v.faltante,
@@ -563,11 +771,15 @@ export async function validarInsumosOrden(ordenId: string): Promise<InsumoValida
     const requerido = parseNum(r.cantidad_req ?? r.requerido);
     const disponible = parseNum(r.cantidad_disp ?? r.disponible);
     const faltante = parseNum(r.faltante ?? Math.max(0, requerido - disponible));
+    const tipo = r.tipo ? String(r.tipo).toUpperCase() : undefined;
+    const esGranel = tipo === 'GRANEL';
     return {
       item_id: String(r.item_id ?? ''),
       codigo: r.codigo ? String(r.codigo) : undefined,
       nombre: String(r.nombre ?? r.item_nombre ?? '—'),
       unidad_medida: r.unidad_medida ? String(r.unidad_medida) : undefined,
+      tipo,
+      ubicacion_codigo: esGranel ? 'ALM_GR' : 'ALM_MP',
       requerido,
       disponible,
       faltante,
@@ -1221,13 +1433,16 @@ async function registrarAjusteRpc(opts: {
   txnId?: string;
 }) {
   const uid = await getUserId();
+  const motivo = opts.delta < 0 && /merma/i.test(opts.motivo) && !opts.motivo.startsWith('MERMA')
+    ? `MERMA: ${opts.motivo}`
+    : opts.motivo;
   await callRpc(ErpRpc.ajusteRegistrar, {
     p_txn_id: opts.txnId ?? newTxnId(),
     p_ubicacion_id: opts.ubicacionId,
     p_item_id: opts.itemId,
     p_lote_id: opts.loteId ?? null,
     p_delta: opts.delta,
-    p_motivo: opts.motivo,
+    p_motivo: motivo,
     p_observacion: opts.observacion ?? null,
     p_usuario_id: uid ?? null,
   }, 'No se pudo registrar el ajuste.');
@@ -1254,6 +1469,43 @@ export async function registrarCompra(opts: {
     p_observacion: opts.observacion ?? null,
     p_fecha_vencimiento: opts.fechaVencimiento ?? null,
     p_usuario_id: uid ?? null,
+  });
+  if (error) throw new Error(friendlyDbError(error));
+  return String(data);
+}
+
+/** Compra + egreso opcional (`fn_compra_registrar_con_gasto`). */
+export async function registrarCompraConGasto(opts: {
+  itemId: string;
+  cantidad: number;
+  ubicacionId: string;
+  registrarGasto: boolean;
+  gastoCategoriaId?: string;
+  motivo?: string;
+  observacion?: string;
+  precioUnitario?: number;
+  fechaVencimiento?: string;
+  txnId?: string;
+  gastoCentroCosto?: string;
+  gastoDescripcion?: string;
+  gastoProveedorNombre?: string;
+}) {
+  const uid = await getUserId();
+  const { data, error } = await supabase.rpc(ErpRpc.compraRegistrarConGasto, {
+    p_txn_id: opts.txnId ?? newTxnId(),
+    p_item_id: opts.itemId,
+    p_ubicacion_id: opts.ubicacionId,
+    p_cantidad: Math.abs(opts.cantidad),
+    p_precio_unitario: opts.precioUnitario ?? null,
+    p_motivo: opts.motivo ?? null,
+    p_observacion: opts.observacion ?? null,
+    p_fecha_vencimiento: opts.fechaVencimiento ?? null,
+    p_usuario_id: uid ?? null,
+    p_registrar_gasto: opts.registrarGasto,
+    p_gasto_categoria_id: opts.gastoCategoriaId ?? null,
+    p_gasto_centro_costo: opts.gastoCentroCosto ?? 'BODEGA',
+    p_gasto_descripcion: opts.gastoDescripcion ?? null,
+    p_gasto_proveedor_nombre: opts.gastoProveedorNombre ?? null,
   });
   if (error) throw new Error(friendlyDbError(error));
   return String(data);
@@ -1454,16 +1706,33 @@ export async function anularOrden(ordenId: string) {
 async function expandTransferLineasFifo(origenId: string, lineas: TransferLinea[]): Promise<TransferLinea[]> {
   const expanded: TransferLinea[] = [];
   for (const line of lineas) {
-    if (line.lote_id) {
-      expanded.push(line);
+    // XOR estricto: PT → presentacion_id; materiales → item_id (nunca ambos).
+    const xorLine: TransferLinea = line.presentacion_id
+      ? {
+          presentacion_id: line.presentacion_id,
+          item_id: undefined,
+          lote_id: line.lote_id,
+          cantidad: line.cantidad,
+        }
+      : {
+          item_id: line.item_id,
+          presentacion_id: undefined,
+          lote_id: line.lote_id,
+          cantidad: line.cantidad,
+        };
+    if (!xorLine.presentacion_id && !xorLine.item_id) {
+      throw new Error('Cada línea de transferencia requiere presentacion_id o item_id.');
+    }
+    if (xorLine.lote_id) {
+      expanded.push(xorLine);
       continue;
     }
-    const cant = line.cantidad;
+    const cant = xorLine.cantidad;
     if (cant <= 0) throw new Error('Cantidad inválida en línea de transferencia');
     const lotes = await getLotesDisponibles({
       ubicacionId: origenId,
-      presentacionId: line.presentacion_id,
-      itemId: line.presentacion_id ? undefined : line.item_id,
+      presentacionId: xorLine.presentacion_id,
+      itemId: xorLine.presentacion_id ? undefined : xorLine.item_id,
     });
     if (lotes.length === 0) throw new Error('Sin stock/lotes disponibles en origen');
     let restante = cant;
@@ -1472,8 +1741,8 @@ async function expandTransferLineasFifo(origenId: string, lineas: TransferLinea[
       const disp = (l.cantidad as number) || 0;
       const qty = Math.min(restante, disp);
       expanded.push({
-        item_id: line.item_id,
-        presentacion_id: line.presentacion_id,
+        item_id: xorLine.item_id,
+        presentacion_id: xorLine.presentacion_id,
         lote_id: l.lote_id as string,
         cantidad: qty,
       });
@@ -1500,7 +1769,8 @@ export async function crearTransferencia(opts: {
     p_observaciones: opts.observaciones ?? null,
     p_usuario_id: uid ?? null,
     p_lineas: lineasExpandidas.map((l) => ({
-      item_id: l.item_id ?? null,
+      // XOR: enviar solo un lado (null el otro) para CHECK de BD.
+      item_id: l.presentacion_id ? null : (l.item_id ?? null),
       presentacion_id: l.presentacion_id ?? null,
       lote_id: l.lote_id,
       cantidad: l.cantidad,

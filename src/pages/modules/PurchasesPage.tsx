@@ -3,7 +3,7 @@ import { bodegaService } from '../../services/bodegaService';
 import { newTxnId } from '../../utils/txnId';
 import { PrecioUnitarioTotalToggle, type ModoPrecio } from '../../components/PrecioUnitarioTotalToggle';
 import {
-  PageHeader, Alert, FormSelect, FormInput, SubmitButton, TabBar, FormRow, FormSection,
+  PageHeader, Alert, FormSelect, FormInput, SubmitButton, TabBar, FormSection,
   DataTable, EmptyState, toUserMessage, fmtMoney,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
@@ -15,9 +15,15 @@ interface DocLine extends CompraLinea {
 }
 
 const INSUMO_TIPOS = ['INSUMO', 'EMPAQUE', 'MATERIAL', 'GRANEL'];
+const CENTROS_COSTO = [
+  { value: 'BODEGA', label: 'Bodega' },
+  { value: 'PRODUCCION', label: 'Producción' },
+  { value: 'ADMIN', label: 'Administración' },
+  { value: 'VENTAS', label: 'Ventas' },
+];
 
 const PurchasesPage: React.FC = () => {
-  const { ubicaciones, items, proveedores, ensureCatalogLoaded } = useCatalog();
+  const { ubicaciones, items, proveedores, categoriasGasto, ensureCatalogLoaded } = useCatalog();
   const [mode, setMode] = useState<'simple' | 'doc'>('simple');
   const [ubicacionId, setUbicacionId] = useState('');
   const [tipoFilter, setTipoFilter] = useState('');
@@ -32,6 +38,9 @@ const PurchasesPage: React.FC = () => {
   const [observaciones, setObservaciones] = useState('');
   const [proveedorId, setProveedorId] = useState('');
   const [docLineas, setDocLineas] = useState<DocLine[]>([]);
+  const [registrarEgreso, setRegistrarEgreso] = useState(false);
+  const [gastoCategoriaId, setGastoCategoriaId] = useState('');
+  const [gastoCentroCosto, setGastoCentroCosto] = useState('BODEGA');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -60,6 +69,13 @@ const PurchasesPage: React.FC = () => {
   }, [insumos, tipoFilter, categoriaFilter]);
 
   const selectedInsumo = insumos.find((i) => i.id === itemId);
+
+  const descripcionEgresoAuto = useMemo(() => {
+    const ref = referencia.trim();
+    const nombre = selectedInsumo?.nombre.trim();
+    if (nombre) return ref ? `Compra: ${nombre} (${ref})` : `Compra: ${nombre}`;
+    return ref ? `Compra: ${ref}` : 'Compra de insumo';
+  }, [referencia, selectedInsumo?.nombre]);
 
   useEffect(() => {
     if (!ubicacionId && almacenes.length > 0) {
@@ -105,6 +121,8 @@ const PurchasesPage: React.FC = () => {
     if (m === 'simple') {
       setProveedorId('');
       setDocLineas([]);
+    } else {
+      setRegistrarEgreso(false);
     }
   };
 
@@ -150,16 +168,29 @@ const PurchasesPage: React.FC = () => {
       if (mode === 'simple') {
         const qty = parseFloat(cantidad);
         if (!Number.isFinite(qty) || qty <= 0) throw new Error('Cantidad inválida.');
+        const pu = getPrecioUnitarioFinal();
+        if (registrarEgreso) {
+          if (pu == null || pu <= 0) throw new Error('Para registrar egreso indique un precio mayor a 0.');
+          if (!gastoCategoriaId) throw new Error('Seleccione categoría de egreso.');
+          if (!gastoCentroCosto) throw new Error('Seleccione centro de costo.');
+        }
         await bodegaService.registrarEntradaInsumo({
           insumoId: itemId,
           cantidad: qty,
           referencia: referencia.trim(),
           almacenId: ubicacionId,
           observaciones: observaciones.trim() || undefined,
-          precioUnitario: getPrecioUnitarioFinal(),
+          precioUnitario: pu,
           fechaVencimiento: fechaVenc || undefined,
           clientTxnId: txnId,
+          registrarGasto: registrarEgreso,
+          gastoCategoriaId: registrarEgreso ? gastoCategoriaId : undefined,
+          gastoCentroCosto: registrarEgreso ? gastoCentroCosto : undefined,
+          gastoDescripcion: registrarEgreso ? descripcionEgresoAuto : undefined,
         });
+        setSuccess(registrarEgreso
+          ? 'Compra y egreso registrados correctamente.'
+          : 'Compra registrada correctamente.');
       } else {
         if (docLineas.length === 0) throw new Error('Agregue al menos una línea al documento.');
         await bodegaService.registrarCompraDocumentada({
@@ -173,10 +204,12 @@ const PurchasesPage: React.FC = () => {
           clientTxnId: txnId,
         });
         setDocLineas([]);
+        setSuccess('Compra registrada correctamente.');
       }
-      setSuccess('Compra registrada correctamente.');
       setCantidad('');
       setReferencia('');
+      setRegistrarEgreso(false);
+      setGastoCategoriaId('');
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar compra'));
     } finally {
@@ -239,6 +272,47 @@ const PurchasesPage: React.FC = () => {
           <FormInput label="Referencia / N° documento" value={referencia} onChange={setReferencia} required />
           <FormInput label="Observaciones (opcional)" value={observaciones} onChange={setObservaciones} />
           {renderInsumoFields()}
+
+          {mode === 'simple' && (
+            <FormSection title="Egreso asociado (opcional)">
+              <label className="form-check">
+                <input
+                  type="checkbox"
+                  checked={registrarEgreso}
+                  onChange={(e) => setRegistrarEgreso(e.target.checked)}
+                />
+                <span>Registrar egreso junto con la compra</span>
+              </label>
+              {registrarEgreso && (
+                <>
+                  {categoriasGasto.length === 0 ? (
+                    <EmptyState
+                      icon="category"
+                      title="Sin categorías de gasto"
+                      hint="Configure categorías en Supabase o recargue catálogos"
+                    />
+                  ) : (
+                    <FormSelect
+                      label="Categoría de egreso"
+                      value={gastoCategoriaId}
+                      onChange={setGastoCategoriaId}
+                      required
+                      options={categoriasGasto.map((c) => ({ value: c.id, label: c.nombre }))}
+                    />
+                  )}
+                  <FormSelect
+                    label="Centro de costo"
+                    value={gastoCentroCosto}
+                    onChange={setGastoCentroCosto}
+                    required
+                    options={CENTROS_COSTO}
+                  />
+                  <p className="qty-base-summary">Descripción: {descripcionEgresoAuto}</p>
+                </>
+              )}
+            </FormSection>
+          )}
+
           {mode === 'doc' && (
             <>
               <div className="form-actions form-actions--flat">
@@ -274,7 +348,13 @@ const PurchasesPage: React.FC = () => {
           )}
           <div className="form-actions">
             <SubmitButton loading={loading}
-              label={mode === 'doc' ? 'Registrar documento' : 'Registrar compra'} icon="input" />
+              label={mode === 'doc'
+                ? 'Registrar documento'
+                : registrarEgreso
+                  ? 'Registrar compra + egreso'
+                  : 'Registrar compra'}
+              icon="input"
+            />
           </div>
         </form>
       </div>

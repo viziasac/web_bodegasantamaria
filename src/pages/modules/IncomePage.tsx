@@ -8,6 +8,10 @@ import {
 import {
   categoriasProductosPv, filtrarProductosPv, etiquetaPresentacionConStock,
 } from '../../utils/presentacionLabels';
+import {
+  clearIngresosCartDraft, loadIngresosCartDraft, saveIngresosCartDraft,
+  type ModoVentaIngresos,
+} from '../../utils/ingresosDraft';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
   PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, FormSection,
@@ -32,6 +36,8 @@ const TIPOS_DOC = [
 
 const IncomePage: React.FC = () => {
   const { ubicaciones, canalesVenta, clientes, ensureCatalogLoaded } = useCatalog();
+  const [modo, setModo] = useState<ModoVentaIngresos>('agrupada');
+  const [draftReady, setDraftReady] = useState(false);
   const [ubicacionId, setUbicacionId] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [clienteId, setClienteId] = useState('');
@@ -48,7 +54,8 @@ const IncomePage: React.FC = () => {
   const [presentacionId, setPresentacionId] = useState('');
   const [modoCantidad, setModoCantidad] = useState<ModoCantidadEmpaque>('botella');
   const [cantidad, setCantidad] = useState('');
-  const [precioBotella, setPrecioBotella] = useState('');
+  /** En agrupada: precio por botella. En rápida: monto total de la línea. */
+  const [precioInput, setPrecioInput] = useState('');
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [ventasDia, setVentasDia] = useState<VentaResumen[]>([]);
@@ -75,7 +82,13 @@ const IncomePage: React.FC = () => {
     })
     : 0;
 
+  const precioNum = parseFloat(precioInput);
+  const precioUnitarioBotella = modo === 'rapida' && botellas > 0 && Number.isFinite(precioNum)
+    ? precioNum / botellas
+    : precioNum;
+
   const cartTotal = cart.reduce((s, l) => s + l.cantidadBotellas * l.precioUnitarioBotella, 0);
+  const esRapida = modo === 'rapida';
 
   const loadProductos = async (almacenId: string) => {
     if (!almacenId) { setProductos([]); return; }
@@ -103,19 +116,65 @@ const IncomePage: React.FC = () => {
     }
   };
 
+  // Hidratar borrador una vez
   useEffect(() => {
+    const draft = loadIngresosCartDraft();
+    if (draft) {
+      setModo(draft.modo);
+      if (draft.ubicacionId) setUbicacionId(draft.ubicacionId);
+      if (draft.fecha) setFecha(draft.fecha);
+      if (draft.clienteId) setClienteId(draft.clienteId);
+      if (draft.clienteTexto) setClienteTexto(draft.clienteTexto);
+      if (draft.nroDoc) setNroDoc(draft.nroDoc);
+      if (draft.tipoDoc) setTipoDoc(draft.tipoDoc);
+      if (draft.moneda) setMoneda(draft.moneda);
+      if (draft.canal) setCanal(draft.canal);
+      if (draft.observaciones) setObservaciones(draft.observaciones);
+      if (draft.cart.length) setCart(draft.cart);
+    }
+    setDraftReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
     if (pvUbicaciones.length > 0 && !ubicacionId) {
       setUbicacionId(pvUbicaciones[0].id);
       loadProductos(pvUbicaciones[0].id);
       loadVentasDia(pvUbicaciones[0].id, fecha);
+    } else if (ubicacionId) {
+      loadProductos(ubicacionId);
+      loadVentasDia(ubicacionId, fecha);
     }
-  }, [pvUbicaciones.length]);
+  }, [draftReady, pvUbicaciones.length]);
 
   useEffect(() => {
     if (canalesVenta.length > 0 && !canalesVenta.some((c) => c.codigo === canal)) {
       setCanal(canalesVenta[0].codigo);
     }
   }, [canalesVenta]);
+
+  // Persistir borrador
+  useEffect(() => {
+    if (!draftReady) return;
+    const ubi = pvUbicaciones.find((u) => u.id === ubicacionId);
+    saveIngresosCartDraft({
+      modo,
+      ubicacionId: ubicacionId || undefined,
+      ubicacionNombre: ubi ? `${ubi.codigo} — ${ubi.nombre}` : undefined,
+      fecha,
+      clienteId: clienteId || undefined,
+      clienteTexto: clienteTexto || undefined,
+      nroDoc: nroDoc || undefined,
+      tipoDoc,
+      moneda,
+      canal,
+      observaciones: observaciones || undefined,
+      cart,
+    });
+  }, [
+    draftReady, modo, ubicacionId, fecha, clienteId, clienteTexto,
+    nroDoc, tipoDoc, moneda, canal, observaciones, cart, pvUbicaciones,
+  ]);
 
   const onUbicacionChange = (id: string) => {
     setUbicacionId(id);
@@ -130,19 +189,37 @@ const IncomePage: React.FC = () => {
     setPresentacionId(v);
     const p = productos.find((x) => x.presentacion_id === v);
     if (p && p.cant_unidades <= 1) setModoCantidad('botella');
-    try {
-      const ref = await getPrecioReferencia(v);
-      if (ref != null) setPrecioBotella(String(ref));
-    } catch { /* optional */ }
+    if (!esRapida) {
+      try {
+        const ref = await getPrecioReferencia(v);
+        if (ref != null) setPrecioInput(String(ref));
+      } catch { /* optional */ }
+    }
+  };
+
+  const onModoChange = (next: ModoVentaIngresos) => {
+    setModo(next);
+    setPresentacionId('');
+    setCantidad('');
+    setPrecioInput('');
+    if (next === 'rapida') setCart([]);
+  };
+
+  const buildObservaciones = () => {
+    const parts: string[] = [];
+    if (clienteTexto.trim()) parts.push(`Cliente: ${clienteTexto.trim()}`);
+    if (nroDoc.trim()) parts.push(`${tipoDoc} ${nroDoc.trim()}`);
+    if (moneda !== 'PEN') parts.push(`Moneda: ${moneda}`);
+    if (observaciones.trim()) parts.push(observaciones.trim());
+    return parts.length ? parts.join(' · ') : undefined;
   };
 
   const addLine = () => {
-    if (!presentacionId || !cantidad || !precioBotella) {
-      setError('Complete producto, cantidad y precio por botella.');
+    if (!presentacionId || !cantidad || !precioInput) {
+      setError('Complete producto, cantidad y precio.');
       return;
     }
-    const precio = parseFloat(precioBotella);
-    if (!presSel || botellas <= 0 || Number.isNaN(precio) || precio <= 0) {
+    if (!presSel || botellas <= 0 || !Number.isFinite(precioUnitarioBotella) || precioUnitarioBotella <= 0) {
       setError('Cantidad o precio inválido.');
       return;
     }
@@ -155,23 +232,27 @@ const IncomePage: React.FC = () => {
       presentacionId,
       nombre: presSel.nombre,
       cantidadBotellas: botellas,
-      precioUnitarioBotella: precio,
+      precioUnitarioBotella,
     }]);
     setCantidad('');
-    setPrecioBotella('');
+    setPrecioInput('');
     setPresentacionId('');
   };
 
-  const buildObservaciones = () => {
-    const parts: string[] = [];
-    if (clienteTexto.trim()) parts.push(`Cliente: ${clienteTexto.trim()}`);
-    if (nroDoc.trim()) parts.push(`${tipoDoc} ${nroDoc.trim()}`);
-    if (moneda !== 'PEN') parts.push(`Moneda: ${moneda}`);
-    if (observaciones.trim()) parts.push(observaciones.trim());
-    return parts.length ? parts.join(' · ') : undefined;
+  const clearFormAfterSale = async () => {
+    setCart([]);
+    setCantidad('');
+    setPrecioInput('');
+    setPresentacionId('');
+    setClienteTexto('');
+    setNroDoc('');
+    setObservaciones('');
+    clearIngresosCartDraft();
+    await loadVentasDia(ubicacionId, fecha);
+    await loadProductos(ubicacionId);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitAgrupada = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ubicacionId) { setError('Seleccione un punto de venta.'); return; }
     if (cart.length === 0) { setError('Agregue al menos una línea al carrito.'); return; }
@@ -193,9 +274,42 @@ const IncomePage: React.FC = () => {
         clientTxnId: newTxnId(),
       });
       setSuccess(`Venta registrada: ${cart.length} línea(s) · ${fmtMoney(cartTotal)}`);
-      setCart([]);
-      await loadVentasDia(ubicacionId, fecha);
-      await loadProductos(ubicacionId);
+      await clearFormAfterSale();
+    } catch (err) {
+      setError(toUserMessage(err, 'Error al registrar venta'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitRapida = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ubicacionId) { setError('Seleccione un punto de venta.'); return; }
+    if (!presSel || botellas <= 0 || !Number.isFinite(precioUnitarioBotella) || precioUnitarioBotella <= 0) {
+      setError('Complete producto, cantidad y monto total válido.');
+      return;
+    }
+    if (presSel.stock_item > 0 && botellas > presSel.stock_item) {
+      setError(`Stock insuficiente: hay ${presSel.stock_item} botellas.`);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await ensureCatalogLoaded();
+      await bodegaService.registrarVentaBotellas({
+        ubicacionId,
+        presentacionId: presSel.presentacion_id,
+        cantidadBotellas: botellas,
+        precioUnitarioBotella,
+        canal,
+        clienteId: clienteId || undefined,
+        observaciones: buildObservaciones(),
+        clientTxnId: newTxnId(),
+      });
+      setSuccess(`Venta rápida: ${presSel.nombre} · ${botellas} bot. · ${fmtMoney(precioNum)}`);
+      await clearFormAfterSale();
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar venta'));
     } finally {
@@ -205,10 +319,32 @@ const IncomePage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Ingresos POS" subtitle="Ventas con carrito multi-línea" />
-      <ModuleHelp message="Use este módulo para ventas con varios productos en un comprobante. Para una venta rápida de un solo ítem, use Despacho." />
+      <PageHeader
+        title="Ingresos POS"
+        subtitle={esRapida ? 'Venta rápida de una línea' : 'Venta agrupada con carrito multi-línea'}
+      />
+      <ModuleHelp message="Venta agrupada: carrito y registro en lote. Venta rápida: una línea al confirmar. El borrador del carrito se guarda en este navegador." />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+
+      <div className="qty-mode-toggle" role="group" aria-label="Modo de venta" style={{ marginBottom: '1rem' }}>
+        <button
+          type="button"
+          className={`qty-mode-btn ${modo === 'agrupada' ? 'active' : ''}`}
+          onClick={() => onModoChange('agrupada')}
+        >
+          <span className="material-icons-round">shopping_cart</span>
+          Venta agrupada
+        </button>
+        <button
+          type="button"
+          className={`qty-mode-btn ${modo === 'rapida' ? 'active' : ''}`}
+          onClick={() => onModoChange('rapida')}
+        >
+          <span className="material-icons-round">bolt</span>
+          Venta rápida
+        </button>
+      </div>
 
       <FormSection title="Cabecera del comprobante">
         <FormRow>
@@ -238,7 +374,7 @@ const IncomePage: React.FC = () => {
         <FormInput label="Observaciones" value={observaciones} onChange={setObservaciones} />
       </FormSection>
 
-      <FormSection title="Agregar línea">
+      <FormSection title={esRapida ? 'Línea de venta' : 'Agregar línea'}>
         {loadingProductos && <p className="kpi-sub">Cargando productos…</p>}
         {categorias.length > 1 && (
           <FormSelect label="Categoría" value={categoria} onChange={(v) => { setCategoria(v); setPresentacionId(''); }}
@@ -256,56 +392,76 @@ const IncomePage: React.FC = () => {
             label={presSel ? etiquetaModoCantidad(modoCantidad, presSel.cant_unidades) : 'Cantidad'}
             type="number" value={cantidad} onChange={setCantidad} min={1}
           />
-          <FormInput label="Precio por botella (S/)" type="number" value={precioBotella}
-            onChange={setPrecioBotella} min={0.01} step="0.01" />
+          <FormInput
+            label={esRapida ? 'Monto total línea (S/)' : 'Precio por botella (S/)'}
+            type="number"
+            value={precioInput}
+            onChange={setPrecioInput}
+            min={0.01}
+            step="0.01"
+          />
         </FormRow>
         {presSel && botellas > 0 && (
           <p className="qty-base-summary">
             {resumenCantidadBase({ cantidadIngresada, modo: modoCantidad, cantUnidadesPresentacion: presSel.cant_unidades })}
+            {esRapida && Number.isFinite(precioUnitarioBotella) && precioUnitarioBotella > 0 && (
+              <> · P. unit. {fmtMoney(precioUnitarioBotella)}/bot.</>
+            )}
           </p>
         )}
-        <div className="form-actions form-actions--flat">
-          <button type="button" className="btn btn-ghost" onClick={addLine}>
-            <span className="material-icons-round">add_shopping_cart</span>
-            Agregar al carrito
-          </button>
-        </div>
-      </FormSection>
-
-      <FormSection title="Carrito">
-        {cart.length === 0 ? (
-          <EmptyState icon="shopping_cart" title="Carrito vacío" hint="Agregue productos arriba" />
-        ) : (
-          <>
-            <DataTable>
-              <thead>
-                <tr><th>Producto</th><th>Cant. (bot.)</th><th>Precio/bot.</th><th>Subtotal</th><th /></tr>
-              </thead>
-              <tbody>
-                {cart.map((l, i) => (
-                  <tr key={`${l.presentacionId}-${i}`}>
-                    <td>{l.nombre}</td>
-                    <td className="cell-num">{l.cantidadBotellas}</td>
-                    <td className="cell-money">{fmtMoney(l.precioUnitarioBotella)}</td>
-                    <td className="cell-money">{fmtMoney(l.cantidadBotellas * l.precioUnitarioBotella)}</td>
-                    <td>
-                      <button type="button" className="btn-icon" onClick={() => setCart(cart.filter((_, j) => j !== i))} title="Quitar">
-                        <span className="material-icons-round">delete</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-            <p className="cart-total">Total: {fmtMoney(cartTotal)}</p>
-            <form onSubmit={handleSubmit}>
-              <div className="form-actions">
-                <SubmitButton loading={loading} label="Registrar venta" icon="point_of_sale" />
-              </div>
-            </form>
-          </>
+        {!esRapida && (
+          <div className="form-actions form-actions--flat">
+            <button type="button" className="btn btn-ghost" onClick={addLine}>
+              <span className="material-icons-round">add_shopping_cart</span>
+              Agregar al carrito
+            </button>
+          </div>
+        )}
+        {esRapida && (
+          <form onSubmit={handleSubmitRapida}>
+            <div className="form-actions">
+              <SubmitButton loading={loading} label="Registrar venta rápida" icon="bolt" />
+            </div>
+          </form>
         )}
       </FormSection>
+
+      {!esRapida && (
+        <FormSection title="Carrito">
+          {cart.length === 0 ? (
+            <EmptyState icon="shopping_cart" title="Carrito vacío" hint="Agregue productos arriba" />
+          ) : (
+            <>
+              <DataTable>
+                <thead>
+                  <tr><th>Producto</th><th>Cant. (bot.)</th><th>Precio/bot.</th><th>Subtotal</th><th /></tr>
+                </thead>
+                <tbody>
+                  {cart.map((l, i) => (
+                    <tr key={`${l.presentacionId}-${i}`}>
+                      <td>{l.nombre}</td>
+                      <td className="cell-num">{l.cantidadBotellas}</td>
+                      <td className="cell-money">{fmtMoney(l.precioUnitarioBotella)}</td>
+                      <td className="cell-money">{fmtMoney(l.cantidadBotellas * l.precioUnitarioBotella)}</td>
+                      <td>
+                        <button type="button" className="btn-icon" onClick={() => setCart(cart.filter((_, j) => j !== i))} title="Quitar">
+                          <span className="material-icons-round">delete</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </DataTable>
+              <p className="cart-total">Total: {fmtMoney(cartTotal)}</p>
+              <form onSubmit={handleSubmitAgrupada}>
+                <div className="form-actions">
+                  <SubmitButton loading={loading} label="Registrar venta" icon="point_of_sale" />
+                </div>
+              </form>
+            </>
+          )}
+        </FormSection>
+      )}
 
       <FormSection title="Ventas del día">
         {loadingVentas ? (

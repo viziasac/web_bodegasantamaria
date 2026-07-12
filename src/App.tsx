@@ -24,6 +24,7 @@ const AuditPage = lazy(() => import('./pages/modules/AuditPage'));
 const DownloadsPage = lazy(() => import('./pages/modules/DownloadsPage'));
 const ReportingPage = lazy(() => import('./pages/modules/ReportingPage'));
 const SettingsPage = lazy(() => import('./pages/modules/SettingsPage'));
+const MaterialsPage = lazy(() => import('./pages/modules/MaterialsPage'));
 
 const ProtectedRoute = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -56,6 +57,9 @@ const AppRoutes = () => (
         <Route path="expenses" element={<Lazy><ExpensesPage /></Lazy>} />
         <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
         <Route path="downloads" element={<Lazy><DownloadsPage /></Lazy>} />
+        <Route element={<ProtectedModuleRoute path="/materials" />}>
+          <Route path="materials" element={<Lazy><MaterialsPage /></Lazy>} />
+        </Route>
         <Route element={<ProtectedModuleRoute path="/reporting" />}>
           <Route path="reporting" element={<Lazy><ReportingPage /></Lazy>} />
         </Route>

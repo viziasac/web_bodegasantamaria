@@ -6,7 +6,7 @@ Panel web operativo para el ERP de Bodega Santa María. Conecta con **Supabase**
 
 - React 19 + TypeScript + Vite 6
 - Supabase Auth + PostgREST + RPC (`fn_*`)
-- Despliegue: **Cloudflare Pages** (SPA estático, `HashRouter`)
+- Despliegue: **Cloudflare Pages** (SPA estático, `BrowserRouter`)
 
 ## Desarrollo local
 
@@ -51,7 +51,7 @@ Salida en `dist/`
 | Node.js version | 20 |
 
 4. Variables de entorno (Production): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-5. Deploy — la SPA usa rutas hash (`/#/inventory`), no requiere reglas SPA extra.
+5. Deploy — la SPA usa `BrowserRouter` (`/inventory`, `/privacidad`). Cloudflare Pages necesita `public/_redirects` (`/* /index.html 200`) para rutas profundas.
 
 Headers de seguridad y caché de assets: `public/_headers`.
 
@@ -59,6 +59,8 @@ Headers de seguridad y caché de assets: `public/_headers`.
 
 | Ruta | Módulo |
 |------|--------|
+| `/login` | Acceso |
+| `/privacidad` | Política de privacidad (pública) |
 | `/` | Dashboard gerencial (selector por mes) |
 | `/inventory` | Inventario |
 | `/inventory/adjust` | Ajuste manual |
@@ -70,7 +72,8 @@ Headers de seguridad y caché de assets: `public/_headers`.
 | `/sales/income` | Ingresos POS |
 | `/transfers` | Transferencias |
 | `/expenses` | Egresos |
-| `/recipes` | Recetas |
+| `/recipes` | Recetas (consulta; admin puede crear/editar) |
+| `/materials` | Materiales / SKUs (solo admin: ver + crear, sin eliminar) |
 | `/audit` | Auditoría / trazabilidad |
 | `/downloads` | Descargas Excel por módulo |
 | `/reporting` | Reportes (solo admin) |
