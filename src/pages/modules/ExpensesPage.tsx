@@ -180,7 +180,10 @@ const ExpensesPage: React.FC = () => {
 
       <FormSection title="Nueva línea de gasto">
         <FormSelect label="Categoría" value={categoriaId} onChange={setCategoriaId} required
-          options={categoriasGasto.map((c) => ({ value: c.id, label: c.nombre }))} />
+          options={[
+            { value: '', label: categoriasGasto.length ? '— Categoría —' : 'Sin categorías (configure en Maestros)' },
+            ...categoriasGasto.map((c) => ({ value: c.id, label: c.nombre })),
+          ]} />
         <FormInput label="Descripción" value={descripcion} onChange={setDescripcion} required />
         <FormInput label="Monto (S/)" type="number" value={monto} onChange={setMonto} min={0.01} step="0.01" />
         <FormSelect label="Proveedor (catálogo)" value={proveedorCatalogId} onChange={onProveedorCatalog}

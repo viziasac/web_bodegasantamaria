@@ -244,13 +244,21 @@ const DispatchPage: React.FC = () => {
             </p>
           )}
           <FormSelect label="Lote (opcional — FIFO automático)" value={loteId} onChange={setLoteId}
-            options={lotes.map((l) => ({ value: l.lote_id as string, label: labelLote(l) }))} />
+            options={[
+              { value: '', label: 'Automático (FIFO)' },
+              ...lotes
+                .filter((l) => l.lote_id != null && String(l.lote_id).length > 0)
+                .map((l) => ({ value: String(l.lote_id), label: labelLote(l) })),
+            ]} />
           <FormSelect label="Canal" value={canal} onChange={setCanal}
             options={canalesVenta.length > 0
               ? canalesVenta.map((c) => ({ value: c.codigo, label: c.nombre }))
               : [{ value: 'DIRECTO', label: 'Directo' }]} />
           <FormSelect label="Cliente (opcional)" value={clienteId} onChange={setClienteId}
-            options={clientes.map((c) => ({ value: c.id, label: c.nombre }))} />
+            options={[
+              { value: '', label: '— Sin cliente —' },
+              ...clientes.map((c) => ({ value: c.id, label: c.nombre })),
+            ]} />
           <FormInput label="Referencia / destino (opcional)" value={referencia} onChange={setReferencia}
             placeholder="Nombre cliente o nota de despacho" />
           <div className="form-actions">

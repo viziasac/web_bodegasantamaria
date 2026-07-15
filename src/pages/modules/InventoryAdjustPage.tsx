@@ -177,10 +177,13 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
             <p className="kpi-sub">No hay ítems activos en el catálogo para esta ubicación.</p>
           )}
           <FormSelect label="Ítem (insumo o presentación PT)" value={selectedKey} onChange={onItemChange} required
-            options={itemsStock.map((o) => ({
-              value: o.key,
-              label: `${o.nombre} · stock ${fmtNum(o.stockTeorico, 2)} ${o.unidadMedida ?? ''}`,
-            }))} />
+            options={[
+              { value: '', label: itemsStock.length ? '— Seleccionar ítem —' : 'Sin ítems en catálogo' },
+              ...itemsStock.map((o) => ({
+                value: o.key,
+                label: `${o.nombre} · stock ${fmtNum(o.stockTeorico, 2)} ${o.unidadMedida ?? ''}`,
+              })),
+            ]} />
           {selected && (
             <p className="qty-base-summary">
               Stock de referencia: {fmtNum(stockReferencia, 2)} {selected.unidadMedida ?? ''}

@@ -174,19 +174,51 @@ interface FormSelectProps {
   options: { value: string; label: string }[];
   required?: boolean;
   disabled?: boolean;
+  /** Solo se usa si ninguna opción trae value "". */
+  placeholder?: string;
 }
 
-export const FormSelect: React.FC<FormSelectProps> = ({ label, value, onChange, options, required, disabled }) => (
-  <label className="form-group">
-    <span className="form-label">{label}</span>
-    <select className="form-input" value={value} onChange={(e) => onChange(e.target.value)} required={required} disabled={disabled}>
-      <option value="">— Seleccionar —</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
-  </label>
-);
+/**
+ * Select controlado seguro:
+ * - deduplica values
+ * - no duplica la opción vacía (evita warning React / dropdown roto)
+ * - si `value` no está en options, muestra el vacío (o la primera opción)
+ */
+export const FormSelect: React.FC<FormSelectProps> = ({
+  label, value, onChange, options, required, disabled, placeholder = '— Seleccionar —',
+}) => {
+  const seen = new Set<string>();
+  const normalized = options.filter((o) => {
+    const key = String(o.value ?? '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map((o) => ({ value: String(o.value ?? ''), label: o.label }));
+
+  const hasEmpty = normalized.some((o) => o.value === '');
+  const valueInList = normalized.some((o) => o.value === value);
+  const safeValue = valueInList
+    ? value
+    : (hasEmpty || !required ? '' : (normalized[0]?.value ?? ''));
+
+  return (
+    <label className="form-group">
+      <span className="form-label">{label}</span>
+      <select
+        className="form-input"
+        value={safeValue}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        disabled={disabled}
+      >
+        {!hasEmpty && <option value="">{placeholder}</option>}
+        {normalized.map((o) => (
+          <option key={o.value === '' ? '__empty__' : o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+};
 
 interface FormInputProps {
   label: string;

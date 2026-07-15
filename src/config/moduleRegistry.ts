@@ -52,6 +52,7 @@ export const ALL_MODULES: ModuleDefExt[] = [
   { id: 'descargas', title: 'Descargas', icon: 'download', subtitle: 'Exportar Excel por mes', path: '/downloads', section: 'consulta' },
   // Admin
   { id: 'materiales_skus', title: 'Materiales / SKUs', icon: 'category', subtitle: 'Catálogo maestro', path: '/materials', section: 'admin', adminOnly: true },
+  { id: 'maestros', title: 'Maestros', icon: 'folder_shared', subtitle: 'Proveedores, clientes, canales…', path: '/maestros', section: 'admin', adminOnly: true },
   { id: 'reportes', title: 'Reportes', icon: 'analytics', subtitle: 'Resumen operativo', path: '/reporting', section: 'admin', adminOnly: true },
   { id: 'configuracion', title: 'Configuración', icon: 'settings', subtitle: 'Cuenta y sesión', path: '/settings', section: 'admin' },
 ];

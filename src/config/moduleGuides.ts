@@ -231,8 +231,23 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     tips: ['Crear ítem/SKU no genera stock; eso entra por compra, granel o producción.'],
     related: [
+      { label: 'Maestros', path: '/maestros' },
       { label: 'Recetas', path: '/recipes' },
       { label: 'Ingreso Insumos', path: '/purchases' },
+    ],
+  },
+  maestros: {
+    id: 'maestros',
+    title: 'Maestros',
+    summary: 'Administra proveedores, clientes, canales de venta, empaques y categorías de gasto.',
+    steps: [
+      'Elija la pestaña del maestro a mantener.',
+      'Cree o edite registros; no hay borrado físico (use Activo = No cuando aplique).',
+      'Recargue catálogos en Configuración si otro usuario editó maestros en paralelo.',
+    ],
+    related: [
+      { label: 'Materiales / SKUs', path: '/materials' },
+      { label: 'Egresos', path: '/expenses' },
     ],
   },
   reportes: {

@@ -30,6 +30,7 @@ interface CartLine {
 }
 
 const TIPOS_DOC = [
+  { value: '', label: '— Sin tipo —' },
   { value: 'BOLETA', label: 'Boleta' },
   { value: 'FACTURA', label: 'Factura' },
   { value: 'TICKET', label: 'Ticket' },
@@ -394,7 +395,10 @@ const IncomePage: React.FC = () => {
         </p>
         <FormRow>
           <FormSelect label="Cliente (catálogo)" value={clienteId} onChange={setClienteId}
-            options={clientes.map((c) => ({ value: c.id, label: c.nombre }))} />
+            options={[
+              { value: '', label: '— Sin cliente —' },
+              ...clientes.map((c) => ({ value: c.id, label: c.nombre })),
+            ]} />
           <FormInput label="Cliente (texto libre)" value={clienteTexto} onChange={setClienteTexto} />
         </FormRow>
         <FormRow>
@@ -420,9 +424,12 @@ const IncomePage: React.FC = () => {
             options={[{ value: '', label: 'Todas' }, ...categorias.map((c) => ({ value: c, label: c }))]} />
         )}
         <FormSelect label="Producto" value={presentacionId} onChange={onPresentacionChange}
-          options={productosFiltrados
-            .filter((p) => p.stock_item > 0)
-            .map((p) => ({ value: p.presentacion_id, label: etiquetaPresentacionConStock(p) }))} />
+          options={[
+            { value: '', label: '— Seleccionar producto —' },
+            ...productosFiltrados
+              .filter((p) => p.stock_item > 0)
+              .map((p) => ({ value: p.presentacion_id, label: etiquetaPresentacionConStock(p) })),
+          ]} />
         {presSel && (
           <CantidadEmpaqueToggle modo={modoCantidad} onChange={setModoCantidad} cantUnidades={presSel.cant_unidades} />
         )}

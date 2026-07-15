@@ -217,9 +217,15 @@ const TransfersPage: React.FC = () => {
         />
         <form onSubmit={(e) => { e.preventDefault(); addLine(); }}>
           <FormSelect label="Origen" value={origenId} onChange={setOrigenId} required
-            options={ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
+            options={[
+              { value: '', label: '— Origen —' },
+              ...ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
+            ]} />
           <FormSelect label="Destino" value={destinoId} onChange={setDestinoId} required
-            options={ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
+            options={[
+              { value: '', label: '— Destino —' },
+              ...ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
+            ]} />
           {tipo === 'pt' ? (
             <>
               <FormSelect label="Presentación" value={presentacionId} onChange={(v) => {
@@ -227,10 +233,13 @@ const TransfersPage: React.FC = () => {
                 const p = presPt.find((x) => x.id === v);
                 if (p && (p.cant_unidades ?? 1) <= 1) setModoCantidad('botella');
               }} required
-                options={presPt.map((p) => ({
-                  value: p.id,
-                  label: `${etiquetaPresentacionCatalogo(p)} · stock ${fmtNum(stockMap[`P:${p.id}`] ?? 0, 0)} bot.`,
-                }))} />
+                options={[
+                  { value: '', label: '— Presentación —' },
+                  ...presPt.map((p) => ({
+                    value: p.id,
+                    label: `${etiquetaPresentacionCatalogo(p)} · stock ${fmtNum(stockMap[`P:${p.id}`] ?? 0, 0)} bot.`,
+                  })),
+                ]} />
               {presSel && (presSel.cant_unidades ?? 1) > 1 && (
                 <CantidadEmpaqueToggle modo={modoCantidad} onChange={setModoCantidad}
                   cantUnidades={presSel.cant_unidades ?? 1} />
@@ -253,10 +262,13 @@ const TransfersPage: React.FC = () => {
           ) : (
             <>
               <FormSelect label="Material / insumo" value={itemId} onChange={setItemId} required
-                options={materiales.map((i) => ({
-                  value: i.id,
-                  label: `${i.codigo} — ${i.nombre} · stock ${fmtNum(stockMap[`I:${i.id}`] ?? 0, 2)} ${i.unidad_medida}`,
-                }))} />
+                options={[
+                  { value: '', label: '— Material —' },
+                  ...materiales.map((i) => ({
+                    value: i.id,
+                    label: `${i.codigo} — ${i.nombre} · stock ${fmtNum(stockMap[`I:${i.id}`] ?? 0, 2)} ${i.unidad_medida}`,
+                  })),
+                ]} />
               <FormInput label="Cantidad" type="number" value={cantidad} onChange={setCantidad} required min={0.001} step="any" />
               {stockDisponible != null && (
                 <p className="qty-base-summary">Disponible origen: {fmtNum(stockDisponible, 2)} {matSel?.unidad_medida ?? ''}</p>

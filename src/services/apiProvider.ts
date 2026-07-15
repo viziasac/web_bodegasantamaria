@@ -291,6 +291,150 @@ export async function getCategoriasGasto(): Promise<GasCategoria[]> {
   return data || [];
 }
 
+// ─── Maestros admin (CRUD directo; sin DELETE físico — soft via activo) ───
+
+export async function upsertProveedor(opts: {
+  id?: string;
+  nombre: string;
+  ruc?: string;
+  activo?: boolean;
+}): Promise<MaProveedor> {
+  const nombre = opts.nombre.trim();
+  if (!nombre) throw new Error('Nombre de proveedor obligatorio.');
+  const payload: Record<string, unknown> = {
+    nombre,
+    ruc: opts.ruc?.trim() || null,
+    activo: opts.activo ?? true,
+  };
+  if (opts.id) {
+    const { data, error } = await supabase.from(Tables.maProveedor).update(payload).eq('id', opts.id).select('*').single();
+    if (error) throw new Error(friendlyDbError(error));
+    return data as MaProveedor;
+  }
+  const { data, error } = await supabase.from(Tables.maProveedor).insert(payload).select('*').single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaProveedor;
+}
+
+export async function upsertCliente(opts: {
+  id?: string;
+  nombre: string;
+  tipo?: string;
+  activo?: boolean;
+}): Promise<MaCliente> {
+  const nombre = opts.nombre.trim();
+  if (!nombre) throw new Error('Nombre de cliente obligatorio.');
+  const payload: Record<string, unknown> = {
+    nombre,
+    tipo: opts.tipo?.trim() || null,
+    activo: opts.activo ?? true,
+  };
+  if (opts.id) {
+    const { data, error } = await supabase.from(Tables.maCliente).update(payload).eq('id', opts.id).select('*').single();
+    if (error) throw new Error(friendlyDbError(error));
+    return data as MaCliente;
+  }
+  const { data, error } = await supabase.from(Tables.maCliente).insert(payload).select('*').single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaCliente;
+}
+
+export async function upsertCanalVenta(opts: {
+  codigo?: string;
+  nombre: string;
+  /** Update by existing codigo */
+  codigoOriginal?: string;
+}): Promise<{ codigo: string; nombre: string }> {
+  const nombre = opts.nombre.trim();
+  const codigo = (opts.codigo ?? opts.codigoOriginal ?? '').trim().toUpperCase();
+  if (!nombre) throw new Error('Nombre de canal obligatorio.');
+  if (!codigo) throw new Error('Código de canal obligatorio.');
+  if (opts.codigoOriginal) {
+    const { data, error } = await supabase
+      .from(Tables.catCanalVenta)
+      .update({ nombre })
+      .eq('codigo', opts.codigoOriginal)
+      .select('*')
+      .single();
+    if (error) throw new Error(friendlyDbError(error));
+    return data as { codigo: string; nombre: string };
+  }
+  const { data, error } = await supabase
+    .from(Tables.catCanalVenta)
+    .insert({ codigo, nombre })
+    .select('*')
+    .single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as { codigo: string; nombre: string };
+}
+
+export async function upsertEmpaqueTipo(opts: {
+  id?: string;
+  nombre: string;
+  factor: number;
+  activo?: boolean;
+}): Promise<MaEmpaqueTipo> {
+  const nombre = opts.nombre.trim();
+  if (!nombre) throw new Error('Nombre de empaque obligatorio.');
+  if (!Number.isFinite(opts.factor) || opts.factor < 1) throw new Error('Factor debe ser ≥ 1.');
+  const payload: Record<string, unknown> = {
+    nombre,
+    factor: Math.round(opts.factor),
+    activo: opts.activo ?? true,
+  };
+  if (opts.id) {
+    const { data, error } = await supabase.from(Tables.maEmpaqueTipo).update(payload).eq('id', opts.id).select('*').single();
+    if (error) throw new Error(friendlyDbError(error));
+    return data as MaEmpaqueTipo;
+  }
+  const { data, error } = await supabase.from(Tables.maEmpaqueTipo).insert(payload).select('*').single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaEmpaqueTipo;
+}
+
+export async function upsertCategoriaGasto(opts: {
+  id?: string;
+  nombre: string;
+  centro_costo?: string;
+  activo?: boolean;
+}): Promise<GasCategoria> {
+  const nombre = opts.nombre.trim();
+  if (!nombre) throw new Error('Nombre de categoría obligatorio.');
+  const payload: Record<string, unknown> = {
+    nombre,
+    centro_costo: opts.centro_costo?.trim() || null,
+    activo: opts.activo ?? true,
+  };
+  if (opts.id) {
+    const { data, error } = await supabase.from(Tables.gasCategoria).update(payload).eq('id', opts.id).select('*').single();
+    if (error) throw new Error(friendlyDbError(error));
+    return data as GasCategoria;
+  }
+  const { data, error } = await supabase.from(Tables.gasCategoria).insert(payload).select('*').single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as GasCategoria;
+}
+
+export async function listMaestrosAdmin() {
+  const [proveedores, clientes, canales, empaques, categorias] = await Promise.all([
+    supabase.from(Tables.maProveedor).select('*').order('nombre'),
+    supabase.from(Tables.maCliente).select('*').order('nombre'),
+    supabase.from(Tables.catCanalVenta).select('*').order('nombre'),
+    supabase.from(Tables.maEmpaqueTipo).select('*').order('factor'),
+    supabase.from(Tables.gasCategoria).select('*').order('nombre'),
+  ]);
+  for (const r of [proveedores, clientes, canales, empaques, categorias]) {
+    if (r.error) throw new Error(friendlyDbError(r.error));
+  }
+  return {
+    proveedores: (proveedores.data || []) as MaProveedor[],
+    clientes: (clientes.data || []) as MaCliente[],
+    canales: (canales.data || []) as { codigo: string; nombre: string }[],
+    empaques: (empaques.data || []) as MaEmpaqueTipo[],
+    categorias: (categorias.data || []) as GasCategoria[],
+  };
+}
+
 export async function getPrecioReferencia(presentacionId: string, segmento = 'GENERAL'): Promise<number | null> {
   const { data } = await supabase
     .from(Tables.venPrecioRef)
