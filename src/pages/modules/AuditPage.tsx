@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getHistorialMovimientos, getTrazabilidadLote } from '../../services/apiProvider';
 import {
   PageHeader, Alert, FormInput, SubmitButton, PageLoader, TabBar, FormRow, FormSelect,
   EmptyState, DataTable, toUserMessage, fmtDate,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { hoyYmd, haceDiasYmd } from '../../utils/fechaLocal';
 
 type AuditTab = 'historial' | 'lote';
 
@@ -23,6 +25,18 @@ const COLUMN_LABELS: Record<string, string> = {
 };
 
 const DISPLAY_COLUMNS = ['fecha', 'tipo_mov', 'item_nombre', 'cantidad', 'ubicacion_nombre', 'nro_lote'];
+
+const TIPOS_MOV = [
+  { value: '', label: 'Todos los tipos' },
+  { value: 'COMPRA', label: 'Compra' },
+  { value: 'VENTA', label: 'Venta' },
+  { value: 'AJUSTE_ING', label: 'Ajuste ingreso' },
+  { value: 'AJUSTE_SAL', label: 'Ajuste salida' },
+  { value: 'PRODUCCION', label: 'Producción' },
+  { value: 'TRANSFERENCIA', label: 'Transferencia' },
+  { value: 'REEMPAQUE', label: 'Reempaque' },
+  { value: 'GRANEL', label: 'Granel' },
+];
 
 function pickColumns(row: Record<string, unknown>): string[] {
   const keys = Object.keys(row);
@@ -44,17 +58,27 @@ function formatCell(key: string, val: unknown): string {
 const AuditPage: React.FC = () => {
   const { ubicaciones, items } = useCatalog();
   const [tab, setTab] = useState<AuditTab>('historial');
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
+  const [fechaDesde, setFechaDesde] = useState(() => haceDiasYmd(7));
+  const [fechaHasta, setFechaHasta] = useState(() => hoyYmd());
   const [itemId, setItemId] = useState('');
+  const [itemSearch, setItemSearch] = useState('');
   const [ubicacionId, setUbicacionId] = useState('');
   const [direccion, setDireccion] = useState('');
+  const [tipoMov, setTipoMov] = useState('');
   const [nroLote, setNroLote] = useState('');
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const itemOptions = items
+    .filter((i) => {
+      if (!itemSearch.trim()) return true;
+      const q = itemSearch.trim().toLowerCase();
+      return i.codigo.toLowerCase().includes(q) || i.nombre.toLowerCase().includes(q);
+    })
+    .slice(0, 200);
 
   const switchTab = (t: AuditTab) => {
     setTab(t);
@@ -70,13 +94,16 @@ const AuditPage: React.FC = () => {
     setError(null);
     setSearched(true);
     try {
-      const data = await getHistorialMovimientos({
+      let data = await getHistorialMovimientos({
         fechaDesde: fechaDesde || undefined,
         fechaHasta: fechaHasta || undefined,
         itemId: itemId || undefined,
         ubicacionId: ubicacionId || undefined,
         direccion: direccion || undefined,
       });
+      if (tipoMov) {
+        data = data.filter((r) => String(r.tipo_mov ?? '').toUpperCase().includes(tipoMov));
+      }
       setRows(data);
       setColumns(data.length > 0 ? pickColumns(data[0]) : []);
     } catch (err) {
@@ -110,7 +137,17 @@ const AuditPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Auditoría" subtitle="Historial de movimientos y trazabilidad de lotes" moduleId="auditoria" />
+      <PageHeader
+        title="Auditoría"
+        subtitle="Historial de movimientos y trazabilidad de lotes"
+        moduleId="auditoria"
+        action={
+          <Link to="/downloads" className="btn btn-ghost">
+            <span className="material-icons-round">download</span>
+            Exportar Excel
+          </Link>
+        }
+      />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
 
       <TabBar
@@ -129,17 +166,26 @@ const AuditPage: React.FC = () => {
               <FormInput label="Desde" type="date" value={fechaDesde} onChange={setFechaDesde} />
               <FormInput label="Hasta" type="date" value={fechaHasta} onChange={setFechaHasta} />
             </FormRow>
+            <FormRow>
+              <FormInput
+                label="Buscar ítem (código/nombre)"
+                value={itemSearch}
+                onChange={setItemSearch}
+                placeholder="Filtrar lista…"
+              />
+              <FormSelect label="Ítem" value={itemId} onChange={setItemId}
+                options={[{ value: '', label: 'Todos' }, ...itemOptions.map((i) => ({ value: i.id, label: `${i.codigo} — ${i.nombre}` }))]} />
+            </FormRow>
             <FormRow actions>
               <FormSelect label="Ubicación" value={ubicacionId} onChange={setUbicacionId}
                 options={[{ value: '', label: 'Todas' }, ...ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))]} />
-              <FormSelect label="Ítem" value={itemId} onChange={setItemId}
-                options={[{ value: '', label: 'Todos' }, ...items.slice(0, 200).map((i) => ({ value: i.id, label: `${i.codigo} — ${i.nombre}` }))]} />
               <FormSelect label="Dirección" value={direccion} onChange={setDireccion}
                 options={[
                   { value: '', label: 'Todas' },
                   { value: 'ENTRADA', label: 'Entradas' },
                   { value: 'SALIDA', label: 'Salidas' },
                 ]} />
+              <FormSelect label="Tipo movimiento" value={tipoMov} onChange={setTipoMov} options={TIPOS_MOV} />
               <SubmitButton loading={loading} label="Buscar" icon="search" />
             </FormRow>
           </form>

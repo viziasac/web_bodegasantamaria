@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { registrarReempaque } from '../../services/apiProvider';
+import React, { useEffect, useState } from 'react';
+import { getStockAgregadoPorUbicacion, registrarReempaque } from '../../services/apiProvider';
 import { newTxnId } from '../../utils/txnId';
-import { PageHeader, Alert, FormSelect, FormInput, SubmitButton, EmptyState, toUserMessage } from '../../components/ui';
+import {
+  PageHeader, Alert, FormSelect, FormInput, SubmitButton, EmptyState, toUserMessage, fmtNum,
+} from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 
 const RepackPage: React.FC = () => {
@@ -12,6 +14,7 @@ const RepackPage: React.FC = () => {
   const [cantOrigen, setCantOrigen] = useState('');
   const [cantDestino, setCantDestino] = useState('');
   const [observacion, setObservacion] = useState('');
+  const [stockByItem, setStockByItem] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -19,12 +22,34 @@ const RepackPage: React.FC = () => {
   const ptItems = items.filter((i) => i.tipo === 'PT');
   const insumoItems = items.filter((i) => i.tipo !== 'PT');
   const reempaqueItems = [...ptItems, ...insumoItems];
-  const itemLabel = (i: { id: string; codigo: string; nombre: string }) => `${i.codigo} — ${i.nombre}`;
+  const itemLabel = (i: { id: string; codigo: string; nombre: string; unidad_medida?: string }) => {
+    const stock = stockByItem[i.id];
+    const stockTxt = stock != null ? ` · stock ${fmtNum(stock, 2)}` : '';
+    return `${i.codigo} — ${i.nombre}${stockTxt}`;
+  };
+  const origenSel = reempaqueItems.find((i) => i.id === origenId);
+  const stockOrigen = origenId ? (stockByItem[origenId] ?? 0) : null;
+  const cantO = parseFloat(cantOrigen);
+
+  useEffect(() => {
+    if (!ubicacionId) { setStockByItem({}); return; }
+    getStockAgregadoPorUbicacion(ubicacionId)
+      .then((rows) => {
+        const map: Record<string, number> = {};
+        rows.forEach((r) => { map[r.item_id] = r.stock_total; });
+        setStockByItem(map);
+      })
+      .catch(() => setStockByItem({}));
+  }, [ubicacionId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (origenId === destinoId) {
       setError('El ítem origen y destino deben ser diferentes.');
+      return;
+    }
+    if (stockOrigen != null && Number.isFinite(cantO) && cantO > stockOrigen) {
+      setError(`Stock insuficiente en origen: disponible ${fmtNum(stockOrigen, 2)}.`);
       return;
     }
     setLoading(true);
@@ -45,6 +70,10 @@ const RepackPage: React.FC = () => {
       setCantOrigen('');
       setCantDestino('');
       setObservacion('');
+      const rows = await getStockAgregadoPorUbicacion(ubicacionId);
+      const map: Record<string, number> = {};
+      rows.forEach((r) => { map[r.item_id] = r.stock_total; });
+      setStockByItem(map);
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar reempaque'));
     } finally {
@@ -63,11 +92,16 @@ const RepackPage: React.FC = () => {
         <div className="card">
           <form onSubmit={handleSubmit}>
             <FormSelect label="Ubicación" value={ubicacionId} onChange={setUbicacionId} required
-              options={ubicaciones.filter(u => !u.es_punto_venta).map(u => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
+              options={ubicaciones.filter((u) => !u.es_punto_venta).map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
             <FormSelect label="Ítem origen" value={origenId} onChange={setOrigenId} required
-              options={reempaqueItems.map(i => ({ value: i.id, label: itemLabel(i) }))} />
+              options={reempaqueItems.map((i) => ({ value: i.id, label: itemLabel(i) }))} />
+            {stockOrigen != null && origenSel && (
+              <p className="qty-base-summary">
+                Disponible origen: {fmtNum(stockOrigen, 2)} {origenSel.unidad_medida}
+              </p>
+            )}
             <FormSelect label="Ítem destino" value={destinoId} onChange={setDestinoId} required
-              options={reempaqueItems.map(i => ({ value: i.id, label: itemLabel(i) }))} />
+              options={reempaqueItems.map((i) => ({ value: i.id, label: itemLabel(i) }))} />
             <FormInput label="Cantidad origen" type="number" value={cantOrigen} onChange={setCantOrigen} required min={0.001} step="any" />
             <FormInput label="Cantidad destino" type="number" value={cantDestino} onChange={setCantDestino} required min={0.001} step="any" />
             <FormInput label="Observación" value={observacion} onChange={setObservacion} />

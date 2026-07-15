@@ -8,6 +8,9 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import type { CompraLinea, MaItem } from '../../types';
+import {
+  clearComprasDocDraft, loadComprasDocDraft, saveComprasDocDraft,
+} from '../../utils/comprasDraft';
 
 interface DocLine extends CompraLinea {
   key: string;
@@ -24,8 +27,9 @@ const CENTROS_COSTO = [
 
 const PurchasesPage: React.FC = () => {
   const { ubicaciones, items, proveedores, categoriasGasto, ensureCatalogLoaded } = useCatalog();
-  const [mode, setMode] = useState<'simple' | 'doc'>('simple');
-  const [ubicacionId, setUbicacionId] = useState('');
+  const draft0 = loadComprasDocDraft();
+  const [mode, setMode] = useState<'simple' | 'doc'>(draft0?.docLineas?.length ? 'doc' : 'simple');
+  const [ubicacionId, setUbicacionId] = useState(draft0?.ubicacionId ?? '');
   const [tipoFilter, setTipoFilter] = useState('');
   const [categoriaFilter, setCategoriaFilter] = useState('');
   const [itemId, setItemId] = useState('');
@@ -34,16 +38,35 @@ const PurchasesPage: React.FC = () => {
   const [precioUnitario, setPrecioUnitario] = useState('');
   const [precioTotal, setPrecioTotal] = useState('');
   const [fechaVenc, setFechaVenc] = useState('');
-  const [referencia, setReferencia] = useState('');
-  const [observaciones, setObservaciones] = useState('');
-  const [proveedorId, setProveedorId] = useState('');
-  const [docLineas, setDocLineas] = useState<DocLine[]>([]);
+  const [referencia, setReferencia] = useState(draft0?.referencia ?? '');
+  const [observaciones, setObservaciones] = useState(draft0?.observaciones ?? '');
+  const [proveedorId, setProveedorId] = useState(draft0?.proveedorId ?? '');
+  const [docLineas, setDocLineas] = useState<DocLine[]>(
+    () => (draft0?.docLineas ?? []) as DocLine[],
+  );
   const [registrarEgreso, setRegistrarEgreso] = useState(false);
   const [gastoCategoriaId, setGastoCategoriaId] = useState('');
   const [gastoCentroCosto, setGastoCentroCosto] = useState('BODEGA');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (mode !== 'doc') return;
+    saveComprasDocDraft({
+      ubicacionId,
+      proveedorId,
+      referencia,
+      observaciones,
+      docLineas: docLineas.map((l) => ({
+        key: l.key,
+        item_id: l.item_id,
+        cantidad: l.cantidad,
+        precio_unitario: l.precio_unitario,
+        itemLabel: l.itemLabel,
+      })),
+    });
+  }, [mode, ubicacionId, proveedorId, referencia, observaciones, docLineas]);
 
   const almacenes = ubicaciones.filter((u) => !u.es_punto_venta);
   const insumos = useMemo(
@@ -204,6 +227,7 @@ const PurchasesPage: React.FC = () => {
           clientTxnId: txnId,
         });
         setDocLineas([]);
+        clearComprasDocDraft();
         setSuccess('Compra registrada correctamente.');
       }
       setCantidad('');

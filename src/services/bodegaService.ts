@@ -44,29 +44,50 @@ export const bodegaService = {
   },
 
   async itemsConStockParaAjuste(ubicacionId: string): Promise<AjusteItemOption[]> {
-    const [stockItems, presRows] = await Promise.all([
+    const [stockItems, presRows, allItems, allPres] = await Promise.all([
       api.getStockAgregadoPorUbicacion(ubicacionId),
       api.getPresentacionesConStock(ubicacionId),
+      api.getItems(),
+      api.getPresentaciones(),
     ]);
     const options: AjusteItemOption[] = [];
+    const seenPres = new Set<string>();
+    const seenItems = new Set<string>();
 
     for (const p of presRows) {
       const stock = p.stock_item as number;
-      if (stock <= 0) continue;
+      seenPres.add(p.presentacion_id as string);
+      seenItems.add(p.item_id as string);
       options.push({
         key: `P:${p.presentacion_id}`,
         id: p.item_id as string,
         presentacionId: p.presentacion_id as string,
-        nombre: `${p.nombre} (${p.item_nombre ?? 'PT'})`,
+        nombre: `${p.nombre} (${p.item_nombre ?? 'PT'})${stock <= 0 ? ' · sin stock' : ''}`,
         isProducto: true,
         stockTeorico: stock,
         unidadMedida: 'bot.',
       });
     }
 
+    // PT presentations with zero stock (conteo inicial / sembrar)
+    for (const p of allPres) {
+      if (p.ma_item?.tipo !== 'PT' || !p.activo) continue;
+      if (seenPres.has(p.id)) continue;
+      seenPres.add(p.id);
+      options.push({
+        key: `P:${p.id}`,
+        id: p.item_id,
+        presentacionId: p.id,
+        nombre: `${p.nombre} (${p.ma_item?.nombre ?? 'PT'}) · sin stock`,
+        isProducto: true,
+        stockTeorico: 0,
+        unidadMedida: 'bot.',
+      });
+    }
+
     for (const row of stockItems) {
       if (row.tipo === 'PT') continue;
-      if (row.stock_total <= 0) continue;
+      seenItems.add(row.item_id);
       options.push({
         key: `I:${row.item_id}`,
         id: row.item_id,
@@ -74,6 +95,19 @@ export const bodegaService = {
         isProducto: false,
         stockTeorico: row.stock_total,
         unidadMedida: row.unidad_medida,
+      });
+    }
+
+    for (const it of allItems) {
+      if (it.tipo === 'PT' || !it.activo) continue;
+      if (seenItems.has(it.id)) continue;
+      options.push({
+        key: `I:${it.id}`,
+        id: it.id,
+        nombre: `${it.codigo} — ${it.nombre} · sin stock`,
+        isProducto: false,
+        stockTeorico: 0,
+        unidadMedida: it.unidad_medida,
       });
     }
 

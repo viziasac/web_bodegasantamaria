@@ -11,6 +11,16 @@ import type { AjusteItemOption } from '../../types';
 
 const LOTE_AUTO = '__auto__';
 
+const MOTIVO_PRESETS = [
+  'Conteo físico',
+  'MERMA: rotura',
+  'MERMA: evaporación / merma natural',
+  'MERMA: caducidad',
+  'MERMA: muestreo / calidad',
+  'Corrección de registro',
+  'Otro (editar texto)',
+];
+
 interface Props {
   embedded?: boolean;
 }
@@ -22,7 +32,8 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const [selectedKey, setSelectedKey] = useState('');
   const [loteId, setLoteId] = useState(LOTE_AUTO);
   const [conteo, setConteo] = useState('');
-  const [motivo, setMotivo] = useState('Conteo físico');
+  const [motivoPreset, setMotivoPreset] = useState(MOTIVO_PRESETS[0]);
+  const [motivo, setMotivo] = useState(MOTIVO_PRESETS[0]);
   const [lotes, setLotes] = useState<Record<string, unknown>[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,6 +43,11 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const almacenes = ubicaciones.filter((u) => !u.es_punto_venta);
   const selected = itemsStock.find((o) => o.key === selectedKey);
   const conteoNum = parseFloat(conteo);
+
+  const onMotivoPreset = (v: string) => {
+    setMotivoPreset(v);
+    if (v !== 'Otro (editar texto)') setMotivo(v);
+  };
 
   const stockReferencia = useMemo(() => {
     if (loteId !== LOTE_AUTO) {
@@ -58,7 +74,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
       setItemsStock(await bodegaService.itemsConStockParaAjuste(ubi));
     } catch (err) {
       setItemsStock([]);
-      setError(toUserMessage(err, 'Error cargando ítems con stock'));
+      setError(toUserMessage(err, 'Error cargando ítems para ajuste'));
     } finally {
       setLoadingItems(false);
     }
@@ -110,7 +126,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected) {
-      setError('Seleccione un ítem con stock.');
+      setError('Seleccione un ítem.');
       return;
     }
     if (!Number.isFinite(conteoNum)) {
@@ -156,7 +172,10 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
         <form onSubmit={handleSubmit}>
           <FormSelect label="Ubicación" value={ubicacionId} onChange={onUbicacionChange} required
             options={almacenes.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
-          {loadingItems && <p className="kpi-sub">Cargando ítems con stock…</p>}
+          {loadingItems && <p className="kpi-sub">Cargando ítems (incluye sin stock)…</p>}
+          {!loadingItems && itemsStock.length === 0 && (
+            <p className="kpi-sub">No hay ítems activos en el catálogo para esta ubicación.</p>
+          )}
           <FormSelect label="Ítem (insumo o presentación PT)" value={selectedKey} onChange={onItemChange} required
             options={itemsStock.map((o) => ({
               value: o.key,
@@ -166,6 +185,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
             <p className="qty-base-summary">
               Stock de referencia: {fmtNum(stockReferencia, 2)} {selected.unidadMedida ?? ''}
               {loteId !== LOTE_AUTO ? ' (lote seleccionado)' : selected.isProducto ? ' (botellas)' : ''}
+              {selected.stockTeorico === 0 ? ' — puede sembrar stock con conteo > 0' : ''}
             </p>
           )}
           <FormSelect label="Lote" value={loteId} onChange={onLoteChange}
@@ -182,7 +202,14 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
               Delta: {delta > 0 ? '+' : ''}{fmtNum(delta, 2)} {selected?.unidadMedida ?? ''}
             </p>
           )}
-          <FormInput label="Motivo" value={motivo} onChange={setMotivo} required />
+          <FormSelect
+            label="Motivo (preset)"
+            value={motivoPreset}
+            onChange={onMotivoPreset}
+            options={MOTIVO_PRESETS.map((m) => ({ value: m, label: m }))}
+            required
+          />
+          <FormInput label="Motivo (texto en ledger)" value={motivo} onChange={setMotivo} required />
           <div className="form-actions">
             <SubmitButton loading={loading} label="Registrar ajuste" icon="tune" />
           </div>

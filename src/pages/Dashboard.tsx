@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   getDashboardKPIs, getMovimientos, getStockPorUbicacion, getMovimientosTrendDetalle,
   getVentasPeriodo, getOrdenesPeriodo, getDashboardEjecutivoData,
@@ -24,11 +25,22 @@ import type {
 
 type DashTab = 'ejecutivo' | 'financiero' | 'operaciones' | 'ventas' | 'produccion' | 'stock';
 
+const VALID_TABS: DashTab[] = ['ejecutivo', 'financiero', 'operaciones', 'ventas', 'produccion', 'stock'];
+
+function tabFromParam(raw: string | null): DashTab {
+  return VALID_TABS.includes(raw as DashTab) ? (raw as DashTab) : 'ejecutivo';
+}
+
 const Dashboard: React.FC = () => {
   const { ubicaciones, ensureCatalogLoaded } = useCatalog();
   const inv = useInventarioData(ensureCatalogLoaded);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mesKey, setMesKey] = useState(mesActualKey());
-  const [tab, setTab] = useState<DashTab>('ejecutivo');
+  const tab = tabFromParam(searchParams.get('tab'));
+  const setTab = (id: DashTab) => {
+    setSearchParams(id === 'ejecutivo' ? {} : { tab: id }, { replace: true });
+  };
+
   const [kpis, setKpis] = useState<DashboardKPIs | null>(null);
   const [ejecutivo, setEjecutivo] = useState<DashboardEjecutivoData | null>(null);
   const [recentMoves, setRecentMoves] = useState<InvMovimiento[]>([]);
@@ -38,47 +50,95 @@ const Dashboard: React.FC = () => {
   const [gastos, setGastos] = useState<GasGasto[]>([]);
   const [movimientosPeriodo, setMovimientosPeriodo] = useState<InvMovimiento[]>([]);
   const [ordenes, setOrdenes] = useState<PrdOrden[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingCore, setLoadingCore] = useState(true);
+  const [loadingTab, setLoadingTab] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadedRef = useRef<Set<string>>(new Set());
 
   const rango = rangoMes(mesKey);
 
   useEffect(() => {
+    let cancelled = false;
+    loadedRef.current = new Set();
     const load = async () => {
-      setLoading(true);
+      setLoadingCore(true);
+      setEjecutivo(null);
       try {
         setLoadError(null);
         const { desde, hasta } = rangoMes(mesKey);
-        const [k, moves, ubi, trend, v, g, movs, ord, ej] = await Promise.all([
+        const [k, moves, ubi, trend, ej] = await Promise.all([
           getDashboardKPIs(desde, hasta),
           getMovimientos({ limit: 12 }),
           getStockPorUbicacion(),
           getMovimientosTrendDetalle(14, { desde, hasta }),
-          getVentasPeriodo(desde, hasta),
-          getGastosPeriodo(desde, hasta),
-          getMovimientosPeriodo(desde, hasta, { limit: 100 }),
-          getOrdenesPeriodo(desde, hasta),
           getDashboardEjecutivoData(desde, hasta),
         ]);
+        if (cancelled) return;
         setKpis(k);
         setRecentMoves(moves);
         setStockUbi(ubi);
         setTrendData(trend);
-        setVentas(v);
-        setGastos(g);
-        setMovimientosPeriodo(movs);
-        setOrdenes(ord);
         setEjecutivo(ej);
+        loadedRef.current.add('ejecutivo');
+        loadedRef.current.add('operaciones');
       } catch (err) {
-        setLoadError(toUserMessage(err, 'Error cargando el panel'));
+        if (!cancelled) setLoadError(toUserMessage(err, 'Error cargando el panel'));
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoadingCore(false);
       }
     };
     load();
+    return () => { cancelled = true; };
   }, [mesKey]);
 
-  if (loading && !ejecutivo) return <PageLoader />;
+  useEffect(() => {
+    if (loadingCore) return;
+    if (tab === 'stock' || tab === 'ejecutivo' || tab === 'operaciones') return;
+    if (loadedRef.current.has(tab)) return;
+
+    let cancelled = false;
+    const load = async () => {
+      setLoadingTab(true);
+      try {
+        const { desde, hasta } = rangoMes(mesKey);
+        if (tab === 'financiero') {
+          const [v, g, movs] = await Promise.all([
+            getVentasPeriodo(desde, hasta),
+            getGastosPeriodo(desde, hasta),
+            getMovimientosPeriodo(desde, hasta, { limit: 100 }),
+          ]);
+          if (cancelled) return;
+          setVentas(v);
+          setGastos(g);
+          setMovimientosPeriodo(movs);
+          loadedRef.current.add('financiero');
+          loadedRef.current.add('ventas');
+        } else if (tab === 'ventas') {
+          const v = await getVentasPeriodo(desde, hasta);
+          if (cancelled) return;
+          setVentas(v);
+          loadedRef.current.add('ventas');
+        } else if (tab === 'produccion') {
+          const ord = await getOrdenesPeriodo(desde, hasta);
+          if (cancelled) return;
+          setOrdenes(ord);
+          loadedRef.current.add('produccion');
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(toUserMessage(err, 'Error cargando pestaña'));
+      } finally {
+        if (!cancelled) setLoadingTab(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [tab, loadingCore, mesKey]);
+
+  if (loadingCore && !ejecutivo) return <PageLoader />;
+
+  const showFinanciero = tab === 'financiero' && !loadingTab && !loadingCore;
+  const showVentas = tab === 'ventas' && !loadingTab && !loadingCore;
+  const showProduccion = tab === 'produccion' && !loadingTab && !loadingCore && !!ejecutivo;
 
   return (
     <div className="animate-in dash-page">
@@ -88,6 +148,10 @@ const Dashboard: React.FC = () => {
         moduleId="dashboard"
         action={
           <>
+            <Link to="/downloads" className="btn btn-ghost">
+              <span className="material-icons-round">download</span>
+              Exportar periodo
+            </Link>
             <MonthSelector value={mesKey} onChange={setMesKey} label="Mes" />
             <div className="date-badge">
               <span className="material-icons-round" style={{ fontSize: '16px' }}>calendar_today</span>
@@ -112,9 +176,9 @@ const Dashboard: React.FC = () => {
         ]}
       />
 
-      {loading && <PageLoader />}
+      {(loadingCore || loadingTab) && <PageLoader />}
 
-      {!loading && ejecutivo && tab === 'ejecutivo' && (
+      {!loadingCore && !loadingTab && ejecutivo && tab === 'ejecutivo' && (
         <DashExecutiveTab
           kpis={kpis}
           ej={ejecutivo}
@@ -124,7 +188,7 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      {!loading && tab === 'financiero' && (
+      {showFinanciero && (
         <DashFinancieroTab
           ventas={ventas}
           gastos={gastos}
@@ -133,7 +197,7 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      {!loading && tab === 'operaciones' && (
+      {!loadingCore && !loadingTab && tab === 'operaciones' && (
         <DashOperacionesTab
           kpis={kpis}
           recentMoves={recentMoves}
@@ -143,12 +207,12 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      {!loading && tab === 'ventas' && (
+      {showVentas && (
         <DashVentasTab kpis={kpis} ventas={ventas} periodoLabel={rango.label} />
       )}
 
-      {!loading && ejecutivo && tab === 'produccion' && (
-        <DashProduccionTab ordenes={ordenes} ej={ejecutivo} periodoLabel={rango.label} />
+      {showProduccion && (
+        <DashProduccionTab ordenes={ordenes} ej={ejecutivo!} periodoLabel={rango.label} />
       )}
 
       {tab === 'stock' && (

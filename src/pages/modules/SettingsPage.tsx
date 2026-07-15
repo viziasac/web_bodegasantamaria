@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCatalog, clearCatalogCache } from '../../context/CatalogContext';
-import { PageHeader, Alert } from '../../components/ui';
+import { PageHeader, Alert, FormSelect } from '../../components/ui';
+import { loadWebPrefs, saveWebPrefs } from '../../utils/webPrefs';
+import { supabase } from '../../services/supabaseClient';
+
+const WEB_VERSION = '1.0.0';
 
 const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
-  const { refreshCatalog, loaded, loading, error } = useCatalog();
+  const { ubicaciones, canalesVenta, refreshCatalog, loaded, loading, error } = useCatalog();
+  const prefs0 = loadWebPrefs();
   const [msg, setMsg] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [defaultPvId, setDefaultPvId] = useState(prefs0.defaultPvId ?? '');
+  const [defaultCanal, setDefaultCanal] = useState(prefs0.defaultCanal ?? '');
+  const [resetSending, setResetSending] = useState(false);
+
+  const pvUbicaciones = ubicaciones.filter((u) => u.es_punto_venta);
 
   const handleClearCache = () => {
     if (!confirm('¿Eliminar la caché local de catálogos?')) return;
@@ -25,9 +35,33 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const savePrefs = () => {
+    saveWebPrefs({
+      defaultPvId: defaultPvId || undefined,
+      defaultCanal: defaultCanal || undefined,
+    });
+    setMsg('Preferencias locales guardadas (PV / canal por defecto).');
+  };
+
+  const sendPasswordReset = async () => {
+    if (!user?.email) return;
+    setResetSending(true);
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      if (err) throw err;
+      setMsg(`Se envió un enlace de restablecimiento a ${user.email}.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'No se pudo enviar el correo de restablecimiento.');
+    } finally {
+      setResetSending(false);
+    }
+  };
+
   return (
     <div className="animate-in">
-      <PageHeader title="Configuración" subtitle="Cuenta, sesión y caché local" moduleId="configuracion" />
+      <PageHeader title="Configuración" subtitle="Cuenta, preferencias y caché local" moduleId="configuracion" />
       {msg && <Alert type="success" message={msg} onClose={() => setMsg(null)} />}
       {error && <Alert type="error" message={error} />}
 
@@ -39,11 +73,47 @@ const SettingsPage: React.FC = () => {
         <p><strong>Acceso web:</strong> {user?.accesoWeb === false ? 'No' : 'Sí'}</p>
         <p><strong>Acceso ventas:</strong> {user?.accesoVentas === false ? 'No' : 'Sí'}</p>
         <p><strong>ID:</strong> <code className="code-tag">{user?.id}</code></p>
+        <div className="form-actions form-actions--flat">
+          <button type="button" className="btn btn-ghost" disabled={resetSending} onClick={sendPasswordReset}>
+            <span className="material-icons-round">lock_reset</span>
+            {resetSending ? 'Enviando…' : 'Enviar restablecer contraseña'}
+          </button>
+        </div>
+      </div>
+
+      <div className="card card-section">
+        <h3 className="card-section-title">Preferencias locales</h3>
+        <p className="kpi-sub">Se guardan solo en este navegador (útil para abrir módulos de venta más rápido).</p>
+        <FormSelect
+          label="PV por defecto"
+          value={defaultPvId}
+          onChange={setDefaultPvId}
+          options={[
+            { value: '', label: '— Sin preferencia —' },
+            ...pvUbicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
+          ]}
+        />
+        <FormSelect
+          label="Canal por defecto"
+          value={defaultCanal}
+          onChange={setDefaultCanal}
+          options={[
+            { value: '', label: '— Sin preferencia —' },
+            ...canalesVenta.map((c) => ({ value: c.codigo, label: c.nombre })),
+          ]}
+        />
+        <div className="form-actions form-actions--flat">
+          <button type="button" className="btn btn-primary" onClick={savePrefs}>
+            <span className="material-icons-round">save</span>
+            Guardar preferencias
+          </button>
+        </div>
       </div>
 
       <div className="card card-section">
         <h3 className="card-section-title">Sistema</h3>
         <p><strong>Backend:</strong> Supabase (Bodega Santa María ERP)</p>
+        <p><strong>Versión web:</strong> {WEB_VERSION}</p>
         <p><strong>Catálogos:</strong> {loaded ? 'Cargados' : 'Pendientes'} {(loading || refreshing) && '(actualizando…)'}</p>
         <div className="form-actions form-actions--flat">
           <button type="button" className="btn btn-primary" onClick={handleRefresh} disabled={refreshing || loading}>

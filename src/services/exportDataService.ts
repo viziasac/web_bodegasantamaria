@@ -38,7 +38,7 @@ export const EXPORT_MODULOS: ExportModuloMeta[] = [
   { id: 'compras', title: 'Compras / Ingresos insumos', subtitle: 'Entradas por compra', icon: 'shopping_cart' },
   { id: 'ajustes', title: 'Ajustes inventario', subtitle: 'Conteos y correcciones', icon: 'tune' },
   { id: 'movimientos', title: 'Movimientos inventario', subtitle: 'Historial del mes', icon: 'history' },
-  { id: 'inventario', title: 'Inventario actual', subtitle: 'Snapshot de stock (referencia)', icon: 'inventory_2' },
+  { id: 'inventario', title: 'Inventario actual (hoy)', subtitle: 'Snapshot de stock ahora — no filtra por mes', icon: 'inventory_2' },
 ];
 
 function fmtFecha(v: string | null | undefined): string {
@@ -158,8 +158,14 @@ async function buildResumenSheet(rango: RangoMes): Promise<ExcelSheet> {
 }
 
 /** Consulta y arma una sola hoja Excel — solo el módulo elegido */
-export async function buildExportSheet(mesKey: string, modulo: ExportModuloId): Promise<ExcelSheet> {
-  const rango = rangoMes(mesKey);
+export async function buildExportSheet(
+  mesKey: string,
+  modulo: ExportModuloId,
+  rangoOverride?: { desde: string; hasta: string; label?: string },
+): Promise<ExcelSheet> {
+  const rango = rangoOverride
+    ? { ...rangoMes(mesKey), desde: rangoOverride.desde, hasta: rangoOverride.hasta, label: rangoOverride.label ?? `${rangoOverride.desde} → ${rangoOverride.hasta}` }
+    : rangoMes(mesKey);
   const { desde, hasta } = rango;
 
   switch (modulo) {

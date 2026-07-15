@@ -20,6 +20,7 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { hoyYmd } from '../../utils/fechaLocal';
+import { loadWebPrefs } from '../../utils/webPrefs';
 
 interface CartLine {
   presentacionId: string;
@@ -139,9 +140,13 @@ const IncomePage: React.FC = () => {
   useEffect(() => {
     if (!draftReady) return;
     if (pvUbicaciones.length > 0 && !ubicacionId) {
-      setUbicacionId(pvUbicaciones[0].id);
-      loadProductos(pvUbicaciones[0].id);
-      loadVentasDia(pvUbicaciones[0].id, fecha);
+      const prefs = loadWebPrefs();
+      const preferred = prefs.defaultPvId && pvUbicaciones.some((u) => u.id === prefs.defaultPvId)
+        ? prefs.defaultPvId
+        : pvUbicaciones[0].id;
+      setUbicacionId(preferred);
+      loadProductos(preferred);
+      loadVentasDia(preferred, fecha);
     } else if (ubicacionId) {
       loadProductos(ubicacionId);
       loadVentasDia(ubicacionId, fecha);
@@ -149,8 +154,13 @@ const IncomePage: React.FC = () => {
   }, [draftReady, pvUbicaciones.length]);
 
   useEffect(() => {
-    if (canalesVenta.length > 0 && !canalesVenta.some((c) => c.codigo === canal)) {
-      setCanal(canalesVenta[0].codigo);
+    if (canalesVenta.length === 0) return;
+    if (!canalesVenta.some((c) => c.codigo === canal)) {
+      const prefs = loadWebPrefs();
+      const preferred = prefs.defaultCanal && canalesVenta.some((c) => c.codigo === prefs.defaultCanal)
+        ? prefs.defaultCanal
+        : canalesVenta[0].codigo;
+      setCanal(preferred);
     }
   }, [canalesVenta]);
 
@@ -322,7 +332,9 @@ const IncomePage: React.FC = () => {
     <div className="animate-in">
       <PageHeader
         title="Ingresos POS"
-        subtitle={esRapida ? 'Venta rápida de una línea' : 'Venta agrupada con carrito multi-línea'}
+        subtitle={esRapida
+          ? 'POS — una línea (carrito multi-línea en modo agrupada)'
+          : 'POS — carrito multi-línea por comprobante'}
         moduleId="ingresos"
         action={
           <Link to="/sales/modificaciones" className="btn btn-ghost">
@@ -330,6 +342,10 @@ const IncomePage: React.FC = () => {
             Corregir ventas
           </Link>
         }
+      />
+      <Alert
+        type="info"
+        message="Las ventas nuevas siempre se registran con la fecha de hoy (America/Lima). El selector de fecha solo consulta el historial del día. Para mostrador/delivery de una línea rápida use Despacho."
       />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}

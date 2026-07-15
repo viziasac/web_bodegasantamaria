@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { getTransferencias, confirmarRecepcionTransferencia } from '../../services/apiProvider';
+import {
+  getTransferencias, confirmarRecepcionTransferencia,
+  getStockAgregadoPorUbicacion, getPresentacionesConStock,
+} from '../../services/apiProvider';
 import { bodegaService } from '../../services/bodegaService';
 import { newTxnId } from '../../utils/txnId';
 import {
@@ -8,14 +11,24 @@ import {
 import { etiquetaPresentacionCatalogo } from '../../utils/presentacionLabels';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
-  PageHeader, PageLoader, Alert, FormSelect, FormInput, SubmitButton, TabBar,
-  DataTable, EmptyState, toUserMessage, fmtDate,
+  PageHeader, PageLoader, Alert, FormSelect, FormInput, TabBar,
+  DataTable, EmptyState, toUserMessage, fmtDate, fmtNum,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import type { TrnTransferencia } from '../../types';
 
 type TipoTransfer = 'pt' | 'material';
 type FiltroHist = 'EN_TRANSITO' | 'TODAS';
+
+interface CartLine {
+  id: string;
+  tipo: TipoTransfer;
+  presentacionId?: string;
+  itemId?: string;
+  label: string;
+  cantidad: number;
+  unidad: string;
+}
 
 const TransfersPage: React.FC = () => {
   const { ubicaciones, presentaciones, items, ensureCatalogLoaded } = useCatalog();
@@ -28,6 +41,8 @@ const TransfersPage: React.FC = () => {
   const [itemId, setItemId] = useState('');
   const [modoCantidad, setModoCantidad] = useState<ModoCantidadEmpaque>('botella');
   const [cantidad, setCantidad] = useState('');
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [receivingId, setReceivingId] = useState<string | null>(null);
@@ -43,6 +58,7 @@ const TransfersPage: React.FC = () => {
     () => items.filter((i) => i.tipo !== 'PT'),
     [items],
   );
+  const matSel = materiales.find((i) => i.id === itemId);
 
   const cantIngresada = parseFloat(cantidad);
   const cantFinal = tipo === 'pt' && presSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
@@ -52,6 +68,12 @@ const TransfersPage: React.FC = () => {
       cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
     })
     : cantIngresada;
+
+  const stockDisponible = tipo === 'pt' && presentacionId
+    ? (stockMap[`P:${presentacionId}`] ?? 0)
+    : tipo === 'material' && itemId
+      ? (stockMap[`I:${itemId}`] ?? 0)
+      : null;
 
   const load = async () => {
     setLoading(true);
@@ -66,13 +88,78 @@ const TransfersPage: React.FC = () => {
     }
   };
 
+  const loadStockOrigen = async (ubi: string) => {
+    if (!ubi) { setStockMap({}); return; }
+    try {
+      const [agg, pres] = await Promise.all([
+        getStockAgregadoPorUbicacion(ubi),
+        getPresentacionesConStock(ubi),
+      ]);
+      const map: Record<string, number> = {};
+      for (const p of pres) map[`P:${p.presentacion_id}`] = Number(p.stock_item) || 0;
+      for (const r of agg) {
+        if (r.tipo !== 'PT') map[`I:${r.item_id}`] = r.stock_total;
+      }
+      setStockMap(map);
+    } catch {
+      setStockMap({});
+    }
+  };
+
   useEffect(() => { load(); }, [filtroHist]);
+  useEffect(() => { if (origenId) loadStockOrigen(origenId); }, [origenId]);
+
+  const addLine = () => {
+    if (!Number.isFinite(cantFinal) || cantFinal <= 0) {
+      setError('Cantidad inválida.');
+      return;
+    }
+    if (stockDisponible != null && cantFinal > stockDisponible) {
+      setError(`Stock insuficiente en origen: disponible ${fmtNum(stockDisponible, 2)}.`);
+      return;
+    }
+    if (tipo === 'pt') {
+      if (!presSel) { setError('Seleccione presentación.'); return; }
+      if (cart.some((l) => l.presentacionId === presentacionId)) {
+        setError('Esa presentación ya está en el carrito.');
+        return;
+      }
+      setCart([...cart, {
+        id: `L-${Date.now()}`,
+        tipo: 'pt',
+        presentacionId,
+        label: etiquetaPresentacionCatalogo(presSel),
+        cantidad: cantFinal,
+        unidad: 'bot.',
+      }]);
+    } else {
+      if (!matSel) { setError('Seleccione material.'); return; }
+      if (cart.some((l) => l.itemId === itemId)) {
+        setError('Ese material ya está en el carrito.');
+        return;
+      }
+      setCart([...cart, {
+        id: `L-${Date.now()}`,
+        tipo: 'material',
+        itemId,
+        label: `${matSel.codigo} — ${matSel.nombre}`,
+        cantidad: cantFinal,
+        unidad: matSel.unidad_medida,
+      }]);
+    }
+    setError(null);
+    setCantidad('');
+  };
 
   const crear = async (e: React.FormEvent) => {
     e.preventDefault();
     if (origenId === destinoId) { setError('Origen y destino deben ser diferentes.'); return; }
-    if (!Number.isFinite(cantFinal) || cantFinal <= 0) {
-      setError('Cantidad inválida.');
+    if (cart.length === 0) { setError('Agregue al menos una línea al carrito.'); return; }
+    // XOR: all lines same family (all PT or all material) — API XOR per line but batch mixes might fail
+    const hasPt = cart.some((l) => l.tipo === 'pt');
+    const hasMat = cart.some((l) => l.tipo === 'material');
+    if (hasPt && hasMat) {
+      setError('No mezcle PT y materiales en la misma transferencia. Envíe por separado.');
       return;
     }
     setSubmitting(true);
@@ -80,15 +167,16 @@ const TransfersPage: React.FC = () => {
     setSuccess(null);
     try {
       await ensureCatalogLoaded();
-      const lineas = tipo === 'pt'
-        ? [{ presentacion_id: presentacionId, cantidad: cantFinal }]
-        : [{ item_id: itemId, cantidad: cantFinal }];
+      const lineas = cart.map((l) => (l.tipo === 'pt'
+        ? { presentacion_id: l.presentacionId!, cantidad: l.cantidad }
+        : { item_id: l.itemId!, cantidad: l.cantidad }));
       await bodegaService.crearTransferenciaConFifo({
         origenId, destinoId, lineas, clientTxnId: newTxnId(),
       });
-      setSuccess('Transferencia creada (EN_TRANSITO).');
+      setSuccess(`Transferencia creada (${cart.length} línea(s), EN_TRANSITO).`);
+      setCart([]);
       setCantidad('');
-      await load();
+      await Promise.all([load(), loadStockOrigen(origenId)]);
     } catch (err) {
       setError(toUserMessage(err, 'Error al crear transferencia'));
     } finally {
@@ -113,7 +201,7 @@ const TransfersPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Transferencias" subtitle="Movimiento entre ubicaciones" moduleId="transferencias" />
+      <PageHeader title="Transferencias" subtitle="Movimiento entre ubicaciones — carrito multi-línea" moduleId="transferencias" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
@@ -127,7 +215,7 @@ const TransfersPage: React.FC = () => {
             { id: 'material', label: 'Material / insumo', icon: 'category' },
           ]}
         />
-        <form onSubmit={crear}>
+        <form onSubmit={(e) => { e.preventDefault(); addLine(); }}>
           <FormSelect label="Origen" value={origenId} onChange={setOrigenId} required
             options={ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
           <FormSelect label="Destino" value={destinoId} onChange={setDestinoId} required
@@ -139,7 +227,10 @@ const TransfersPage: React.FC = () => {
                 const p = presPt.find((x) => x.id === v);
                 if (p && (p.cant_unidades ?? 1) <= 1) setModoCantidad('botella');
               }} required
-                options={presPt.map((p) => ({ value: p.id, label: etiquetaPresentacionCatalogo(p) }))} />
+                options={presPt.map((p) => ({
+                  value: p.id,
+                  label: `${etiquetaPresentacionCatalogo(p)} · stock ${fmtNum(stockMap[`P:${p.id}`] ?? 0, 0)} bot.`,
+                }))} />
               {presSel && (presSel.cant_unidades ?? 1) > 1 && (
                 <CantidadEmpaqueToggle modo={modoCantidad} onChange={setModoCantidad}
                   cantUnidades={presSel.cant_unidades ?? 1} />
@@ -155,20 +246,60 @@ const TransfersPage: React.FC = () => {
                     modo: modoCantidad,
                     cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
                   })}
+                  {stockDisponible != null && ` · Disponible origen: ${fmtNum(stockDisponible, 0)} bot.`}
                 </p>
               )}
             </>
           ) : (
             <>
               <FormSelect label="Material / insumo" value={itemId} onChange={setItemId} required
-                options={materiales.map((i) => ({ value: i.id, label: `${i.codigo} — ${i.nombre}` }))} />
+                options={materiales.map((i) => ({
+                  value: i.id,
+                  label: `${i.codigo} — ${i.nombre} · stock ${fmtNum(stockMap[`I:${i.id}`] ?? 0, 2)} ${i.unidad_medida}`,
+                }))} />
               <FormInput label="Cantidad" type="number" value={cantidad} onChange={setCantidad} required min={0.001} step="any" />
+              {stockDisponible != null && (
+                <p className="qty-base-summary">Disponible origen: {fmtNum(stockDisponible, 2)} {matSel?.unidad_medida ?? ''}</p>
+              )}
             </>
           )}
-          <div className="form-actions">
-            <SubmitButton loading={submitting} label="Enviar transferencia" icon="swap_horiz" />
+          <div className="form-actions form-actions--flat">
+            <button type="submit" className="btn btn-ghost">
+              <span className="material-icons-round">add</span>
+              Agregar al carrito
+            </button>
           </div>
         </form>
+
+        {cart.length > 0 && (
+          <>
+            <DataTable>
+              <thead>
+                <tr><th>Ítem</th><th>Cantidad</th><th /></tr>
+              </thead>
+              <tbody>
+                {cart.map((l) => (
+                  <tr key={l.id}>
+                    <td>{l.label}</td>
+                    <td>{fmtNum(l.cantidad, 2)} {l.unidad}</td>
+                    <td className="cell-actions">
+                      <button type="button" className="btn-icon" title="Quitar"
+                        onClick={() => setCart(cart.filter((x) => x.id !== l.id))}>
+                        <span className="material-icons-round">close</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+            <div className="form-actions">
+              <button type="button" className="btn btn-primary" disabled={submitting} onClick={crear}>
+                <span className="material-icons-round">{submitting ? 'hourglass_empty' : 'swap_horiz'}</span>
+                {submitting ? 'Procesando…' : `Enviar ${cart.length} línea(s)`}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <TabBar
@@ -203,7 +334,7 @@ const TransfersPage: React.FC = () => {
                         <button type="button" className="btn btn-sm btn-primary"
                           disabled={receivingId === t.id}
                           onClick={() => recibir(t.id)}>
-                          <span className="material-icons-round">check</span>
+                          <span className="material-icons-round">{receivingId === t.id ? 'hourglass_empty' : 'check'}</span>
                           {receivingId === t.id ? '…' : 'Recibir'}
                         </button>
                       )}

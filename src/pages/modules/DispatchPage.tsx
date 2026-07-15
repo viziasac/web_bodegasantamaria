@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { bodegaService } from '../../services/bodegaService';
-import { getLotesDisponibles, getPrecioReferencia } from '../../services/apiProvider';
+import { getLotesDisponibles, getPrecioReferencia, getVentasPorUbicacionFecha } from '../../services/apiProvider';
 import { labelLote } from '../../utils/lotePolicy';
 import { newTxnId } from '../../utils/txnId';
 import {
@@ -11,14 +12,18 @@ import {
 } from '../../utils/presentacionLabels';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
-  PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, EmptyState, toUserMessage, fmtMoney,
+  PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, EmptyState,
+  DataTable, toUserMessage, fmtMoney, fmtDate,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
-import type { ProductoPv } from '../../types';
+import { hoyYmd } from '../../utils/fechaLocal';
+import { loadWebPrefs } from '../../utils/webPrefs';
+import type { ProductoPv, VentaResumen } from '../../types';
 
 const DispatchPage: React.FC = () => {
   const { ubicaciones, canalesVenta, clientes, ensureCatalogLoaded } = useCatalog();
-  const [ubicacionId, setUbicacionId] = useState('');
+  const prefs = loadWebPrefs();
+  const [ubicacionId, setUbicacionId] = useState(prefs.defaultPvId ?? '');
   const [categoria, setCategoria] = useState('');
   const [presentacionId, setPresentacionId] = useState('');
   const [modoCantidad, setModoCantidad] = useState<ModoCantidadEmpaque>('botella');
@@ -27,13 +32,14 @@ const DispatchPage: React.FC = () => {
   const [clienteId, setClienteId] = useState('');
   const [referencia, setReferencia] = useState('');
   const [loteId, setLoteId] = useState('');
-  const [canal, setCanal] = useState('DIRECTO');
+  const [canal, setCanal] = useState(prefs.defaultCanal ?? 'DIRECTO');
   const [productos, setProductos] = useState<ProductoPv[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [lotes, setLotes] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [ventasHoy, setVentasHoy] = useState<VentaResumen[]>([]);
 
   const pvUbicaciones = ubicaciones.filter((u) => u.es_punto_venta);
   const categorias = useMemo(() => categoriasProductosPv(productos), [productos]);
@@ -57,13 +63,19 @@ const DispatchPage: React.FC = () => {
 
   useEffect(() => {
     if (pvUbicaciones.length > 0 && !ubicacionId) {
-      setUbicacionId(pvUbicaciones[0].id);
+      const preferred = prefs.defaultPvId && pvUbicaciones.some((u) => u.id === prefs.defaultPvId)
+        ? prefs.defaultPvId
+        : pvUbicaciones[0].id;
+      setUbicacionId(preferred);
     }
   }, [pvUbicaciones.length]);
 
   useEffect(() => {
     if (canalesVenta.length > 0 && !canalesVenta.some((c) => c.codigo === canal)) {
-      setCanal(canalesVenta[0].codigo);
+      const preferred = prefs.defaultCanal && canalesVenta.some((c) => c.codigo === prefs.defaultCanal)
+        ? prefs.defaultCanal
+        : canalesVenta[0].codigo;
+      setCanal(preferred);
     }
   }, [canalesVenta]);
 
@@ -91,8 +103,20 @@ const DispatchPage: React.FC = () => {
     }
   };
 
+  const loadVentasHoy = async (ubi: string) => {
+    if (!ubi) { setVentasHoy([]); return; }
+    try {
+      setVentasHoy(await getVentasPorUbicacionFecha({ ubicacionId: ubi, fecha: hoyYmd() }));
+    } catch {
+      setVentasHoy([]);
+    }
+  };
+
   useEffect(() => {
-    if (ubicacionId) loadProductos(ubicacionId);
+    if (ubicacionId) {
+      loadProductos(ubicacionId);
+      loadVentasHoy(ubicacionId);
+    }
   }, [ubicacionId]);
 
   const onUbicacionChange = (v: string) => {
@@ -101,6 +125,7 @@ const DispatchPage: React.FC = () => {
     setCategoria('');
     setLoteId('');
     loadProductos(v);
+    loadVentasHoy(v);
   };
 
   const onPresentacionChange = async (v: string) => {
@@ -149,7 +174,7 @@ const DispatchPage: React.FC = () => {
       setSuccess(`Venta registrada: ${botellas} bot. · ${fmtMoney(totalVenta)}`);
       setCantidad('');
       setLoteId('');
-      await loadProductos(ubicacionId);
+      await Promise.all([loadProductos(ubicacionId), loadVentasHoy(ubicacionId)]);
     } catch (err) {
       setError(toUserMessage(err, 'No se pudo registrar la venta'));
     } finally {
@@ -159,7 +184,21 @@ const DispatchPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Despacho" subtitle="Venta rápida de una línea" moduleId="despacho" />
+      <PageHeader
+        title="Despacho"
+        subtitle="Mostrador / delivery — una línea por ticket (fecha = hoy)"
+        moduleId="despacho"
+        action={
+          <Link to="/sales/income" className="btn btn-ghost">
+            <span className="material-icons-round">shopping_cart</span>
+            POS multi-línea
+          </Link>
+        }
+      />
+      <Alert
+        type="info"
+        message="Atajo de mostrador o delivery: un producto por ticket. Para varias líneas en un mismo comprobante use Ingresos POS."
+      />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       {pvUbicaciones.length === 0 ? (
@@ -169,6 +208,7 @@ const DispatchPage: React.FC = () => {
           hint="Configure ubicaciones con es_punto_venta en el catálogo"
         />
       ) : (
+      <>
       <div className="card">
         <form onSubmit={handleSubmit}>
           <FormSelect label="Punto de venta" value={ubicacionId} onChange={onUbicacionChange} required
@@ -218,6 +258,33 @@ const DispatchPage: React.FC = () => {
           </div>
         </form>
       </div>
+
+      <div className="card card-section" style={{ marginTop: '1.25rem' }}>
+        <h3 className="card-section-title">Hoy en este PV</h3>
+        {ventasHoy.length === 0 ? (
+          <EmptyState icon="receipt_long" title="Sin ventas hoy en este punto" />
+        ) : (
+          <DataTable>
+            <thead>
+              <tr><th>Hora / N°</th><th>Canal</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+              {ventasHoy.slice(0, 12).map((v) => (
+                <tr key={v.id}>
+                  <td>
+                    <code className="code-tag">{v.nro_venta || v.id.slice(0, 8)}</code>
+                    {' · '}
+                    {v.fecha ? fmtDate(String(v.fecha).split('T')[0]) : '—'}
+                  </td>
+                  <td>{v.canal || '—'}</td>
+                  <td className="cell-money">{fmtMoney(v.total || 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        )}
+      </div>
+      </>
       )}
     </div>
   );

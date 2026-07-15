@@ -29,6 +29,13 @@ export function inicioMesYmd(date: Date = new Date(), timeZone = TZ_NEGOCIO): st
   return `${y}-${m}-01`;
 }
 
+/** YYYY-MM-DD hace N días (zona de negocio). */
+export function haceDiasYmd(dias: number, date: Date = new Date()): string {
+  const d = new Date(date.getTime());
+  d.setDate(d.getDate() - dias);
+  return ymdInZone(d);
+}
+
 /** Clave de mes YYYY-MM en zona de negocio. */
 export function mesKeyInZone(date: Date = new Date(), timeZone = TZ_NEGOCIO): string {
   return ymdInZone(date, timeZone).slice(0, 7);

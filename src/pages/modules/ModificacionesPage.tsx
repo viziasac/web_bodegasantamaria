@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   getVentasPeriodo, getVentaDetalle, getGastosPeriodo,
   actualizarVenta, anularVenta, actualizarGasto, eliminarGasto,
@@ -25,13 +25,15 @@ const TIPOS_DOC = [
 
 const ModificacionesPage: React.FC = () => {
   const { categoriasGasto, clientes, canalesVenta, ensureCatalogLoaded } = useCatalog();
-  const [tab, setTab] = useState<ModTab>(() => {
-    const t = new URLSearchParams(window.location.search).get('tab');
-    return t === 'egresos' ? 'egresos' : 'ingresos';
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: ModTab = searchParams.get('tab') === 'egresos' ? 'egresos' : 'ingresos';
+  const setTab = (id: ModTab) => {
+    setSearchParams(id === 'egresos' ? { tab: 'egresos' } : {}, { replace: true });
+  };
   const [desde, setDesde] = useState(inicioMesYmd());
   const [hasta, setHasta] = useState(hoyYmd());
   const [incluirAnuladas, setIncluirAnuladas] = useState(false);
+  const [buscaNro, setBuscaNro] = useState('');
 
   const [ventas, setVentas] = useState<VentaResumen[]>([]);
   const [gastos, setGastos] = useState<GasGasto[]>([]);
@@ -237,6 +239,12 @@ const ModificacionesPage: React.FC = () => {
     }, 0);
   }, [detalle, precios]);
 
+  const ventasFiltradas = useMemo(() => {
+    const q = buscaNro.trim().toLowerCase();
+    if (!q) return ventas;
+    return ventas.filter((v) => (v.nro_venta || v.id).toLowerCase().includes(q));
+  }, [ventas, buscaNro]);
+
   return (
     <div className="animate-in">
       <PageHeader
@@ -264,15 +272,23 @@ const ModificacionesPage: React.FC = () => {
           <FormInput label="Desde" type="date" value={desde} onChange={setDesde} required />
           <FormInput label="Hasta" type="date" value={hasta} onChange={setHasta} required />
           {tab === 'ingresos' && (
-            <FormSelect
-              label="Anuladas"
-              value={incluirAnuladas ? '1' : '0'}
-              onChange={(v) => setIncluirAnuladas(v === '1')}
-              options={[
-                { value: '0', label: 'Ocultar anuladas' },
-                { value: '1', label: 'Incluir anuladas' },
-              ]}
-            />
+            <>
+              <FormSelect
+                label="Anuladas"
+                value={incluirAnuladas ? '1' : '0'}
+                onChange={(v) => setIncluirAnuladas(v === '1')}
+                options={[
+                  { value: '0', label: 'Ocultar anuladas' },
+                  { value: '1', label: 'Incluir anuladas' },
+                ]}
+              />
+              <FormInput
+                label="Buscar N° venta"
+                value={buscaNro}
+                onChange={setBuscaNro}
+                placeholder="Ej: V-…"
+              />
+            </>
           )}
         </FormRow>
       </div>
@@ -287,10 +303,10 @@ const ModificacionesPage: React.FC = () => {
       />
 
       {loading ? <PageLoader /> : tab === 'ingresos' ? (
-        ventas.length === 0 ? (
+        ventasFiltradas.length === 0 ? (
           <EmptyState
             icon="receipt_long"
-            title="Sin ventas en el periodo"
+            title={buscaNro.trim() ? 'Sin coincidencias' : 'Sin ventas en el periodo'}
             hint="Registre ventas en Ingresos o Despacho, luego corríjalas aquí."
             action={(
               <Link to="/sales/income" className="btn btn-primary">Nuevo ingreso</Link>
@@ -305,7 +321,7 @@ const ModificacionesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {ventas.map((v) => {
+                {ventasFiltradas.map((v) => {
                   const anulada = v.estado === 'ANULADA';
                   const lines = detalleCache[v.id];
                   return (
