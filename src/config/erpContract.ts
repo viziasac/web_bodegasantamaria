@@ -53,6 +53,8 @@ export const ErpRpc = {
   trazabilidadLote: 'fn_trazabilidad_lote',
   reporteVentasPeriodo: 'fn_reporte_ventas_periodo',
   reporteGastosPeriodo: 'fn_reporte_gastos_periodo',
+  usuariosListar: 'fn_usuarios_listar',
+  usuarioActualizarPermisos: 'fn_usuario_actualizar_permisos',
 } as const;
 
 export interface RpcResult<T = unknown> {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Modal from './Modal';
 import { getModuleGuide } from '../config/moduleGuides';
@@ -9,13 +9,19 @@ export const PageLoader: React.FC = () => (
   </div>
 );
 
-export const Alert: React.FC<{ type?: 'error' | 'success' | 'info'; message: string; onClose?: () => void }> = ({
+export const Alert: React.FC<{
+  type?: 'error' | 'success' | 'info';
+  message?: string;
+  children?: React.ReactNode;
+  onClose?: () => void;
+}> = ({
   type = 'info',
   message,
+  children,
   onClose,
 }) => (
   <div className={`alert alert-${type}`} role="alert">
-    <span>{message}</span>
+    <span>{message ?? children}</span>
     {onClose && (
       <button type="button" className="btn-icon" onClick={onClose} aria-label="Cerrar">
         <span className="material-icons-round">close</span>
@@ -182,7 +188,7 @@ interface FormSelectProps {
  * Select controlado seguro:
  * - deduplica values
  * - no duplica la opción vacía (evita warning React / dropdown roto)
- * - si `value` no está en options, muestra el vacío (o la primera opción)
+ * - si `value` no está en options: muestra vacío y sincroniza estado (nunca pinta otra opción sin onChange)
  */
 export const FormSelect: React.FC<FormSelectProps> = ({
   label, value, onChange, options, required, disabled, placeholder = '— Seleccionar —',
@@ -197,9 +203,11 @@ export const FormSelect: React.FC<FormSelectProps> = ({
 
   const hasEmpty = normalized.some((o) => o.value === '');
   const valueInList = normalized.some((o) => o.value === value);
-  const safeValue = valueInList
-    ? value
-    : (hasEmpty || !required ? '' : (normalized[0]?.value ?? ''));
+  const safeValue = valueInList ? value : '';
+
+  useLayoutEffect(() => {
+    if (!valueInList && value !== '') onChange('');
+  }, [value, valueInList, onChange]);
 
   return (
     <label className="form-group">

@@ -16,6 +16,20 @@ export interface AppUser {
   accesoVentas?: boolean;
 }
 
+/** Fila de administración desde `fn_usuarios_listar` / `app_user_role`. */
+export interface AppUserRoleRow {
+  user_id: string;
+  email: string | null;
+  nombre: string | null;
+  role: UserRole | string;
+  activo: boolean;
+  acceso_web: boolean;
+  acceso_app: boolean;
+  acceso_ventas: boolean;
+  acceso_completo?: boolean | null;
+  updated_at?: string | null;
+}
+
 export interface CatUbicacion {
   id: string;
   codigo: string;

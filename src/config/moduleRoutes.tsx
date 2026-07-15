@@ -23,6 +23,7 @@ export const MODULE_PAGES: Record<string, LazyPage> = {
   descargas: lazy(() => import('../pages/modules/DownloadsPage')),
   materiales_skus: lazy(() => import('../pages/modules/MaterialsPage')),
   maestros: lazy(() => import('../pages/modules/MaestrosPage')),
+  usuarios: lazy(() => import('../pages/modules/UsuariosPage')),
   reportes: lazy(() => import('../pages/modules/ReportingPage')),
   configuracion: lazy(() => import('../pages/modules/SettingsPage')),
 };

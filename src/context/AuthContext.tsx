@@ -12,6 +12,8 @@ import {
   mapSupabaseAuthError,
 } from '../utils/authValidation';
 import { clearIngresosCartDraft } from '../utils/ingresosDraft';
+import { clearEgresosCartDraft } from '../utils/egresosDraft';
+import { clearComprasDocDraft } from '../utils/comprasDraft';
 import {
   resolveAuthenticatedWebUser,
   WEB_ACCESS_DENIED_MESSAGE,
@@ -120,6 +122,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     clearIngresosCartDraft();
+    clearEgresosCartDraft();
+    clearComprasDocDraft();
     await supabase.auth.signOut();
     setUser(null);
   };

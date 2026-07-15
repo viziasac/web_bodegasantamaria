@@ -147,6 +147,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
         option: selected,
         conteoFisico: conteoNum,
         motivo,
+        stockReferencia,
         loteId: loteId !== LOTE_AUTO ? loteId : undefined,
         txnId: newTxnId(),
       });

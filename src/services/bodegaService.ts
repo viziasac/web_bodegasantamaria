@@ -316,11 +316,14 @@ export const bodegaService = {
     option: AjusteItemOption;
     conteoFisico: number;
     motivo: string;
+    /** Base del delta (lote o teórico). Debe coincidir con lo mostrado en UI. */
+    stockReferencia?: number;
     loteId?: string;
     txnId?: string;
   }) {
-    const delta = opts.conteoFisico - opts.option.stockTeorico;
-    if (delta === 0) throw new Error('El conteo coincide con el stock teórico (delta = 0).');
+    const base = opts.stockReferencia ?? opts.option.stockTeorico;
+    const delta = opts.conteoFisico - base;
+    if (delta === 0) throw new Error('El conteo coincide con el stock de referencia (delta = 0).');
     return api.registrarAjustePorSku({
       delta,
       ubicacionId: opts.ubicacionId,

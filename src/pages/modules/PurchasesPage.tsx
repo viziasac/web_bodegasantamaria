@@ -178,6 +178,7 @@ const PurchasesPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (!referencia.trim()) {
       setError('La referencia es obligatoria.');
       return;

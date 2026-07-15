@@ -266,6 +266,7 @@ const IncomePage: React.FC = () => {
 
   const handleSubmitAgrupada = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (!ubicacionId) { setError('Seleccione un punto de venta.'); return; }
     if (cart.length === 0) { setError('Agregue al menos una línea al carrito.'); return; }
     setLoading(true);
@@ -296,6 +297,7 @@ const IncomePage: React.FC = () => {
 
   const handleSubmitRapida = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (!ubicacionId) { setError('Seleccione un punto de venta.'); return; }
     if (!presSel || botellas <= 0 || !Number.isFinite(precioUnitarioBotella) || precioUnitarioBotella <= 0) {
       setError('Complete producto, cantidad y monto total válido.');

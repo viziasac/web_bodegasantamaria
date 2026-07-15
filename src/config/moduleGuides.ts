@@ -248,6 +248,26 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     related: [
       { label: 'Materiales / SKUs', path: '/materials' },
       { label: 'Egresos', path: '/expenses' },
+      { label: 'Usuarios', path: '/usuarios' },
+    ],
+  },
+  usuarios: {
+    id: 'usuarios',
+    title: 'Usuarios',
+    summary: 'Otorgue o revoque roles y accesos (web, app, ventas) a usuarios existentes. Solo admin.',
+    steps: [
+      'Cree la cuenta primero en Supabase Auth (invitar usuario) si aún no existe.',
+      'Edite rol, nombre y flags de acceso; el cambio aplica en el próximo inicio de sesión o al refrescar.',
+      'No puede desactivarse a sí mismo ni dejar el sistema sin al menos un administrador activo.',
+    ],
+    tips: [
+      'acceso_web controla el login al ERP; sin él se cierra la sesión web.',
+      'acceso_ventas también oculta Ingresos/Despacho/Egresos/Modificaciones en la web.',
+      'Alta de correo/contraseña no se hace aquí (invitar en Supabase Auth).',
+    ],
+    related: [
+      { label: 'Configuración', path: '/settings' },
+      { label: 'Maestros', path: '/maestros' },
     ],
   },
   reportes: {

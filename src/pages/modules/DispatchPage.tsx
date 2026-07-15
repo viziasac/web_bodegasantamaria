@@ -142,6 +142,7 @@ const DispatchPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (!presSel || botellas <= 0) {
       setError('Seleccione producto y cantidad válida.');
       return;
