@@ -250,7 +250,7 @@ const PurchasesPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Ingreso de Insumos" subtitle="Compras y entradas de materiales" />
+      <PageHeader title="Ingreso de Insumos" subtitle="Compras y entradas de materiales" moduleId="ingreso_materiales" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       <TabBar

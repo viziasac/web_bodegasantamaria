@@ -49,7 +49,7 @@ const BulkProductionPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Producción Granel" subtitle="Entrada de vino/pisco a granel (ALM_GR)" />
+      <PageHeader title="Producción Granel" subtitle="Entrada de vino/pisco a granel (ALM_GR)" moduleId="produccion_granel" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       {granelItems.length === 0 ? (

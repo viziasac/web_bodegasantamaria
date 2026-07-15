@@ -1,4 +1,4 @@
-// src/App.tsx
+// src/App.tsx — Rutas derivadas del registry modular (sidebar + permisos + pages).
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -8,23 +8,10 @@ import LoginPage from './pages/LoginPage';
 import PrivacyPage from './pages/PrivacyPage';
 import { PageLoader } from './components/ui';
 import { ProtectedModuleRoute } from './components/ProtectedModuleRoute';
+import { VENTAS_MODULE_IDS } from './config/moduleRegistry';
+import { getRoutableModules, MODULE_PAGES, moduleRoutePath } from './config/moduleRoutes';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const InventoryPage = lazy(() => import('./pages/modules/InventoryPage'));
-const PurchasesPage = lazy(() => import('./pages/modules/PurchasesPage'));
-const RecipesPage = lazy(() => import('./pages/modules/RecipesPage'));
-const ProductionPage = lazy(() => import('./pages/modules/ProductionPage'));
-const BulkProductionPage = lazy(() => import('./pages/modules/BulkProductionPage'));
-const RepackPage = lazy(() => import('./pages/modules/RepackPage'));
-const DispatchPage = lazy(() => import('./pages/modules/DispatchPage'));
-const IncomePage = lazy(() => import('./pages/modules/IncomePage'));
-const TransfersPage = lazy(() => import('./pages/modules/TransfersPage'));
-const ExpensesPage = lazy(() => import('./pages/modules/ExpensesPage'));
-const AuditPage = lazy(() => import('./pages/modules/AuditPage'));
-const DownloadsPage = lazy(() => import('./pages/modules/DownloadsPage'));
-const ReportingPage = lazy(() => import('./pages/modules/ReportingPage'));
-const SettingsPage = lazy(() => import('./pages/modules/SettingsPage'));
-const MaterialsPage = lazy(() => import('./pages/modules/MaterialsPage'));
 
 const ProtectedRoute = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -37,46 +24,53 @@ const Lazy = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<PageLoader />}>{children}</Suspense>
 );
 
-const AppRoutes = () => (
-  <Routes>
-    <Route path="/login" element={<LoginPage />} />
-    <Route path="/privacidad" element={<PrivacyPage />} />
-    <Route element={<ProtectedRoute />}>
-      <Route element={<Layout />}>
-        <Route index element={<Lazy><Dashboard /></Lazy>} />
-        <Route path="inventory" element={<Lazy><InventoryPage /></Lazy>} />
-        <Route path="inventory/adjust" element={<Navigate to="/inventory?tab=ajuste" replace />} />
-        <Route path="purchases" element={<Lazy><PurchasesPage /></Lazy>} />
-        <Route path="recipes" element={<Lazy><RecipesPage /></Lazy>} />
-        <Route path="production" element={<Lazy><ProductionPage /></Lazy>} />
-        <Route path="production/bulk" element={<Lazy><BulkProductionPage /></Lazy>} />
-        <Route path="repack" element={<Lazy><RepackPage /></Lazy>} />
-        <Route element={<ProtectedModuleRoute path="/sales/dispatch" />}>
-          <Route path="sales/dispatch" element={<Lazy><DispatchPage /></Lazy>} />
-        </Route>
-        <Route element={<ProtectedModuleRoute path="/sales/income" />}>
-          <Route path="sales/income" element={<Lazy><IncomePage /></Lazy>} />
-        </Route>
-        <Route path="transfers" element={<Lazy><TransfersPage /></Lazy>} />
-        <Route element={<ProtectedModuleRoute path="/expenses" />}>
-          <Route path="expenses" element={<Lazy><ExpensesPage /></Lazy>} />
-        </Route>
-        <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
-        <Route path="downloads" element={<Lazy><DownloadsPage /></Lazy>} />
-        <Route element={<ProtectedModuleRoute path="/materials" />}>
-          <Route path="materials" element={<Lazy><MaterialsPage /></Lazy>} />
-        </Route>
-        <Route element={<ProtectedModuleRoute path="/reporting" />}>
-          <Route path="reporting" element={<Lazy><ReportingPage /></Lazy>} />
-        </Route>
-        <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
-        {/* Legacy redirects */}
-        <Route path="production-hub" element={<Navigate to="/production" replace />} />
-      </Route>
+function ModuleRoute({
+  path,
+  Page,
+  gate,
+}: {
+  path: string;
+  Page: React.LazyExoticComponent<React.ComponentType<unknown>>;
+  gate: boolean;
+}) {
+  const el = (
+    <Route path={moduleRoutePath(path)} element={<Lazy><Page /></Lazy>} />
+  );
+  if (!gate) return el;
+  return (
+    <Route element={<ProtectedModuleRoute path={path} />}>
+      {el}
     </Route>
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes>
-);
+  );
+}
+
+const AppRoutes = () => {
+  const modules = getRoutableModules();
+
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/privacidad" element={<PrivacyPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<Layout />}>
+          <Route index element={<Lazy><Dashboard /></Lazy>} />
+          <Route path="inventory/adjust" element={<Navigate to="/inventory?tab=ajuste" replace />} />
+
+          {modules.map((m) => {
+            const Page = MODULE_PAGES[m.id];
+            const gate = Boolean(m.adminOnly) || VENTAS_MODULE_IDS.has(m.id);
+            return (
+              <ModuleRoute key={m.id} path={m.path} Page={Page} gate={gate} />
+            );
+          })}
+
+          <Route path="production-hub" element={<Navigate to="/production" replace />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
 
 const App = () => (
   <BrowserRouter>

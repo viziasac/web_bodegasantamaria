@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getGastos } from '../../services/apiProvider';
 import { bodegaService } from '../../services/bodegaService';
 import {
@@ -131,7 +132,17 @@ const ExpensesPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Egresos" subtitle="Gastos operativos — carrito del día" />
+      <PageHeader
+        title="Egresos"
+        subtitle="Gastos operativos — carrito del día"
+        moduleId="gastos"
+        action={
+          <Link to="/sales/modificaciones?tab=egresos" className="btn btn-ghost">
+            <span className="material-icons-round">edit_note</span>
+            Corregir egresos
+          </Link>
+        }
+      />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 

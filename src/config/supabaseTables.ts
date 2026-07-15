@@ -15,6 +15,7 @@ export const Tables = {
   recReceta: 'rec_receta',
   prdOrden: 'prd_orden',
   venVenta: 'ven_venta',
+  venDetalle: 'ven_detalle',
   venPrecioRef: 'ven_precio_ref',
   trnTransferencia: 'trn_transferencia',
   trnTransferenciaDetalle: 'trn_transferencia_detalle',

@@ -152,8 +152,28 @@ export interface GasGasto {
   descripcion?: string;
   categoria_id?: string;
   proveedor_nombre?: string | null;
+  tipo_comprobante?: string | null;
+  nro_comprobante?: string | null;
+  centro_costo?: string | null;
+  moneda?: string | null;
+  con_comprobante?: boolean;
+  origen_tipo?: string | null;
+  origen_txn_id?: string | null;
   comprobante_url?: string | null;
   gas_categoria?: GasCategoria;
+}
+
+export interface VentaDetalleLinea {
+  id: string;
+  venta_id: string;
+  item_id: string | null;
+  presentacion_id?: string | null;
+  lote_id?: string | null;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal?: number;
+  ma_item?: MaItem | null;
+  ma_presentacion?: MaPresentacion | null;
 }
 
 export interface TrnTransferencia {
@@ -235,6 +255,11 @@ export interface VentaResumen {
   canal?: string;
   tipo?: string;
   observaciones?: string | null;
+  ubicacion_id?: string;
+  cliente_id?: string | null;
+  estado?: string | null;
+  anulado_at?: string | null;
+  anulado_motivo?: string | null;
   cat_ubicacion?: CatUbicacion;
   ma_cliente?: MaCliente;
 }
@@ -309,6 +334,8 @@ export interface ModuleDef {
   subtitle: string;
   path: string;
   adminOnly?: boolean;
+  /** Agrupación del sidebar (opcional en tipos base; registry lo exige). */
+  section?: string;
 }
 
 export interface VentaLinea {

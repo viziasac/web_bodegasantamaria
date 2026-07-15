@@ -110,7 +110,7 @@ const AuditPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Auditoría" subtitle="Historial de movimientos y trazabilidad de lotes" />
+      <PageHeader title="Auditoría" subtitle="Historial de movimientos y trazabilidad de lotes" moduleId="auditoria" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
 
       <TabBar

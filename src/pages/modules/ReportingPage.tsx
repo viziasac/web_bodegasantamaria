@@ -55,7 +55,7 @@ const ReportingPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Reportes" subtitle="Resumen operativo del periodo (solo administradores)" />
+      <PageHeader title="Reportes" subtitle="Resumen operativo del periodo (solo administradores)" moduleId="reportes" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
 
       <div className="card card-section">

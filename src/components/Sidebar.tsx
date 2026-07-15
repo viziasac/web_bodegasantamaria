@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getModulesForRole } from '../config/moduleRegistry';
+import { getModulesGrouped } from '../config/moduleRegistry';
 
 interface SidebarProps {
   onLogout: () => void;
@@ -20,18 +20,11 @@ const ROLE_LABELS: Record<string, string> = {
 const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   const { user } = useAuth();
   const initials = user?.email ? user.email.substring(0, 2).toUpperCase() : 'U';
-  const modules = getModulesForRole(user?.role, { accesoVentas: user?.accesoVentas });
+  const groups = getModulesGrouped(user?.role, { accesoVentas: user?.accesoVentas });
   const roleLabel = ROLE_LABELS[user?.role ?? ''] ?? (user?.role || 'Operario');
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `sidebar-link ${isActive ? 'active' : ''}`;
-
-  const operaciones = modules.filter(m =>
-    !['reportes', 'configuracion', 'materiales_skus'].includes(m.id),
-  );
-  const admin = modules.filter(m =>
-    ['materiales_skus', 'reportes', 'configuracion'].includes(m.id),
-  );
 
   return (
     <>
@@ -49,25 +42,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
             Dashboard
           </NavLink>
 
-          <div className="nav-section">Operaciones</div>
-          {operaciones.map(m => (
-            <NavLink key={m.id} to={m.path} className={linkClass} onClick={onClose}>
-              <span className="material-icons-round">{m.icon}</span>
-              {m.title}
-            </NavLink>
-          ))}
-
-          {admin.length > 0 && (
-            <>
-              <div className="nav-section nav-section--admin">Administración</div>
-              {admin.map(m => (
+          {groups.map((g) => (
+            <div key={g.section}>
+              <div className={`nav-section${g.section === 'admin' ? ' nav-section--admin' : ''}`}>
+                {g.label}
+              </div>
+              {g.modules.map((m) => (
                 <NavLink key={m.id} to={m.path} className={linkClass} onClick={onClose}>
                   <span className="material-icons-round">{m.icon}</span>
                   {m.title}
                 </NavLink>
               ))}
-            </>
-          )}
+            </div>
+          ))}
         </nav>
 
         <div className="sidebar-user">

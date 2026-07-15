@@ -11,7 +11,7 @@ import {
 } from '../../utils/presentacionLabels';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
-  PageHeader, Alert, FormSelect, FormInput, SubmitButton, ModuleHelp, FormRow, EmptyState, toUserMessage, fmtMoney,
+  PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, EmptyState, toUserMessage, fmtMoney,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import type { ProductoPv } from '../../types';
@@ -159,8 +159,7 @@ const DispatchPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Despacho" subtitle="Venta rápida de una línea" />
-      <ModuleHelp message="Use este módulo para ventas inmediatas de un solo producto. Para varias líneas en un comprobante, use Ingresos POS." />
+      <PageHeader title="Despacho" subtitle="Venta rápida de una línea" moduleId="despacho" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       {pvUbicaciones.length === 0 ? (

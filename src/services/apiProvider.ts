@@ -17,6 +17,7 @@ import type {
   VentaLinea, CompraLinea, TransferLinea,
   StockResumenItem, VentaResumen, InventarioFila, AlmacenResumenInv,
   MovimientoTrendDia, DashboardEjecutivoData, AjusteTopItem, AjustePorUbicacion,
+  VentaDetalleLinea,
 } from '../types';
 
 /** Supabase devuelve numeric como string en muchos campos */
@@ -651,6 +652,63 @@ export async function deleteRecetaLinea(id: string): Promise<void> {
   if (error) throw new Error(friendlyDbError(error));
 }
 
+/** Inserta varias líneas de BOM para un PT (cada cantidad = por 1 botella). */
+export async function createRecetaLineas(
+  itemProducidoId: string,
+  lines: { componenteId: string; cantidad: number; esVariable?: boolean }[],
+): Promise<RecReceta[]> {
+  if (!itemProducidoId) throw new Error('Seleccione el producto terminado.');
+  if (!lines.length) throw new Error('Agregue al menos un componente.');
+  const ids = new Set<string>();
+  const rows: {
+    item_producido_id: string;
+    componente_id: string;
+    cantidad: number;
+    es_variable: boolean;
+  }[] = [];
+  for (const line of lines) {
+    if (!line.componenteId) throw new Error('Cada línea requiere un componente.');
+    if (ids.has(line.componenteId)) {
+      throw new Error('Hay componentes duplicados en el borrador.');
+    }
+    ids.add(line.componenteId);
+    if (!Number.isFinite(line.cantidad) || line.cantidad <= 0) {
+      throw new Error('Cantidad debe ser > 0 (por 1 botella).');
+    }
+    rows.push({
+      item_producido_id: itemProducidoId,
+      componente_id: line.componenteId,
+      cantidad: line.cantidad,
+      es_variable: line.esVariable ?? false,
+    });
+  }
+  const { data, error } = await supabase
+    .from(Tables.recReceta)
+    .insert(rows)
+    .select(`
+      id, item_producido_id, componente_id, cantidad, es_variable,
+      item_producido:ma_item!rec_receta_item_producido_id_fkey(id, codigo, nombre, tipo, categoria),
+      componente:ma_item!rec_receta_base_componente_id_fkey(id, codigo, nombre, tipo, unidad_medida)
+    `);
+  if (error) throw new Error(friendlyDbError(error));
+  return (data || []).map((r: Record<string, unknown>) => ({
+    ...(r as unknown as RecReceta),
+    item_componente_id: String(r.componente_id),
+    ma_item_producido: r.item_producido as RecReceta['ma_item_producido'],
+    ma_item_componente: r.componente as RecReceta['ma_item_componente'],
+  }));
+}
+
+/** Elimina todas las líneas BOM de un PT (no toca ma_item). */
+export async function deleteRecetasDePt(itemProducidoId: string): Promise<void> {
+  if (!itemProducidoId) throw new Error('PT inválido.');
+  const { error } = await supabase
+    .from(Tables.recReceta)
+    .delete()
+    .eq('item_producido_id', itemProducidoId);
+  if (error) throw new Error(friendlyDbError(error));
+}
+
 // ─── Producción ───
 
 export async function getOrdenes(estado?: string): Promise<PrdOrden[]> {
@@ -903,11 +961,12 @@ export async function getVentasPorUbicacionFecha(opts: {
   const { data, error } = await supabase
     .from(Tables.venVenta)
     .select(`
-      id, fecha, nro_venta, total, canal, tipo, observaciones,
+      id, fecha, nro_venta, total, canal, tipo, observaciones, estado,
       cat_ubicacion:ubicacion_id(id, codigo, nombre),
       ma_cliente:cliente_id(id, nombre)
     `)
     .eq('ubicacion_id', opts.ubicacionId)
+    .or('estado.is.null,estado.eq.ACTIVA')
     .gte('fecha', `${fecha}T00:00:00`)
     .lte('fecha', `${fecha}T23:59:59`)
     .order('fecha', { ascending: false })
@@ -928,22 +987,50 @@ export async function getVentasDelMes(): Promise<{ total: number; count: number;
   };
 }
 
-export async function getVentasPeriodo(fechaDesde: string, fechaHasta: string): Promise<VentaResumen[]> {
-  const { data, error } = await supabase
+export async function getVentasPeriodo(
+  fechaDesde: string,
+  fechaHasta: string,
+  opts?: { includeAnuladas?: boolean },
+): Promise<VentaResumen[]> {
+  let q = supabase
     .from(Tables.venVenta)
     .select(`
-      id, fecha, nro_venta, total, canal, tipo, observaciones, ubicacion_id,
+      id, fecha, nro_venta, total, canal, tipo, observaciones, ubicacion_id, cliente_id,
+      estado, anulado_at, anulado_motivo,
       cat_ubicacion:ubicacion_id(id, codigo, nombre),
       ma_cliente:cliente_id(id, nombre)
     `)
     .gte('fecha', fechaDesde)
     .lte('fecha', `${fechaHasta}T23:59:59`)
-    .order('fecha', { ascending: true });
+    .order('fecha', { ascending: false });
+  if (!opts?.includeAnuladas) {
+    q = q.or('estado.is.null,estado.eq.ACTIVA');
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return (data || []).map((v: Record<string, unknown>) => ({
     ...v,
     total: parseNum(v.total),
   })) as VentaResumen[];
+}
+
+export async function getVentaDetalle(ventaId: string): Promise<VentaDetalleLinea[]> {
+  const { data, error } = await supabase
+    .from(Tables.venDetalle)
+    .select(`
+      id, venta_id, item_id, presentacion_id, lote_id, cantidad, precio_unitario, subtotal,
+      ma_item:item_id(id, codigo, nombre, tipo, unidad_medida),
+      ma_presentacion:presentacion_id(id, codigo, nombre, cant_unidades)
+    `)
+    .eq('venta_id', ventaId)
+    .order('fecha_creacion', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((d: Record<string, unknown>) => ({
+    ...d,
+    cantidad: parseNum(d.cantidad),
+    precio_unitario: parseNum(d.precio_unitario),
+    subtotal: parseNum(d.subtotal),
+  })) as VentaDetalleLinea[];
 }
 
 export async function getGastosPeriodo(fechaDesde: string, fechaHasta: string): Promise<GasGasto[]> {
@@ -1700,6 +1787,54 @@ export async function registrarGasto(payload: Record<string, unknown>, txnId?: s
     p_txn_id: txnId ?? newTxnId(),
     p_payload: body,
   }, 'No se pudo registrar el gasto.');
+}
+
+export async function actualizarGasto(gastoId: string, payload: Record<string, unknown>) {
+  const uid = await getUserId();
+  await callRpc(ErpRpc.gastoActualizar, {
+    p_gasto_id: gastoId,
+    p_payload: payload,
+    p_usuario_id: uid ?? null,
+  }, 'No se pudo actualizar el gasto.');
+}
+
+export async function eliminarGasto(gastoId: string) {
+  const uid = await getUserId();
+  await callRpc(ErpRpc.gastoEliminar, {
+    p_gasto_id: gastoId,
+    p_usuario_id: uid ?? null,
+  }, 'No se pudo eliminar el gasto.');
+}
+
+export async function actualizarVenta(opts: {
+  ventaId: string;
+  observaciones?: string | null;
+  clienteId?: string | null;
+  canal?: string;
+  tipo?: string;
+  lineas?: { id: string; precio_unitario: number }[];
+}) {
+  const uid = await getUserId();
+  const payload: Record<string, unknown> = {};
+  if (opts.observaciones !== undefined) payload.observaciones = opts.observaciones;
+  if (opts.clienteId !== undefined) payload.cliente_id = opts.clienteId;
+  if (opts.canal != null) payload.canal = opts.canal;
+  if (opts.tipo != null) payload.tipo = opts.tipo;
+  if (opts.lineas) payload.lineas = opts.lineas;
+  await callRpc(ErpRpc.ventaActualizar, {
+    p_venta_id: opts.ventaId,
+    p_payload: payload,
+    p_usuario_id: uid ?? null,
+  }, 'No se pudo actualizar la venta.');
+}
+
+export async function anularVenta(ventaId: string, motivo?: string) {
+  const uid = await getUserId();
+  await callRpc(ErpRpc.ventaAnular, {
+    p_venta_id: ventaId,
+    p_motivo: motivo ?? null,
+    p_usuario_id: uid ?? null,
+  }, 'No se pudo anular la venta.');
 }
 
 export async function completarOrden(ordenId: string, cantReal: number) {

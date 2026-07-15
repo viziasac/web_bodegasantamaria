@@ -54,7 +54,7 @@ const RepackPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Reempaque" subtitle="Cambio de formato o etiqueta" />
+      <PageHeader title="Reempaque" subtitle="Cambio de formato o etiqueta" moduleId="reempaque" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       {reempaqueItems.length === 0 ? (

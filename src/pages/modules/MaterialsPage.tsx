@@ -5,7 +5,7 @@ import {
 } from '../../services/apiProvider';
 import {
   PageHeader, PageLoader, Alert, DataTable, EmptyState, FormSelect, FormInput,
-  SubmitButton, TabBar, ModuleHelp, FormSection, toUserMessage, fmtNum,
+  SubmitButton, TabBar, FormSection, toUserMessage, fmtNum,
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
@@ -261,8 +261,8 @@ const MaterialsPage: React.FC = () => {
       <PageHeader
         title="Materiales y SKUs"
         subtitle="Catálogo maestro — ver, crear y editar (sin eliminar)"
+        moduleId="materiales_skus"
       />
-      <ModuleHelp message="Crear o editar un ítem/SKU no genera stock. El inventario entra por compras, granel o producción. Códigos: ítem máx. 6 chars; SKU máx. 5. Al editar, el código y tipo no se modifican." />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 

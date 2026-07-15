@@ -10,8 +10,14 @@ export function messageFromRpc(res: RpcResult): string {
 }
 
 export function friendlyDbError(e: unknown): string {
-  const err = e as { code?: string; message?: string; details?: string };
-  if (err?.code === '23505') return 'Operación duplicada (ya registrada).';
+  const err = e as { code?: string; message?: string; details?: string; constraint?: string };
+  const blob = `${err?.message ?? ''} ${err?.details ?? ''} ${err?.constraint ?? ''}`.toLowerCase();
+  if (err?.code === '23505') {
+    if (blob.includes('uq_receta') || blob.includes('rec_receta') || blob.includes('item_componente')) {
+      return 'Ese componente ya está en la receta de este producto.';
+    }
+    return 'Operación duplicada (ya registrada).';
+  }
   if (err?.code === '23503') return 'Referencia inválida (ubicación, lote o ítem).';
   if (err?.code === '42703' && err.message) {
     return 'Error de consulta en base de datos. Recargue la página e intente de nuevo.';

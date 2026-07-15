@@ -15,7 +15,7 @@ import {
 import {
   PageHeader, PageLoader, Alert, FormSelect, FormInput, SubmitButton,
   StatusBadge, StockBar, fmtNum, DataTable, EmptyState, toUserMessage,
-  ModuleHelp, TabBar,
+  TabBar,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import type { PrdOrden, InsumoValidacionOrden } from '../../types';
@@ -229,8 +229,8 @@ const ProductionPage: React.FC = () => {
       <PageHeader
         title="Producción Envasado"
         subtitle="Órdenes por presentación — botellas o packs (six pack, caja, etc.)"
+        moduleId="produccion_envasado"
       />
-      <ModuleHelp message="Planifique en la presentación comercial a producir (botella suelta o pack). El stock PT siempre se registra en botellas. GRANEL se valida en ALM_GR; el resto de insumos en ALM_MP." />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 

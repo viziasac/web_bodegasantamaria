@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import Modal from './Modal';
+import { getModuleGuide } from '../config/moduleGuides';
 
 export const PageLoader: React.FC = () => (
   <div className="loader-container" style={{ height: '50vh', width: '100%' }}>
@@ -21,19 +24,83 @@ export const Alert: React.FC<{ type?: 'error' | 'success' | 'info'; message: str
   </div>
 );
 
+/** Botón info (esquina) + modal con guía del módulo. */
+export const ModuleInfoButton: React.FC<{ moduleId: string }> = ({ moduleId }) => {
+  const [open, setOpen] = useState(false);
+  const guide = getModuleGuide(moduleId);
+  if (!guide) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="module-info-btn"
+        title={`Cómo funciona: ${guide.title}`}
+        aria-label={`Información de ${guide.title}`}
+        onClick={() => setOpen(true)}
+      >
+        <span className="material-icons-round">info</span>
+      </button>
+      <Modal title={guide.title} isOpen={open} onClose={() => setOpen(false)}>
+        <div className="module-guide">
+          <p className="module-guide-summary">{guide.summary}</p>
+          <h4>Cómo usarlo</h4>
+          <ol className="module-guide-steps">
+            {guide.steps.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ol>
+          {guide.tips && guide.tips.length > 0 && (
+            <>
+              <h4>Notas</h4>
+              <ul className="module-guide-tips">
+                {guide.tips.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {guide.related && guide.related.length > 0 && (
+            <>
+              <h4>Relacionado</h4>
+              <div className="module-guide-related">
+                {guide.related.map((r) => (
+                  <Link
+                    key={r.path}
+                    to={r.path}
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setOpen(false)}
+                  >
+                    {r.label}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+    </>
+  );
+};
+
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
+  /** Si se pasa, muestra el botón info con la guía del módulo. */
+  moduleId?: string;
 }
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, action }) => (
+export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, action, moduleId }) => (
   <div className="page-header">
     <div className="header-title">
-      <h1>{title}</h1>
+      <div className="header-title-row">
+        <h1>{title}</h1>
+        {moduleId && <ModuleInfoButton moduleId={moduleId} />}
+      </div>
       {subtitle && <p>{subtitle}</p>}
     </div>
-    {action}
+    {action && <div className="page-header-actions">{action}</div>}
   </div>
 );
 
@@ -124,11 +191,11 @@ export const FormSelect: React.FC<FormSelectProps> = ({ label, value, onChange, 
 interface FormInputProps {
   label: string;
   type?: string;
-  value: string | number;
+  value: string;
   onChange: (v: string) => void;
   required?: boolean;
   min?: number;
-  step?: string;
+  step?: string | number;
   placeholder?: string;
   maxLength?: number;
 }
@@ -218,6 +285,7 @@ export const FormSection: React.FC<{ title: string; children: React.ReactNode }>
   </div>
 );
 
+/** Tip corto opcional — la guía completa vive en ModuleInfoButton. */
 export const ModuleHelp: React.FC<{ message: string }> = ({ message }) => (
   <div className="module-help" role="note">
     <span className="material-icons-round">info</span>

@@ -27,7 +27,7 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Configuración" subtitle="Cuenta, sesión y caché local" />
+      <PageHeader title="Configuración" subtitle="Cuenta, sesión y caché local" moduleId="configuracion" />
       {msg && <Alert type="success" message={msg} onClose={() => setMsg(null)} />}
       {error && <Alert type="error" message={error} />}
 

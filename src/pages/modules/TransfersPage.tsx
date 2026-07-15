@@ -113,7 +113,7 @@ const TransfersPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Transferencias" subtitle="Movimiento entre ubicaciones" />
+      <PageHeader title="Transferencias" subtitle="Movimiento entre ubicaciones" moduleId="transferencias" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 

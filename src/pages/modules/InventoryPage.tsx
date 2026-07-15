@@ -32,8 +32,9 @@ const InventoryPage: React.FC = () => {
       <PageHeader
         title="Inventario"
         subtitle="Consulta de stock y conteos físicos"
+        moduleId="ver_stock"
         action={
-          <div className="page-header-actions">
+          <>
             <Link to="/" className="btn btn-ghost">
               <span className="material-icons-round">insights</span>
               Ver detalle en Dashboard
@@ -41,7 +42,7 @@ const InventoryPage: React.FC = () => {
             <button type="button" className="btn btn-primary" onClick={() => reload()}>
               <span className="material-icons-round">refresh</span> Actualizar
             </button>
-          </div>
+          </>
         }
       />
 

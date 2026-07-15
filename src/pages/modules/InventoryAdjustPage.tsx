@@ -148,7 +148,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   return (
     <div className={embedded ? '' : 'animate-in'}>
       {!embedded && (
-        <PageHeader title="Ajuste Manual" subtitle="Conteo físico — calcula delta automáticamente" />
+        <PageHeader title="Ajuste Manual" subtitle="Conteo físico — calcula delta automáticamente" moduleId="ver_stock" />
       )}
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}

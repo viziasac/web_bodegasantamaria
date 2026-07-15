@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { bodegaService } from '../../services/bodegaService';
 import { getPrecioReferencia, getVentasPorUbicacionFecha } from '../../services/apiProvider';
 import { newTxnId } from '../../utils/txnId';
@@ -15,7 +16,7 @@ import {
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
   PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, FormSection,
-  ModuleHelp, DataTable, EmptyState, fmtMoney, fmtDate, toUserMessage,
+  DataTable, EmptyState, fmtMoney, fmtDate, toUserMessage,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { hoyYmd } from '../../utils/fechaLocal';
@@ -322,8 +323,14 @@ const IncomePage: React.FC = () => {
       <PageHeader
         title="Ingresos POS"
         subtitle={esRapida ? 'Venta rápida de una línea' : 'Venta agrupada con carrito multi-línea'}
+        moduleId="ingresos"
+        action={
+          <Link to="/sales/modificaciones" className="btn btn-ghost">
+            <span className="material-icons-round">edit_note</span>
+            Corregir ventas
+          </Link>
+        }
       />
-      <ModuleHelp message="Venta agrupada: carrito y registro en lote. Venta rápida: una línea al confirmar. El borrador del carrito se guarda en este navegador. La fecha de registro de nuevas ventas es siempre hoy (fn_venta_registrar no acepta p_fecha); el selector solo consulta el historial del día." />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 

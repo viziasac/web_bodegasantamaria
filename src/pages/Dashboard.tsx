@@ -5,7 +5,7 @@ import {
   getGastosPeriodo, getMovimientosPeriodo,
 } from '../services/apiProvider';
 import {
-  PageLoader, TabBar, Alert, toUserMessage,
+  PageHeader, PageLoader, TabBar, Alert, toUserMessage,
 } from '../components/ui';
 import MonthSelector from '../components/MonthSelector';
 import { useInventarioData } from '../components/inventory/useInventarioData';
@@ -82,19 +82,20 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="animate-in dash-page">
-      <div className="page-header">
-        <div className="header-title">
-          <h1>Panel de Control</h1>
-          <p>Vista gerencial y detalle operativo — {rango.label}</p>
-        </div>
-        <div className="page-header-actions">
-          <MonthSelector value={mesKey} onChange={setMesKey} label="Mes" />
-          <div className="date-badge">
-            <span className="material-icons-round" style={{ fontSize: '16px' }}>calendar_today</span>
-            {new Date().toLocaleDateString('es-PE', { dateStyle: 'long' })}
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Panel de Control"
+        subtitle={`Vista gerencial y detalle operativo — ${rango.label}`}
+        moduleId="dashboard"
+        action={
+          <>
+            <MonthSelector value={mesKey} onChange={setMesKey} label="Mes" />
+            <div className="date-badge">
+              <span className="material-icons-round" style={{ fontSize: '16px' }}>calendar_today</span>
+              {new Date().toLocaleDateString('es-PE', { dateStyle: 'long' })}
+            </div>
+          </>
+        }
+      />
 
       {loadError && <Alert type="error" message={loadError} onClose={() => setLoadError(null)} />}
 

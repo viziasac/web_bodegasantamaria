@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import MonthSelector from '../../components/MonthSelector';
 import {
-  PageHeader, Alert, FormSelect, SubmitButton, FormRow, ModuleHelp, toUserMessage,
+  PageHeader, Alert, FormSelect, SubmitButton, FormRow, toUserMessage,
 } from '../../components/ui';
 import { mesActualKey } from '../../utils/periodoMes';
 import { downloadExcelWorkbook } from '../../utils/excelExport';
@@ -45,9 +45,9 @@ const DownloadsPage: React.FC = () => {
       <PageHeader
         title="Descargas"
         subtitle="Exporta un módulo a la vez — elige mes y tipo de información"
+        moduleId="descargas"
       />
 
-      <ModuleHelp message="Solo se consulta la BD del módulo que elijas al momento de descargar. Un archivo Excel por exportación." />
 
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
