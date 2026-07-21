@@ -20,6 +20,7 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { clienteLabel, getDefaultClienteId } from '../../utils/partnerCatalog';
+import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
 
@@ -420,7 +421,7 @@ const IncomePage: React.FC = () => {
             options={[{ value: 'PEN', label: 'PEN — Soles' }]} />
           <FormSelect label="Canal" value={canal} onChange={setCanal}
             options={canalesVenta.length > 0
-              ? canalesVenta.map((c) => ({ value: c.codigo, label: c.nombre }))
+              ? canalesVenta.map((c) => ({ value: c.codigo, label: canalVentaLabel(c) }))
               : [{ value: 'DIRECTO', label: 'Directo' }]} />
         </FormRow>
         <FormInput label="Observaciones" value={observaciones} onChange={setObservaciones} />

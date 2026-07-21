@@ -12,6 +12,7 @@ export interface EgresosCartDraft {
     monto: number;
     categoriaId: string;
     categoriaNombre?: string;
+    proveedorId?: string;
     proveedorNombre?: string;
     tipoDocumento?: string;
     nroDocumento?: string;

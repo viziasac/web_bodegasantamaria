@@ -17,6 +17,7 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { clienteLabel, getDefaultClienteId } from '../../utils/partnerCatalog';
+import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
 import type { ProductoPv, VentaResumen } from '../../types';
@@ -261,7 +262,7 @@ const DispatchPage: React.FC = () => {
             ]} />
           <FormSelect label="Canal" value={canal} onChange={setCanal}
             options={canalesVenta.length > 0
-              ? canalesVenta.map((c) => ({ value: c.codigo, label: c.nombre }))
+              ? canalesVenta.map((c) => ({ value: c.codigo, label: canalVentaLabel(c) }))
               : [{ value: 'DIRECTO', label: 'Directo' }]} />
           <FormSelect label="Cliente (opcional)" value={clienteId} onChange={setClienteId}
             options={[

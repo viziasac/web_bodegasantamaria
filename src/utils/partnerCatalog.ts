@@ -29,14 +29,18 @@ export function getDefaultClienteId(clientes: MaCliente[]): string {
 }
 
 export function proveedorLabel(p: MaProveedor): string {
-  const parts = [p.nombre];
+  const parts: string[] = [];
+  if (p.codigo?.trim()) parts.push(p.codigo.trim().toUpperCase());
+  parts.push(p.nombre);
   if (p.tipo) parts.push(p.tipo);
   if (p.condicion_pago) parts.push(CONDICION_LABELS[p.condicion_pago] ?? p.condicion_pago);
   return parts.join(' · ');
 }
 
 export function clienteLabel(c: MaCliente): string {
-  const parts = [c.nombre];
+  const parts: string[] = [];
+  if (c.codigo?.trim()) parts.push(c.codigo.trim().toUpperCase());
+  parts.push(c.nombre);
   if (c.tipo) parts.push(CLIENTE_TIPO_LABELS[c.tipo] ?? c.tipo);
   if (c.condicion_pago) parts.push(CONDICION_LABELS[c.condicion_pago] ?? c.condicion_pago);
   return parts.join(' · ');

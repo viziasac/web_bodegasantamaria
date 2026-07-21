@@ -232,7 +232,7 @@ const ExpensesPage: React.FC = () => {
             </div>
             <DataTable>
               <thead>
-                <tr><th /><th>Descripción</th><th>Categoría</th><th>Doc</th><th>Monto</th></tr>
+                <tr><th /><th>Descripción</th><th>Categoría</th><th>Proveedor</th><th>Doc</th><th>Monto</th></tr>
               </thead>
               <tbody>
                 {cart.map((l) => (
@@ -243,6 +243,7 @@ const ExpensesPage: React.FC = () => {
                     </td>
                     <td>{l.descripcion}</td>
                     <td>{l.categoriaNombre ?? '—'}</td>
+                    <td>{l.proveedorNombre ?? '—'}</td>
                     <td>{l.tipoDocumento ? `${l.tipoDocumento} ${l.nroDocumento ?? ''}` : '—'}</td>
                     <td className="cell-money">{fmtMoney(l.monto)}</td>
                   </tr>

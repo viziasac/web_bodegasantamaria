@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCatalog, clearCatalogCache } from '../../context/CatalogContext';
 import { PageHeader, Alert, FormSelect } from '../../components/ui';
 import { loadWebPrefs, saveWebPrefs } from '../../utils/webPrefs';
+import { canalVentaLabel } from '../../utils/canalVentaLabels';
+import { isAdminRole } from '../../config/moduleRegistry';
 import { supabase } from '../../services/supabaseClient';
 
 const WEB_VERSION = '1.0.0';
 
 const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
-  const { ubicaciones, canalesVenta, refreshCatalog, loaded, loading, error } = useCatalog();
+  const { ubicaciones, canalesVenta, proveedores, clientes, refreshCatalog, loaded, loading, error } = useCatalog();
   const prefs0 = loadWebPrefs();
   const [msg, setMsg] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -18,6 +21,8 @@ const SettingsPage: React.FC = () => {
   const [resetSending, setResetSending] = useState(false);
 
   const pvUbicaciones = ubicaciones.filter((u) => u.es_punto_venta);
+
+  const isAdmin = isAdminRole(user?.role);
 
   const handleClearCache = () => {
     if (!confirm('¿Eliminar la caché local de catálogos?')) return;
@@ -99,7 +104,7 @@ const SettingsPage: React.FC = () => {
           onChange={setDefaultCanal}
           options={[
             { value: '', label: '— Sin preferencia —' },
-            ...canalesVenta.map((c) => ({ value: c.codigo, label: c.nombre })),
+            ...canalesVenta.map((c) => ({ value: c.codigo, label: canalVentaLabel(c) })),
           ]}
         />
         <div className="form-actions form-actions--flat">
@@ -114,7 +119,16 @@ const SettingsPage: React.FC = () => {
         <h3 className="card-section-title">Sistema</h3>
         <p><strong>Backend:</strong> Supabase (Bodega Santa María ERP)</p>
         <p><strong>Versión web:</strong> {WEB_VERSION}</p>
-        <p><strong>Catálogos:</strong> {loaded ? 'Cargados' : 'Pendientes'} {(loading || refreshing) && '(actualizando…)'}</p>
+        <p>
+          <strong>Catálogos:</strong>{' '}
+          {loaded ? 'Cargados' : 'Pendientes'}
+          {(loading || refreshing) && ' (actualizando…)'}
+          {loaded && (
+            <span className="kpi-sub">
+              {' '}— {proveedores.length} proveedor(es), {clientes.length} cliente(s), {canalesVenta.length} canal(es)
+            </span>
+          )}
+        </p>
         <div className="form-actions form-actions--flat">
           <button type="button" className="btn btn-primary" onClick={handleRefresh} disabled={refreshing || loading}>
             <span className="material-icons-round">refresh</span>
@@ -125,6 +139,27 @@ const SettingsPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="card card-section">
+          <h3 className="card-section-title">Administración</h3>
+          <p className="kpi-sub">Accesos rápidos a catálogos y permisos.</p>
+          <div className="form-actions form-actions--flat">
+            <Link to="/proveedores-clientes" className="btn btn-ghost">
+              <span className="material-icons-round">contacts</span>
+              Proveedores y clientes
+            </Link>
+            <Link to="/maestros" className="btn btn-ghost">
+              <span className="material-icons-round">folder_shared</span>
+              Maestros
+            </Link>
+            <Link to="/usuarios" className="btn btn-ghost">
+              <span className="material-icons-round">manage_accounts</span>
+              Usuarios
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="card card-section">
         <h3 className="card-section-title">Sesión</h3>

@@ -12,6 +12,7 @@ import {
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
 import { clienteLabel, proveedorLabel } from '../../utils/partnerCatalog';
+import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd, inicioMesYmd } from '../../utils/fechaLocal';
 import type { GasGasto, VentaDetalleLinea, VentaResumen } from '../../types';
 
@@ -467,7 +468,7 @@ const ModificacionesPage: React.FC = () => {
                 onChange={setClienteId}
                 options={[
                   { value: '', label: '— Sin cliente —' },
-                  ...clientes.map((c) => ({ value: c.id, label: c.nombre })),
+                  ...clientes.map((c) => ({ value: c.id, label: clienteLabel(c) })),
                 ]}
               />
               <FormSelect
@@ -476,7 +477,7 @@ const ModificacionesPage: React.FC = () => {
                 onChange={setCanal}
                 options={
                   canalesVenta.length
-                    ? canalesVenta.map((c) => ({ value: c.codigo, label: c.nombre }))
+                    ? canalesVenta.map((c) => ({ value: c.codigo, label: canalVentaLabel(c) }))
                     : [{ value: canal || 'DIRECTO', label: canal || 'DIRECTO' }]
                 }
               />

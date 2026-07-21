@@ -1110,8 +1110,7 @@ export async function crearOrdenProduccion(opts: {
   modoCantidad?: 'BOTELLA' | 'PACK';
 }): Promise<string> {
   const uid = await getUserId();
-  const { data: nroData, error: nroErr } = await supabase.rpc(ErpRpc.generarNroOrden, { p_fecha: hoyYmd() });
-  if (nroErr) throw nroErr;
+  const nroData = await callRpc<string | number>(ErpRpc.generarNroOrden, { p_fecha: hoyYmd() }, 'No se pudo generar número de orden');
   const txnId = opts.txnId ?? newTxnId();
   const { data, error } = await supabase
     .from(Tables.prdOrden)
