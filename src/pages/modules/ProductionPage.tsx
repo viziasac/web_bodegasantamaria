@@ -18,6 +18,7 @@ import {
   TabBar,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { CatalogGate } from '../../components/CatalogGate';
 import type { PrdOrden, InsumoValidacionOrden } from '../../types';
 
 type FiltroEstado = 'BORRADOR' | 'COMPLETADA' | 'TODAS';
@@ -237,9 +238,12 @@ const ProductionPage: React.FC = () => {
       <div className="grid-2-1">
         <div className="card">
           <h3 className="card-section-title">Nueva orden</h3>
-          {catalogoProd.length === 0 ? (
-            <EmptyState icon="precision_manufacturing" title="Sin presentaciones PT" hint="Recargue catálogos en Configuración" />
-          ) : (
+          <CatalogGate
+            ready={catalogoProd.length > 0}
+            emptyIcon="precision_manufacturing"
+            emptyTitle="Sin presentaciones PT"
+            emptyHint="Recargue catálogos en Configuración"
+          >
             <form onSubmit={crearOrden}>
               {categorias.length > 1 && (
                 <FormSelect
@@ -363,7 +367,7 @@ const ProductionPage: React.FC = () => {
                 <SubmitButton loading={submitting} label="Crear orden BORRADOR" icon="add" />
               </div>
             </form>
-          )}
+          </CatalogGate>
         </div>
 
         {validacion.length > 0 && selectedOrden && (

@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { getStockAgregadoPorUbicacion, registrarReempaque } from '../../services/apiProvider';
 import { newTxnId } from '../../utils/txnId';
 import {
-  PageHeader, Alert, FormSelect, FormInput, SubmitButton, EmptyState, toUserMessage, fmtNum,
+  PageHeader, Alert, FormSelect, FormInput, SubmitButton, toUserMessage, fmtNum,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { CatalogGate } from '../../components/CatalogGate';
 
 const RepackPage: React.FC = () => {
   const { items, ubicaciones, ensureCatalogLoaded } = useCatalog();
@@ -86,9 +87,11 @@ const RepackPage: React.FC = () => {
       <PageHeader title="Reempaque" subtitle="Cambio de formato o etiqueta" moduleId="reempaque" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
-      {reempaqueItems.length === 0 ? (
-        <EmptyState icon="transform" title="Sin ítems disponibles para reempaque" />
-      ) : (
+      <CatalogGate
+        ready={reempaqueItems.length > 0}
+        emptyIcon="transform"
+        emptyTitle="Sin ítems disponibles para reempaque"
+      >
         <div className="card">
           <form onSubmit={handleSubmit}>
             <FormSelect label="Ubicación" value={ubicacionId} onChange={setUbicacionId} required
@@ -108,7 +111,7 @@ const RepackPage: React.FC = () => {
             <div className="form-actions"><SubmitButton loading={loading} label="Registrar reempaque" icon="transform" /></div>
           </form>
         </div>
-      )}
+      </CatalogGate>
     </div>
   );
 };

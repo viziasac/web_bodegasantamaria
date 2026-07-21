@@ -157,7 +157,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      const mapped = await resolveAuthenticatedWebUser(data.user);
+      const mapped = await withTimeout(
+        resolveAuthenticatedWebUser(data.user),
+        SESSION_BOOT_TIMEOUT_MS,
+        'Validación de acceso',
+      );
       recordLoginSuccess();
       setUser(mapped);
     } catch (gateErr) {

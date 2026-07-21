@@ -16,6 +16,7 @@ import {
   DataTable, toUserMessage, fmtMoney, fmtDate,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { CatalogGate } from '../../components/CatalogGate';
 import { clienteLabel, getDefaultClienteId } from '../../utils/partnerCatalog';
 import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
@@ -211,14 +212,12 @@ const DispatchPage: React.FC = () => {
       />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
-      {pvUbicaciones.length === 0 ? (
-        <EmptyState
-          icon="storefront"
-          title="Sin puntos de venta"
-          hint="Configure ubicaciones con es_punto_venta en el catálogo"
-        />
-      ) : (
-      <>
+      <CatalogGate
+        ready={pvUbicaciones.length > 0}
+        emptyIcon="storefront"
+        emptyTitle="Sin puntos de venta"
+        emptyHint="Configure ubicaciones con es_punto_venta en el catálogo"
+      >
       <div className="card">
         <form onSubmit={handleSubmit}>
           <FormSelect label="Punto de venta" value={ubicacionId} onChange={onUbicacionChange} required
@@ -302,8 +301,7 @@ const DispatchPage: React.FC = () => {
           </DataTable>
         )}
       </div>
-      </>
-      )}
+      </CatalogGate>
     </div>
   );
 };

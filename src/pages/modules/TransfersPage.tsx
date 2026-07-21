@@ -101,8 +101,9 @@ const TransfersPage: React.FC = () => {
         if (r.tipo !== 'PT') map[`I:${r.item_id}`] = r.stock_total;
       }
       setStockMap(map);
-    } catch {
+    } catch (err) {
       setStockMap({});
+      setError(toUserMessage(err, 'No se pudo cargar el stock del origen'));
     }
   };
 

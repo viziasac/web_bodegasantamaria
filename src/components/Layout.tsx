@@ -35,10 +35,11 @@ const Layout: React.FC = () => {
       <button
         type="button"
         className="mobile-menu-toggle"
-        aria-label="Abrir menú"
-        onClick={() => setSidebarOpen(true)}
+        aria-label={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
+        aria-expanded={sidebarOpen}
+        onClick={() => setSidebarOpen((o) => !o)}
       >
-        <span className="material-icons-round">menu</span>
+        <span className="material-icons-round">{sidebarOpen ? 'close' : 'menu'}</span>
       </button>
       <Sidebar
         onLogout={logout}

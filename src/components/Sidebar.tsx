@@ -77,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
             <div className="user-email">{user?.nombre || user?.email || 'Usuario'}</div>
             <div className="user-role">{roleLabel}</div>
           </div>
-          <button type="button" onClick={onLogout} className="btn-icon" title="Cerrar Sesión">
+          <button type="button" onClick={onLogout} className="btn-icon" title="Cerrar Sesión" aria-label="Cerrar sesión">
             <span className="material-icons-round">logout</span>
           </button>
         </div>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { bodegaService } from '../../services/bodegaService';
 import { newTxnId } from '../../utils/txnId';
-import { PageHeader, Alert, FormSelect, FormInput, SubmitButton, EmptyState, toUserMessage } from '../../components/ui';
+import { PageHeader, Alert, FormSelect, FormInput, SubmitButton, toUserMessage } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { CatalogGate } from '../../components/CatalogGate';
 
 const BulkProductionPage: React.FC = () => {
   const { items, ensureCatalogLoaded } = useCatalog();
@@ -16,8 +17,8 @@ const BulkProductionPage: React.FC = () => {
   const granelItems = items.filter((i) => i.tipo === 'GRANEL');
 
   useEffect(() => {
-    ensureCatalogLoaded();
-  }, []);
+    void ensureCatalogLoaded();
+  }, [ensureCatalogLoaded]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,9 +53,12 @@ const BulkProductionPage: React.FC = () => {
       <PageHeader title="Producción Granel" subtitle="Entrada de vino/pisco a granel (ALM_GR)" moduleId="produccion_granel" />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
-      {granelItems.length === 0 ? (
-        <EmptyState icon="wine_bar" title="Sin ítems de tipo GRANEL" hint="Configure ítems granel en el catálogo" />
-      ) : (
+      <CatalogGate
+        ready={granelItems.length > 0}
+        emptyIcon="wine_bar"
+        emptyTitle="Sin ítems de tipo GRANEL"
+        emptyHint="Configure ítems granel en el catálogo"
+      >
         <div className="card">
           <form onSubmit={handleSubmit}>
             <FormSelect label="Ítem granel" value={itemId} onChange={setItemId} required
@@ -64,7 +68,7 @@ const BulkProductionPage: React.FC = () => {
             <div className="form-actions"><SubmitButton loading={loading} label="Registrar granel" icon="wine_bar" /></div>
           </form>
         </div>
-      )}
+      </CatalogGate>
     </div>
   );
 };

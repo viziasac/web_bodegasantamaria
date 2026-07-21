@@ -34,7 +34,9 @@ const LoginPage: React.FC = () => {
     if (isAuthenticated) navigate('/', { replace: true });
   }, [isAuthenticated, navigate]);
 
+  /** Lee flag de acceso denegado (query o sessionStorage tras bootstrap de sesión). */
   useEffect(() => {
+    if (isLoading) return;
     const denied = searchParams.get('denied');
     let fromStorage = false;
     try {
@@ -48,7 +50,16 @@ const LoginPage: React.FC = () => {
         setSearchParams(searchParams, { replace: true });
       }
     }
-  }, [searchParams, setSearchParams]);
+  }, [isLoading, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const hash = window.location.hash || '';
+    if (hash.includes('type=recovery') || searchParams.get('type') === 'recovery') {
+      setError(
+        'Enlace de restablecimiento recibido. Inicie sesión con su correo; si aún no cambió la clave, use el correo del enlace o solicite uno nuevo en Configuración tras ingresar.',
+      );
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     refreshGuard();
@@ -94,7 +105,7 @@ const LoginPage: React.FC = () => {
         rel="noopener noreferrer"
       >
         <span className="material-icons-round" aria-hidden="true">language</span>
-        ¿Buscando la web pública? <strong>santamarialunahuana.com</strong>
+        ¿Buscando nuestra web? <strong>Click aquí</strong>
       </a>
 
       <div className="login-card">
