@@ -31,15 +31,17 @@ export const bodegaService = {
       stockRows.map((r) => [r.item_id as string, r.stock_item as number]),
     );
     return presentaciones
-      .filter((p) => p.ma_item?.tipo === 'PT')
+      .filter((p) => p.ma_item?.tipo === 'PT' && p.activo !== false)
       .map((p) => ({
         presentacion_id: p.id,
         item_id: p.item_id,
         nombre: p.nombre,
         cant_unidades: p.cant_unidades ?? 1,
+        // Stock es por ítem (botellas), no por presentación comercial.
         stock_item: stockByItem[p.item_id] ?? 0,
         categoria: p.ma_item?.categoria,
         item_nombre: p.ma_item?.nombre,
+        item_codigo: p.ma_item?.codigo,
       }));
   },
 
@@ -245,10 +247,12 @@ export const bodegaService = {
         presentacion_id: opts.presentacionId,
       }];
     } else {
+      // FIFO por ítem (stock en botellas), no por presentación pack/botella.
       const allocations = await api.resolveLoteAllocationsFifo({
         ubicacionId: opts.ubicacionId,
         cantidad: cant,
-        presentacionId: opts.presentacionId,
+        itemId: pres.item_id,
+        productoLabel: pres.ma_item?.nombre ?? pres.nombre,
       });
       lineas = allocations.map((a) => ({
         item_id: pres.item_id,
@@ -264,7 +268,7 @@ export const bodegaService = {
       canal: opts.canal ?? 'DIRECTO',
       lineas,
       observaciones: opts.observaciones,
-      clienteId: opts.clienteId,
+      clienteId: opts.clienteId || undefined,
       txnId: opts.clientTxnId ?? newTxnId(),
     });
   },
@@ -307,8 +311,8 @@ export const bodegaService = {
       const allocations = await api.resolveLoteAllocationsFifo({
         ubicacionId: opts.ubicacionId,
         cantidad: Math.round(l.cantidadBotellas),
-        presentacionId: l.presentacionId,
-        productoLabel: pres.nombre,
+        itemId: pres.item_id,
+        productoLabel: pres.ma_item?.nombre ?? pres.nombre,
       });
       for (const a of allocations) {
         allLineas.push({
@@ -325,7 +329,7 @@ export const bodegaService = {
       canal: opts.canal,
       lineas: allLineas,
       observaciones: opts.observaciones,
-      clienteId: opts.clienteId,
+      clienteId: opts.clienteId || undefined,
       txnId: opts.clientTxnId ?? newTxnId(),
     });
   },

@@ -7,8 +7,9 @@ import {
   cantidadBaseDesdeEntrada, etiquetaModoCantidad, resumenCantidadBase, type ModoCantidadEmpaque,
 } from '../../utils/cantidadEmpaque';
 import {
-  categoriasProductosPv, filtrarProductosPv, etiquetaPresentacionConStock,
-} from '../../utils/presentacionLabels';
+  categoriasSkus, filtrarSkusPorCategoria, etiquetaSkuConStock,
+  presentacionParaModo, factorParaModo, skusDesdeProductosPv,
+} from '../../utils/skuVenta';
 import {
   clearIngresosCartDraft, loadIngresosCartDraft, saveIngresosCartDraft,
   type ModoVentaIngresos,
@@ -20,13 +21,14 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
-import { clienteLabel, getDefaultClienteId } from '../../utils/partnerCatalog';
+import { clienteLabel } from '../../utils/partnerCatalog';
 import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
 import type { ProductoPv, VentaResumen } from '../../types';
 
 interface CartLine {
+  itemId: string;
   presentacionId: string;
   nombre: string;
   cantidadBotellas: number;
@@ -41,6 +43,10 @@ const TIPOS_DOC = [
   { value: 'OTRO', label: 'Otro' },
 ];
 
+/**
+ * POS multi-línea: 1 fila por SKU (ítem PT). Stock en botellas.
+ * Botellas/Packs solo define cómo se ingresa la cantidad y qué presentación comercial se registra.
+ */
 const IncomePage: React.FC = () => {
   const { ubicaciones, canalesVenta, clientes, ensureCatalogLoaded } = useCatalog();
   const [modo, setModo] = useState<ModoVentaIngresos>('agrupada');
@@ -58,7 +64,7 @@ const IncomePage: React.FC = () => {
   const [productos, setProductos] = useState<ProductoPv[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [categoria, setCategoria] = useState('');
-  const [presentacionId, setPresentacionId] = useState('');
+  const [itemId, setItemId] = useState('');
   const [modoCantidad, setModoCantidad] = useState<ModoCantidadEmpaque>('botella');
   const [cantidad, setCantidad] = useState('');
   /** En agrupada: precio por botella. En rápida: monto total de la línea. */
@@ -73,19 +79,31 @@ const IncomePage: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
 
   const pvUbicaciones = ubicaciones.filter((u) => u.es_punto_venta);
-  const categorias = useMemo(() => categoriasProductosPv(productos), [productos]);
-  const productosFiltrados = useMemo(
-    () => filtrarProductosPv(productos, categoria || undefined),
-    [productos, categoria],
+  const skus = useMemo(() => skusDesdeProductosPv(productos), [productos]);
+  const categorias = useMemo(() => categoriasSkus(skus), [skus]);
+  const skusFiltrados = useMemo(
+    () => filtrarSkusPorCategoria(skus, categoria || undefined),
+    [skus, categoria],
   );
-  const presSel = productos.find((p) => p.presentacion_id === presentacionId);
+  const skusConStock = useMemo(
+    () => skusFiltrados.filter((s) => s.stockItem > 0),
+    [skusFiltrados],
+  );
+
+  const skuSel = skus.find((s) => s.itemId === itemId)
+    ?? skusFiltrados.find((s) => s.itemId === itemId);
+
+  const factorPack = skuSel ? factorParaModo(skuSel, 'pack') : 1;
+  const puedePack = Boolean(skuSel?.presentacionPack && factorPack > 1);
+  const factorActivo = skuSel ? factorParaModo(skuSel, modoCantidad) : 1;
+  const presComercial = skuSel ? presentacionParaModo(skuSel, modoCantidad) : undefined;
 
   const cantIngresada = parseFloat(cantidad);
-  const botellas = presSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
+  const botellas = skuSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
     ? cantidadBaseDesdeEntrada({
       cantidadIngresada: cantIngresada,
       modo: modoCantidad,
-      cantUnidadesPresentacion: presSel.cant_unidades,
+      cantUnidadesPresentacion: factorActivo,
     })
     : 0;
 
@@ -96,12 +114,13 @@ const IncomePage: React.FC = () => {
 
   const cartTotal = cart.reduce((s, l) => s + l.cantidadBotellas * l.precioUnitarioBotella, 0);
 
-  useEffect(() => {
-    if (!clienteId && clientes.length > 0) {
-      const def = getDefaultClienteId(clientes);
-      if (def) setClienteId(def);
-    }
-  }, [clientes, clienteId]);
+  const stockDisponibleSku = (skuItemId: string, stockItem: number) => {
+    const enCarrito = cart
+      .filter((l) => l.itemId === skuItemId)
+      .reduce((s, l) => s + l.cantidadBotellas, 0);
+    return Math.max(0, stockItem - enCarrito);
+  };
+
   const esRapida = modo === 'rapida';
 
   const loadProductos = async (almacenId: string) => {
@@ -130,7 +149,6 @@ const IncomePage: React.FC = () => {
     }
   };
 
-  // Hidratar borrador una vez
   useEffect(() => {
     const draft = loadIngresosCartDraft();
     if (draft) {
@@ -144,7 +162,15 @@ const IncomePage: React.FC = () => {
       if (draft.moneda) setMoneda(draft.moneda);
       if (draft.canal) setCanal(draft.canal);
       if (draft.observaciones) setObservaciones(draft.observaciones);
-      if (draft.cart.length) setCart(draft.cart);
+      if (draft.cart.length) {
+        setCart(draft.cart.map((l) => ({
+          itemId: l.itemId || '',
+          presentacionId: l.presentacionId,
+          nombre: l.nombre,
+          cantidadBotellas: l.cantidadBotellas,
+          precioUnitarioBotella: l.precioUnitarioBotella,
+        })));
+      }
     }
     setDraftReady(true);
   }, []);
@@ -176,7 +202,6 @@ const IncomePage: React.FC = () => {
     }
   }, [canalesVenta]);
 
-  // Persistir borrador
   useEffect(() => {
     if (!draftReady) return;
     const ubi = pvUbicaciones.find((u) => u.id === ubicacionId);
@@ -199,32 +224,43 @@ const IncomePage: React.FC = () => {
     nroDoc, tipoDoc, moneda, canal, observaciones, cart, pvUbicaciones,
   ]);
 
+  // Completar itemId en líneas de borrador antiguo cuando ya hay catálogo
+  useEffect(() => {
+    if (!productos.length || !cart.some((l) => !l.itemId)) return;
+    setCart((prev) => prev.map((l) => {
+      if (l.itemId) return l;
+      const p = productos.find((x) => x.presentacion_id === l.presentacionId);
+      return p ? { ...l, itemId: p.item_id } : l;
+    }));
+  }, [productos]);
+
   const onUbicacionChange = (id: string) => {
     setUbicacionId(id);
-    setPresentacionId('');
+    setItemId('');
     setCategoria('');
+    setModoCantidad('botella');
     setCart([]);
     loadProductos(id);
     loadVentasDia(id, fecha);
   };
 
-  const onPresentacionChange = async (v: string) => {
-    setPresentacionId(v);
-    const p = productos.find((x) => x.presentacion_id === v);
-    if (p && p.cant_unidades <= 1) setModoCantidad('botella');
-    if (!esRapida) {
-      try {
-        const ref = await getPrecioReferencia(v);
-        if (ref != null) setPrecioInput(String(ref));
-      } catch { /* optional */ }
-    }
+  const onSkuChange = async (v: string) => {
+    setItemId(v);
+    setModoCantidad('botella');
+    const sku = skus.find((s) => s.itemId === v);
+    if (!sku || esRapida) return;
+    try {
+      const ref = await getPrecioReferencia(sku.presentacionBotella.presentacion_id);
+      if (ref != null) setPrecioInput(String(ref));
+    } catch { /* optional */ }
   };
 
   const onModoChange = (next: ModoVentaIngresos) => {
     setModo(next);
-    setPresentacionId('');
+    setItemId('');
     setCantidad('');
     setPrecioInput('');
+    setModoCantidad('botella');
     if (next === 'rapida') setCart([]);
   };
 
@@ -237,36 +273,50 @@ const IncomePage: React.FC = () => {
     return parts.length ? parts.join(' · ') : undefined;
   };
 
+  const etiquetaLinea = (skuNombre: string, modoQty: ModoCantidadEmpaque, factor: number) => (
+    modoQty === 'pack' && factor > 1
+      ? `${skuNombre} · pack x${factor}`
+      : `${skuNombre} · botella`
+  );
+
   const addLine = () => {
-    if (!presentacionId || !cantidad || !precioInput) {
+    if (!skuSel || !presComercial || !cantidad || !precioInput) {
       setError('Complete producto, cantidad y precio.');
       return;
     }
-    if (!presSel || botellas <= 0 || !Number.isFinite(precioUnitarioBotella) || precioUnitarioBotella <= 0) {
+    if (modoCantidad === 'pack' && !puedePack) {
+      setError('Este producto no tiene presentación pack configurada.');
+      return;
+    }
+    if (botellas <= 0 || !Number.isFinite(precioUnitarioBotella) || precioUnitarioBotella <= 0) {
       setError('Cantidad o precio inválido.');
       return;
     }
-    if (presSel.stock_item > 0 && botellas > presSel.stock_item) {
-      setError(`Stock insuficiente: hay ${presSel.stock_item} botellas.`);
+    const disponible = stockDisponibleSku(skuSel.itemId, skuSel.stockItem);
+    if (skuSel.stockItem > 0 && botellas > disponible) {
+      setError(`Stock insuficiente: quedan ${disponible} botellas disponibles (ya hay líneas en el carrito).`);
       return;
     }
     setError(null);
     setCart([...cart, {
-      presentacionId,
-      nombre: presSel.nombre,
+      itemId: skuSel.itemId,
+      presentacionId: presComercial.presentacion_id,
+      nombre: etiquetaLinea(skuSel.nombre, modoCantidad, factorActivo),
       cantidadBotellas: botellas,
       precioUnitarioBotella,
     }]);
     setCantidad('');
     setPrecioInput('');
-    setPresentacionId('');
+    setItemId('');
+    setModoCantidad('botella');
   };
 
   const clearFormAfterSale = async () => {
     setCart([]);
     setCantidad('');
     setPrecioInput('');
-    setPresentacionId('');
+    setItemId('');
+    setModoCantidad('botella');
     setClienteTexto('');
     setNroDoc('');
     setObservaciones('');
@@ -279,7 +329,6 @@ const IncomePage: React.FC = () => {
     e.preventDefault();
     if (loading) return;
     if (!ubicacionId) { setError('Seleccione un punto de venta.'); return; }
-    if (!clienteId) { setError('Seleccione un cliente del catálogo.'); return; }
     if (cart.length === 0) { setError('Agregue al menos una línea al carrito.'); return; }
     setLoading(true);
     setError(null);
@@ -311,12 +360,17 @@ const IncomePage: React.FC = () => {
     e.preventDefault();
     if (loading) return;
     if (!ubicacionId) { setError('Seleccione un punto de venta.'); return; }
-    if (!presSel || botellas <= 0 || !Number.isFinite(precioUnitarioBotella) || precioUnitarioBotella <= 0) {
+    if (!skuSel || !presComercial || botellas <= 0
+      || !Number.isFinite(precioUnitarioBotella) || precioUnitarioBotella <= 0) {
       setError('Complete producto, cantidad y monto total válido.');
       return;
     }
-    if (presSel.stock_item > 0 && botellas > presSel.stock_item) {
-      setError(`Stock insuficiente: hay ${presSel.stock_item} botellas.`);
+    if (modoCantidad === 'pack' && !puedePack) {
+      setError('Este producto no tiene presentación pack configurada.');
+      return;
+    }
+    if (skuSel.stockItem > 0 && botellas > skuSel.stockItem) {
+      setError(`Stock insuficiente: hay ${skuSel.stockItem} botellas.`);
       return;
     }
     setLoading(true);
@@ -326,7 +380,7 @@ const IncomePage: React.FC = () => {
       await ensureCatalogLoaded();
       await bodegaService.registrarVentaBotellas({
         ubicacionId,
-        presentacionId: presSel.presentacion_id,
+        presentacionId: presComercial.presentacion_id,
         cantidadBotellas: botellas,
         precioUnitarioBotella,
         canal,
@@ -334,7 +388,9 @@ const IncomePage: React.FC = () => {
         observaciones: buildObservaciones(),
         clientTxnId: newTxnId(),
       });
-      setSuccess(`Venta rápida: ${presSel.nombre} · ${botellas} bot. · ${fmtMoney(precioNum)}`);
+      setSuccess(
+        `Venta rápida: ${etiquetaLinea(skuSel.nombre, modoCantidad, factorActivo)} · ${botellas} bot. · ${fmtMoney(precioNum)}`,
+      );
       await clearFormAfterSale();
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar venta'));
@@ -342,6 +398,10 @@ const IncomePage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const stockHint = skuSel
+    ? stockDisponibleSku(skuSel.itemId, skuSel.stockItem)
+    : 0;
 
   return (
     <div className="animate-in">
@@ -360,7 +420,7 @@ const IncomePage: React.FC = () => {
       />
       <Alert
         type="info"
-        message="Las ventas nuevas siempre se registran con la fecha de hoy (America/Lima). El selector de fecha solo consulta el historial del día. Para mostrador/delivery de una línea rápida use Despacho."
+        message="Seleccione el producto (SKU). El stock se muestra y descuenta en botellas; use Botellas/Packs solo para indicar cómo cuenta la cantidad. Las ventas nuevas siempre se registran con la fecha de hoy (America/Lima)."
       />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
@@ -406,9 +466,9 @@ const IncomePage: React.FC = () => {
           Fecha de registro de nuevas ventas = hoy (el RPC no acepta fecha histórica).
         </p>
         <FormRow>
-          <FormSelect label="Cliente (catálogo)" value={clienteId} onChange={setClienteId} required={!esRapida}
+          <FormSelect label="Cliente (opcional)" value={clienteId} onChange={setClienteId}
             options={[
-              { value: '', label: '— Seleccionar cliente —' },
+              { value: '', label: '— Sin cliente —' },
               ...clientes.map((c) => ({ value: c.id, label: clienteLabel(c) })),
             ]} />
           <FormInput label="Cliente (texto libre)" value={clienteTexto} onChange={setClienteTexto} />
@@ -432,22 +492,31 @@ const IncomePage: React.FC = () => {
       <FormSection title={esRapida ? 'Línea de venta' : 'Agregar línea'}>
         {loadingProductos && <p className="kpi-sub">Cargando productos…</p>}
         {categorias.length > 1 && (
-          <FormSelect label="Categoría" value={categoria} onChange={(v) => { setCategoria(v); setPresentacionId(''); }}
+          <FormSelect label="Categoría" value={categoria} onChange={(v) => { setCategoria(v); setItemId(''); }}
             options={[{ value: '', label: 'Todas' }, ...categorias.map((c) => ({ value: c, label: c }))]} />
         )}
-        <FormSelect label="Producto" value={presentacionId} onChange={onPresentacionChange}
+        <FormSelect
+          label="Producto (con stock)"
+          value={itemId}
+          onChange={onSkuChange}
           options={[
             { value: '', label: '— Seleccionar producto —' },
-            ...productosFiltrados
-              .filter((p) => p.stock_item > 0)
-              .map((p) => ({ value: p.presentacion_id, label: etiquetaPresentacionConStock(p) })),
-          ]} />
-        {presSel && (
-          <CantidadEmpaqueToggle modo={modoCantidad} onChange={setModoCantidad} cantUnidades={presSel.cant_unidades} />
+            ...skusConStock.map((s) => ({
+              value: s.itemId,
+              label: etiquetaSkuConStock(s),
+            })),
+          ]}
+        />
+        {skuSel && puedePack && (
+          <CantidadEmpaqueToggle
+            modo={modoCantidad}
+            onChange={setModoCantidad}
+            cantUnidades={factorPack}
+          />
         )}
         <FormRow>
           <FormInput
-            label={presSel ? etiquetaModoCantidad(modoCantidad, presSel.cant_unidades) : 'Cantidad'}
+            label={skuSel ? etiquetaModoCantidad(modoCantidad, factorActivo) : 'Cantidad'}
             type="number" value={cantidad} onChange={setCantidad} min={1}
           />
           <FormInput
@@ -459,9 +528,14 @@ const IncomePage: React.FC = () => {
             step="0.01"
           />
         </FormRow>
-        {presSel && botellas > 0 && (
+        {skuSel && botellas > 0 && (
           <p className="qty-base-summary">
-            {resumenCantidadBase({ cantidadIngresada: cantIngresada, modo: modoCantidad, cantUnidadesPresentacion: presSel.cant_unidades })}
+            {resumenCantidadBase({
+              cantidadIngresada: cantIngresada,
+              modo: modoCantidad,
+              cantUnidadesPresentacion: factorActivo,
+            })}
+            {` · Disp.: ${stockHint} bot.`}
             {esRapida && Number.isFinite(precioUnitarioBotella) && precioUnitarioBotella > 0 && (
               <> · P. unit. {fmtMoney(precioUnitarioBotella)}/bot.</>
             )}

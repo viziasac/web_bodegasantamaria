@@ -20,6 +20,14 @@ const TIPO_ORDER: Record<string, number> = {
   EMPAQUE: 3,
 };
 
+const TIPO_LABEL: Record<string, string> = {
+  GRANEL: 'Granel',
+  INSUMO: 'Insumo',
+  MATERIAL: 'Material',
+  EMPAQUE: 'Empaque',
+  PT: 'Producto terminado',
+};
+
 function sortLines(lines: RecReceta[]): RecReceta[] {
   return [...lines].sort((a, b) => {
     const ta = (a.componente ?? a.ma_item_componente)?.tipo ?? '';
@@ -47,6 +55,10 @@ const emptyDraft = (): DraftLine => ({
   esVariable: false,
 });
 
+/**
+ * Recetas = BOM en rec_receta (cantidad por 1 botella).
+ * Escritura RLS: solo admin (is_admin). Lectura: usuarios activos.
+ */
 const RecipesPage: React.FC = () => {
   const { user } = useAuth();
   const { items, ensureCatalogLoaded, refreshCatalog } = useCatalog();
@@ -66,8 +78,12 @@ const RecipesPage: React.FC = () => {
   const [editCantidad, setEditCantidad] = useState('');
   const [editVariable, setEditVariable] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
-  const pts = useMemo(() => items.filter((i) => i.tipo === 'PT'), [items]);
+  const pts = useMemo(
+    () => items.filter((i) => i.tipo === 'PT' && i.activo !== false),
+    [items],
+  );
   const componentes = useMemo(
     () => items.filter((i) => i.tipo !== 'PT' && i.activo !== false)
       .sort((a, b) => {
@@ -148,6 +164,7 @@ const RecipesPage: React.FC = () => {
   const openBom = (presetPt?: string) => {
     setPtId(presetPt ?? filterPt ?? '');
     setDraftLines([emptyDraft()]);
+    setModalError(null);
     setBomModal(true);
   };
 
@@ -155,6 +172,7 @@ const RecipesPage: React.FC = () => {
     setEditLine(line);
     setEditCantidad(String(line.cantidad));
     setEditVariable(!!line.es_variable);
+    setModalError(null);
     setEditModal(true);
   };
 
@@ -169,7 +187,7 @@ const RecipesPage: React.FC = () => {
   const handleSaveBom = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError(null);
+    setModalError(null);
     setSuccess(null);
     try {
       if (!ptId) throw new Error('Seleccione el producto terminado.');
@@ -206,7 +224,7 @@ const RecipesPage: React.FC = () => {
       setBomModal(false);
       await load();
     } catch (err) {
-      setError(toUserMessage(err, 'No se pudo guardar la receta'));
+      setModalError(toUserMessage(err, 'No se pudo guardar la receta'));
     } finally {
       setSaving(false);
     }
@@ -216,7 +234,7 @@ const RecipesPage: React.FC = () => {
     e.preventDefault();
     if (!editLine) return;
     setSaving(true);
-    setError(null);
+    setModalError(null);
     setSuccess(null);
     try {
       const qty = parseFloat(editCantidad);
@@ -230,7 +248,7 @@ const RecipesPage: React.FC = () => {
       setEditLine(null);
       await load();
     } catch (err) {
-      setError(toUserMessage(err, 'No se pudo actualizar la línea'));
+      setModalError(toUserMessage(err, 'No se pudo actualizar la línea'));
     } finally {
       setSaving(false);
     }
@@ -238,11 +256,11 @@ const RecipesPage: React.FC = () => {
 
   const handleDeleteLine = async (line: RecReceta) => {
     const nombre = (line.componente ?? line.ma_item_componente)?.nombre ?? 'componente';
-    if (!confirm(`¿Quitar "${nombre}" de la receta? Esto no elimina el material del catálogo.`)) return;
+    if (!confirm(`¿Quitar "${nombre}" de esta receta?\n\nEl material sigue en el catálogo; solo se elimina la línea de la fórmula.`)) return;
     setError(null);
     try {
       await deleteRecetaLinea(line.id);
-      setSuccess('Línea eliminada de la receta.');
+      setSuccess('Línea quitada de la receta.');
       await load();
     } catch (err) {
       setError(toUserMessage(err, 'No se pudo quitar la línea'));
@@ -250,16 +268,18 @@ const RecipesPage: React.FC = () => {
   };
 
   const handleDeleteRecipe = async (itemProducidoId: string, label: string) => {
-    if (!confirm(`¿Eliminar toda la receta de "${label}"? Se quitarán todas las líneas BOM. Los materiales del catálogo no se eliminan.`)) {
+    if (!confirm(
+      `¿Quitar toda la receta de "${label}"?\n\nSe eliminarán todas las líneas de la fórmula. Los materiales del catálogo no se borran.`,
+    )) {
       return;
     }
     setError(null);
     try {
       await deleteRecetasDePt(itemProducidoId);
-      setSuccess(`Receta de ${label} eliminada.`);
+      setSuccess(`Receta de ${label} quitada.`);
       await load();
     } catch (err) {
-      setError(toUserMessage(err, 'No se pudo eliminar la receta'));
+      setError(toUserMessage(err, 'No se pudo quitar la receta'));
     }
   };
 
@@ -269,41 +289,55 @@ const RecipesPage: React.FC = () => {
 
   const filterPtItem = pts.find((p) => p.id === filterPt);
   const filterHasNoBom = !!filterPt && !ptsConReceta.has(filterPt);
+  const recipeCount = Object.keys(grouped).length;
 
   return (
     <div className="animate-in">
       <PageHeader
         title="Recetas"
         subtitle={isAdmin
-          ? 'BOM por botella — armar y editar con materiales del catálogo'
-          : 'Fórmulas por botella (consulta)'}
+          ? 'Fórmulas por botella — crear y editar con materiales del catálogo'
+          : 'Consulta de fórmulas por botella'}
         moduleId="recetas"
+        action={isAdmin ? (
+          <button type="button" className="btn btn-primary" onClick={() => openBom(filterPt || undefined)}>
+            <span className="material-icons-round">playlist_add</span>
+            Nueva / agregar receta
+          </button>
+        ) : undefined}
       />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
+      <Alert type="info">
+        Cada cantidad es <strong>por 1 botella</strong> (no por pack). Al producir, el granel
+        se toma de ALM_GR y el resto de ALM_MP.
+        {!isAdmin && ' Solo un administrador puede crear o editar recetas.'}
+      </Alert>
+
       <div className="card card-section">
         <div className="form-row form-row--end">
           <FormSelect
-            label="Filtrar producto terminado"
+            label="Producto terminado"
             value={filterPt}
             onChange={setFilterPt}
             options={[
-              { value: '', label: 'Todos los PT' },
-              ...pts.map((p) => ({ value: p.id, label: `${p.codigo} — ${p.nombre}` })),
+              { value: '', label: 'Todos' },
+              ...pts.map((p) => ({
+                value: p.id,
+                label: `${p.codigo} — ${p.nombre}${ptsConReceta.has(p.id) ? '' : ' · sin receta'}`,
+              })),
             ]}
           />
-          {isAdmin && (
-            <button type="button" className="btn btn-primary" onClick={() => openBom(filterPt || undefined)}>
-              <span className="material-icons-round">playlist_add</span>
-              Armar / agregar BOM
-            </button>
-          )}
-          <button type="button" className="btn btn-ghost" onClick={() => { refreshCatalog(); load(); }}>
+          <button type="button" className="btn btn-ghost" onClick={() => { void refreshCatalog(); void load(); }}>
             <span className="material-icons-round">refresh</span>
             Actualizar
           </button>
         </div>
+        <p className="kpi-sub" style={{ marginTop: '0.35rem' }}>
+          {recipeCount} receta{recipeCount === 1 ? '' : 's'}
+          {ptsSinReceta.length > 0 && isAdmin && ` · ${ptsSinReceta.length} producto(s) sin fórmula`}
+        </p>
       </div>
 
       {loading ? (
@@ -312,9 +346,9 @@ const RecipesPage: React.FC = () => {
         <>
           {isAdmin && ptsSinReceta.length > 0 && !filterPt && (
             <div className="card card-section">
-              <h3 className="card-section-title">PT sin receta ({ptsSinReceta.length})</h3>
+              <h3 className="card-section-title">Productos sin receta ({ptsSinReceta.length})</h3>
               <p className="kpi-sub" style={{ marginBottom: '0.75rem' }}>
-                Productos terminados del catálogo sin líneas BOM. Ármelos antes de producir.
+                Arme la fórmula antes de crear órdenes de producción.
               </p>
               <div className="recipes-pt-chips">
                 {ptsSinReceta.map((p) => (
@@ -333,17 +367,17 @@ const RecipesPage: React.FC = () => {
             </div>
           )}
 
-          {Object.keys(grouped).length === 0 ? (
+          {recipeCount === 0 ? (
             <EmptyState
               icon="menu_book"
               title={filterHasNoBom
-                ? `Sin BOM para ${filterPtItem?.codigo ?? 'este PT'}`
+                ? `Sin receta para ${filterPtItem?.codigo ?? 'este producto'}`
                 : 'Sin recetas'}
               hint={isAdmin
                 ? (filterHasNoBom
-                  ? 'Arme la receta con materiales existentes y cantidades por botella.'
-                  : 'Elija un PT y agregue componentes (granel, empaque, insumos).')
-                : undefined}
+                  ? 'Agregue materiales (granel, botella, tapa, etiqueta…) con cantidad por botella.'
+                  : 'Elija un producto terminado y agregue los componentes de la fórmula.')
+                : 'Aún no hay fórmulas cargadas. Pida a un administrador que arme las recetas.'}
               action={isAdmin ? (
                 <button
                   type="button"
@@ -375,10 +409,11 @@ const RecipesPage: React.FC = () => {
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm"
-                        title="Eliminar toda la receta"
+                        title="Quitar toda la receta"
                         onClick={() => handleDeleteRecipe(ptKey, group.codigo ?? group.label)}
                       >
                         <span className="material-icons-round">delete_outline</span>
+                        Quitar receta
                       </button>
                     </div>
                   )}
@@ -404,7 +439,11 @@ const RecipesPage: React.FC = () => {
                             {' '}
                             {comp?.nombre ?? '—'}
                           </td>
-                          <td><span className="status-tag status-neutral">{comp?.tipo ?? '—'}</span></td>
+                          <td>
+                            <span className="status-tag status-neutral">
+                              {TIPO_LABEL[comp?.tipo ?? ''] ?? comp?.tipo ?? '—'}
+                            </span>
+                          </td>
                           <td className="cell-num">{fmtNum(r.cantidad, 4)}</td>
                           <td>{comp?.unidad_medida ?? '—'}</td>
                           <td>{r.es_variable ? 'Sí' : 'No'}</td>
@@ -413,7 +452,7 @@ const RecipesPage: React.FC = () => {
                               <button type="button" className="btn-icon" title="Editar" onClick={() => openEdit(r)}>
                                 <span className="material-icons-round">edit</span>
                               </button>
-                              <button type="button" className="btn-icon" title="Quitar" onClick={() => handleDeleteLine(r)}>
+                              <button type="button" className="btn-icon" title="Quitar de la receta" onClick={() => handleDeleteLine(r)}>
                                 <span className="material-icons-round">remove_circle_outline</span>
                               </button>
                             </td>
@@ -430,14 +469,15 @@ const RecipesPage: React.FC = () => {
       )}
 
       <Modal
-        title="Armar / agregar BOM"
+        title="Armar / agregar a la receta"
         isOpen={bomModal}
-        onClose={() => setBomModal(false)}
+        onClose={() => !saving && setBomModal(false)}
       >
+        {modalError && <Alert type="error" message={modalError} onClose={() => setModalError(null)} />}
         <form onSubmit={handleSaveBom}>
           <FormSection title="Producto terminado">
             <FormSelect
-              label="PT (ya debe existir en Materiales)"
+              label="Producto (debe existir en Materiales)"
               value={ptId}
               onChange={setPtId}
               required
@@ -461,7 +501,7 @@ const RecipesPage: React.FC = () => {
                   : []),
                 ...opts.map((c) => ({
                   value: c.id,
-                  label: `${c.codigo} — ${c.nombre} (${c.tipo} · ${c.unidad_medida})`,
+                  label: `${c.codigo} — ${c.nombre} (${TIPO_LABEL[c.tipo] ?? c.tipo} · ${c.unidad_medida})`,
                 })),
               ];
               return (
@@ -483,7 +523,7 @@ const RecipesPage: React.FC = () => {
                     step="any"
                   />
                   <FormSelect
-                    label="Variable"
+                    label="Tipo cantidad"
                     value={d.esVariable ? '1' : '0'}
                     onChange={(v) => updateDraft(d.key, { esVariable: v === '1' })}
                     options={[
@@ -514,11 +554,14 @@ const RecipesPage: React.FC = () => {
               </button>
             </div>
             <p className="qty-base-summary">
-              Ej.: granel 0.75 L · botella/tapa/etiqueta 1 Unidad. UM tomada del catálogo del material.
+              Ej.: granel 0.75 L · botella/tapa/etiqueta 1 ud. “Variable” = se puede ajustar al completar la producción.
             </p>
           </FormSection>
 
           <div className="form-actions">
+            <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => !saving && setBomModal(false)}>
+              Cancelar
+            </button>
             <SubmitButton loading={saving} label="Guardar en receta" icon="save" />
           </div>
         </form>
@@ -527,8 +570,9 @@ const RecipesPage: React.FC = () => {
       <Modal
         title="Editar línea de receta"
         isOpen={editModal}
-        onClose={() => { setEditModal(false); setEditLine(null); }}
+        onClose={() => { if (!saving) { setEditModal(false); setEditLine(null); } }}
       >
+        {modalError && <Alert type="error" message={modalError} onClose={() => setModalError(null)} />}
         <form onSubmit={handleSaveEdit}>
           {editComp && (
             <p className="kpi-sub" style={{ marginBottom: '1rem' }}>
@@ -536,7 +580,7 @@ const RecipesPage: React.FC = () => {
               {' '}
               {editComp.nombre}
               {' · '}
-              {editComp.tipo}
+              {TIPO_LABEL[editComp.tipo] ?? editComp.tipo}
               {' · UM: '}
               <strong>{editComp.unidad_medida}</strong>
             </p>
@@ -551,7 +595,7 @@ const RecipesPage: React.FC = () => {
             step="any"
           />
           <FormSelect
-            label="Cantidad variable"
+            label="Tipo de cantidad"
             value={editVariable ? '1' : '0'}
             onChange={(v) => setEditVariable(v === '1')}
             options={[

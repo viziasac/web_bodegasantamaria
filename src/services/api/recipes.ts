@@ -4,7 +4,6 @@
 import { supabase } from '../supabaseClient';
 import { Tables } from '../../config/supabaseTables';
 import { friendlyDbError } from '../../utils/erpErrors';
-import { getUserId } from './core';
 import type { RecReceta } from '../../types';
 
 export async function getRecetas(): Promise<RecReceta[]> {

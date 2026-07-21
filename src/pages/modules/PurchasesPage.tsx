@@ -7,7 +7,7 @@ import {
   DataTable, EmptyState, toUserMessage, fmtMoney,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
-import { getDefaultProveedorId, proveedorLabel } from '../../utils/partnerCatalog';
+import { proveedorLabel } from '../../utils/partnerCatalog';
 import type { CompraLinea, MaItem } from '../../types';
 import {
   clearComprasDocDraft, loadComprasDocDraft, saveComprasDocDraft,
@@ -107,13 +107,6 @@ const PurchasesPage: React.FC = () => {
       setUbicacionId(almMp?.id ?? almacenes[0].id);
     }
   }, [almacenes, ubicacionId]);
-
-  useEffect(() => {
-    if (!proveedorId && proveedores.length > 0) {
-      const def = getDefaultProveedorId(proveedores);
-      if (def) setProveedorId(def);
-    }
-  }, [proveedores, proveedorId]);
 
   useEffect(() => {
     if (selectedInsumo?.tipo === 'GRANEL') {
@@ -328,7 +321,7 @@ const PurchasesPage: React.FC = () => {
                     <EmptyState
                       icon="category"
                       title="Sin categorías de gasto"
-                      hint="Configure categorías en Supabase o recargue catálogos"
+                      hint="Configure categorías en Maestros o recargue catálogos"
                     />
                   ) : (
                     <FormSelect

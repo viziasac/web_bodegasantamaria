@@ -182,16 +182,23 @@ interface FormSelectProps {
   disabled?: boolean;
   /** Solo se usa si ninguna opción trae value "". */
   placeholder?: string;
+  /**
+   * Si true y el value no está en options, limpia el estado.
+   * Por defecto false: conserva el valor con una opción temporal (evita clears al refrescar catálogo).
+   */
+  clearInvalid?: boolean;
 }
 
 /**
  * Select controlado seguro:
  * - deduplica values
- * - no duplica la opción vacía (evita warning React / dropdown roto)
- * - si `value` no está en options: muestra vacío y sincroniza estado (nunca pinta otra opción sin onChange)
+ * - no duplica la opción vacía
+ * - si value no está en options: opción temporal “no disponible” (sin borrar estado, salvo clearInvalid)
  */
 export const FormSelect: React.FC<FormSelectProps> = ({
-  label, value, onChange, options, required, disabled, placeholder = '— Seleccionar —',
+  label, value, onChange, options, required, disabled,
+  placeholder = '— Seleccionar —',
+  clearInvalid = false,
 }) => {
   const seen = new Set<string>();
   const normalized = options.filter((o) => {
@@ -203,24 +210,28 @@ export const FormSelect: React.FC<FormSelectProps> = ({
 
   const hasEmpty = normalized.some((o) => o.value === '');
   const valueInList = normalized.some((o) => o.value === value);
-  const safeValue = valueInList ? value : '';
+  const orphan = !valueInList && value !== '';
 
   useLayoutEffect(() => {
-    if (!valueInList && value !== '') onChange('');
-  }, [value, valueInList, onChange]);
+    if (clearInvalid && orphan) onChange('');
+  }, [clearInvalid, orphan, onChange]);
+
+  const displayOptions = orphan && !clearInvalid
+    ? [{ value, label: '(Valor no disponible en lista)' }, ...normalized]
+    : normalized;
 
   return (
     <label className="form-group">
       <span className="form-label">{label}</span>
       <select
         className="form-input"
-        value={safeValue}
+        value={orphan && clearInvalid ? '' : value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
         disabled={disabled}
       >
         {!hasEmpty && <option value="">{placeholder}</option>}
-        {normalized.map((o) => (
+        {displayOptions.map((o) => (
           <option key={o.value === '' ? '__empty__' : o.value} value={o.value}>{o.label}</option>
         ))}
       </select>

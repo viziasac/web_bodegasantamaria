@@ -406,6 +406,7 @@ export interface ProductoPv {
   stock_item: number;
   categoria?: string | null;
   item_nombre?: string;
+  item_codigo?: string;
 }
 
 /** Ítem seleccionable en ajuste por conteo físico */

@@ -7,7 +7,7 @@ import {
   DataTable, EmptyState, fmtMoney, fmtDate, toUserMessage,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
-import { clienteLabel, getDefaultClienteId, getDefaultProveedorId, proveedorLabel } from '../../utils/partnerCatalog';
+import { proveedorLabel } from '../../utils/partnerCatalog';
 import { hoyYmd } from '../../utils/fechaLocal';
 import {
   clearEgresosCartDraft, loadEgresosCartDraft, saveEgresosCartDraft,
@@ -58,17 +58,6 @@ const ExpensesPage: React.FC = () => {
     setProveedorNombre(p?.nombre ?? '');
   };
 
-  useEffect(() => {
-    if (!proveedorCatalogId && proveedores.length > 0) {
-      const def = getDefaultProveedorId(proveedores);
-      if (def) {
-        setProveedorCatalogId(def);
-        const p = proveedores.find((x) => x.id === def);
-        if (p) setProveedorNombre(p.nombre);
-      }
-    }
-  }, [proveedores, proveedorCatalogId]);
-
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -89,10 +78,6 @@ const ExpensesPage: React.FC = () => {
       setError('Complete categoría y descripción.');
       return;
     }
-    if (!proveedorCatalogId) {
-      setError('Seleccione un proveedor del catálogo.');
-      return;
-    }
     if (!Number.isFinite(amt) || amt <= 0) {
       setError('Monto inválido.');
       return;
@@ -105,7 +90,7 @@ const ExpensesPage: React.FC = () => {
       monto: amt,
       categoriaId,
       categoriaNombre: cat?.nombre,
-      proveedorId: proveedorCatalogId,
+      proveedorId: proveedorCatalogId || undefined,
       proveedorNombre: proveedorNombre.trim() || undefined,
       tipoDocumento: tipoDoc || undefined,
       nroDocumento: nroDoc.trim() || undefined,
@@ -203,9 +188,9 @@ const ExpensesPage: React.FC = () => {
           ]} />
         <FormInput label="Descripción" value={descripcion} onChange={setDescripcion} required />
         <FormInput label="Monto (S/)" type="number" value={monto} onChange={setMonto} min={0.01} step="0.01" />
-        <FormSelect label="Proveedor (catálogo)" value={proveedorCatalogId} onChange={onProveedorCatalog} required
+        <FormSelect label="Proveedor (opcional)" value={proveedorCatalogId} onChange={onProveedorCatalog}
           options={[
-            { value: '', label: '— Seleccionar proveedor —' },
+            { value: '', label: '— Sin proveedor —' },
             ...proveedores.map((p) => ({ value: p.id, label: proveedorLabel(p) })),
           ]} />
         <FormInput label="Proveedor (nombre)" value={proveedorNombre} onChange={setProveedorNombre} />

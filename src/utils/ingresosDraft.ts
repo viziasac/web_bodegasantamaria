@@ -7,6 +7,8 @@ export type ModoVentaIngresos = 'agrupada' | 'rapida';
 
 export interface IngresosCartLineDraft {
   presentacionId: string;
+  /** Ítem PT — stock compartido entre presentaciones del SKU */
+  itemId?: string;
   nombre: string;
   cantidadBotellas: number;
   precioUnitarioBotella: number;

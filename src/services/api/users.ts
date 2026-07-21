@@ -1,5 +1,6 @@
 /**
- * Administración de usuarios y permisos (admin).
+ * Listado de usuarios (admin) — consulta vía RPC.
+ * La actualización de permisos permanece en API por compatibilidad, pero la UI es solo lectura.
  */
 import { ErpRpc } from '../../config/erpContract';
 import { callRpc } from './core';
@@ -14,6 +15,7 @@ export async function listarUsuariosAdmin(): Promise<AppUserRoleRow[]> {
   return Array.isArray(data) ? data : [];
 }
 
+/** @deprecated Preferir gestión fuera de la web; la UI de Usuarios es solo lectura. */
 export async function actualizarPermisosUsuario(opts: {
   userId: string;
   role?: string;

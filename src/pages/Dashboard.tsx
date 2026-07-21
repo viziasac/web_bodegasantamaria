@@ -148,13 +148,13 @@ const Dashboard: React.FC = () => {
         moduleId="dashboard"
         action={
           <>
+            <MonthSelector value={mesKey} onChange={setMesKey} label="Mes" variant="toolbar" />
             <Link to="/downloads" className="btn btn-ghost">
               <span className="material-icons-round">download</span>
-              Exportar periodo
+              Exportar
             </Link>
-            <MonthSelector value={mesKey} onChange={setMesKey} label="Mes" />
             <div className="date-badge">
-              <span className="material-icons-round" style={{ fontSize: '16px' }}>calendar_today</span>
+              <span className="material-icons-round">calendar_today</span>
               {new Date().toLocaleDateString('es-PE', { dateStyle: 'long' })}
             </div>
           </>

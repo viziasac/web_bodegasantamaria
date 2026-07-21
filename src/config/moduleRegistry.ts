@@ -47,14 +47,14 @@ export const ALL_MODULES: ModuleDefExt[] = [
   { id: 'despacho', title: 'Despacho', icon: 'local_shipping', subtitle: 'Venta rápida una línea', path: '/sales/dispatch', section: 'comercial' },
   { id: 'gastos', title: 'Egresos', icon: 'money_off', subtitle: 'Gastos operativos', path: '/expenses', section: 'comercial' },
   { id: 'modificaciones', title: 'Modificaciones', icon: 'edit_note', subtitle: 'Corregir ventas y gastos', path: '/sales/modificaciones', section: 'comercial' },
+  { id: 'proveedores_clientes', title: 'Clientes y proveedores', icon: 'contacts', subtitle: 'Alta, edición y baja lógica', path: '/proveedores-clientes', section: 'comercial', adminOnly: true },
   // Consulta
   { id: 'auditoria', title: 'Auditoría', icon: 'fact_check', subtitle: 'Historial y trazabilidad', path: '/audit', section: 'consulta' },
   { id: 'descargas', title: 'Descargas', icon: 'download', subtitle: 'Exportar Excel por mes', path: '/downloads', section: 'consulta' },
   // Admin
   { id: 'materiales_skus', title: 'Materiales / SKUs', icon: 'category', subtitle: 'Catálogo maestro', path: '/materials', section: 'admin', adminOnly: true },
   { id: 'maestros', title: 'Maestros', icon: 'folder_shared', subtitle: 'Canales, empaques y cat. gasto', path: '/maestros', section: 'admin', adminOnly: true },
-  { id: 'proveedores_clientes', title: 'Proveedores y clientes', icon: 'contacts', subtitle: 'Catálogo compras y ventas', path: '/proveedores-clientes', section: 'admin', adminOnly: true },
-  { id: 'usuarios', title: 'Usuarios', icon: 'manage_accounts', subtitle: 'Roles y permisos', path: '/usuarios', section: 'admin', adminOnly: true },
+  { id: 'usuarios', title: 'Usuarios', icon: 'manage_accounts', subtitle: 'Consulta de cuentas y correo', path: '/usuarios', section: 'admin', adminOnly: true },
   { id: 'reportes', title: 'Reportes', icon: 'analytics', subtitle: 'Resumen operativo', path: '/reporting', section: 'admin', adminOnly: true },
   { id: 'configuracion', title: 'Configuración', icon: 'settings', subtitle: 'Cuenta y sesión', path: '/settings', section: 'admin' },
 ];

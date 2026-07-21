@@ -144,7 +144,8 @@ const MaestrosPage: React.FC = () => {
 
       <Alert type="info">
         Para proveedores y clientes use el módulo{' '}
-        <Link to="/proveedores-clientes">Proveedores y clientes</Link>.
+        <Link to="/proveedores-clientes">Clientes y proveedores</Link>
+        {' '}(menú Comercial).
       </Alert>
 
       <TabBar
