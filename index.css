@@ -1287,6 +1287,16 @@ label {
   font-weight: 600;
 }
 
+.login-session-hint {
+  margin: -0.5rem 0 1rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(63, 69, 54, 0.08);
+  color: var(--sm-green);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
 .login-error {
   background: var(--color-danger-bg);
   color: var(--color-danger);

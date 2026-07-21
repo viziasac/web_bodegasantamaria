@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import PrivacyPage from './pages/PrivacyPage';
 import { PageLoader } from './components/ui';
 import { ProtectedModuleRoute } from './components/ProtectedModuleRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { VENTAS_MODULE_IDS } from './config/moduleRegistry';
 import { getRoutableModules, MODULE_PAGES, moduleRoutePath } from './config/moduleRoutes';
 
@@ -74,11 +75,13 @@ const AppRoutes = () => {
 
 const App = () => (
   <BrowserRouter>
-    <AuthProvider>
-      <CatalogProvider>
-        <AppRoutes />
-      </CatalogProvider>
-    </AuthProvider>
+    <ErrorBoundary fallbackTitle="Error en el panel">
+      <AuthProvider>
+        <CatalogProvider>
+          <AppRoutes />
+        </CatalogProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </BrowserRouter>
 );
 

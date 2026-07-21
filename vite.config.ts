@@ -8,17 +8,28 @@ export default defineConfig({
     host: '0.0.0.0',
   },
   // Absolute base required for BrowserRouter deep-links on Cloudflare Pages SPA.
-  // Relative './' breaks /sales/income, /production/bulk, etc. (assets resolve under the path).
   base: '/',
   plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-    }
+    },
   },
   build: {
     outDir: 'dist',
     sourcemap: false,
     emptyOutDir: true,
-  }
+    target: 'es2022',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-xlsx': ['xlsx'],
+        },
+      },
+    },
+  },
 });

@@ -1,32 +1,23 @@
 /*
-  ERP interno — no indexar en buscadores
+  Headers Cloudflare Pages — se aplican por path de request (SPA incluidas).
   https://developers.cloudflare.com/pages/configuration/headers/
 */
+
 /*
   X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; upgrade-insecure-requests
 */
-
-/index.html
-  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
-
-/robots.txt
-  Cache-Control: public, max-age=86400
-
-/privacidad
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+  X-Robots-Tag: noindex, nofollow
+  X-Content-Type-Options: nosniff
+
+/robots.txt
+  Cache-Control: public, max-age=86400
   X-Robots-Tag: noindex, nofollow

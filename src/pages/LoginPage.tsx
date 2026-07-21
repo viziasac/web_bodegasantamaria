@@ -6,6 +6,10 @@ import { getLoginGuardStatus } from '../utils/loginGuard';
 
 const PUBLIC_WEB_URL = 'https://santamarialunahuana.com/';
 
+/**
+ * Login siempre visible: no sustituye el formulario por un estado de carga
+ * (evita pestaña “en blanco” si la sesión Supabase tarda o falla).
+ */
 const LoginPage: React.FC = () => {
   const { login, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -81,21 +85,6 @@ const LoginPage: React.FC = () => {
   const submitDisabled = isSubmitting || guardBlocked || isLoading;
   const alertText = error || guardMsg;
 
-  if (isLoading) {
-    return (
-      <div className="login-page">
-        <div className="login-card">
-          <div className="gold-line" />
-          <div className="login-brand">
-            <span className="material-icons-round">hourglass_empty</span>
-            <h1>SANTA MARÍA</h1>
-            <p>Verificando sesión…</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="login-page">
       <a
@@ -104,19 +93,25 @@ const LoginPage: React.FC = () => {
         target="_blank"
         rel="noopener noreferrer"
       >
-        <span className="material-icons-round">language</span>
+        <span className="material-icons-round" aria-hidden="true">language</span>
         ¿Buscando la web pública? <strong>santamarialunahuana.com</strong>
       </a>
 
       <div className="login-card">
         <div className="gold-line" />
         <div className="login-brand">
-          <span className="material-icons-round">local_bar</span>
+          <span className="material-icons-round" aria-hidden="true">local_bar</span>
           <h1>SANTA MARÍA</h1>
           <p>Bodega — Panel de Gestión</p>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate>
+        {isLoading && (
+          <p className="login-session-hint" aria-live="polite">
+            Verificando sesión…
+          </p>
+        )}
+
+        <form onSubmit={handleSubmit} noValidate autoComplete="on">
           <label className="login-honeypot" aria-hidden="true">
             <span>No completar</span>
             <input
@@ -134,14 +129,17 @@ const LoginPage: React.FC = () => {
             <input
               className="form-input"
               type="email"
+              name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="usuario@empresa.com"
-              autoComplete="email"
+              autoComplete="username"
               autoFocus
               maxLength={254}
-              disabled={submitDisabled}
+              disabled={isSubmitting || guardBlocked}
+              inputMode="email"
+              spellCheck={false}
             />
           </label>
           <label className="form-group">
@@ -149,13 +147,14 @@ const LoginPage: React.FC = () => {
             <input
               className="form-input"
               type="password"
+              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="Contraseña"
               autoComplete="current-password"
               maxLength={128}
-              disabled={submitDisabled}
+              disabled={isSubmitting || guardBlocked}
             />
           </label>
 
@@ -165,8 +164,14 @@ const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary login-submit" disabled={submitDisabled}>
-            <span className="material-icons-round">{isSubmitting ? 'hourglass_empty' : 'login'}</span>
+          <button
+            type="submit"
+            className="btn btn-primary login-submit"
+            disabled={submitDisabled}
+          >
+            <span className="material-icons-round" aria-hidden="true">
+              {isSubmitting ? 'hourglass_empty' : 'login'}
+            </span>
             {isSubmitting ? 'Verificando…' : guardBlocked ? 'Acceso bloqueado' : 'Iniciar sesión'}
           </button>
         </form>

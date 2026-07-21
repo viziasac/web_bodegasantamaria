@@ -20,6 +20,9 @@ import {
 } from '../services/userAccess';
 import type { AppUser } from '../types';
 
+/** Evita login en blanco si getSession/perfil no responden (red / CSP / Supabase caído). */
+const SESSION_BOOT_TIMEOUT_MS = 8_000;
+
 interface AuthContextType {
   user: AppUser | null;
   isAuthenticated: boolean;
@@ -29,6 +32,16 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(() => reject(new Error(`${label} (timeout ${ms}ms)`)), ms);
+    promise.then(
+      (v) => { window.clearTimeout(t); resolve(v); },
+      (e) => { window.clearTimeout(t); reject(e); },
+    );
+  });
+}
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -44,18 +57,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return null;
     }
     try {
-      const mapped = await resolveAuthenticatedWebUser(supaUser);
+      const mapped = await withTimeout(
+        resolveAuthenticatedWebUser(supaUser),
+        SESSION_BOOT_TIMEOUT_MS,
+        'Validación de sesión',
+      );
       setUser(mapped);
       return mapped;
-    } catch {
-      // Gate falló o perfil ilegible → sin sesión web
+    } catch (err) {
       setUser(null);
-      try {
-        sessionStorage.setItem('bodega_auth_denied', 'web');
-      } catch { /* ignore */ }
-      try {
-        await supabase.auth.signOut();
-      } catch { /* ignore */ }
+      const msg = err instanceof Error ? err.message : '';
+      const isAccessDenied =
+        msg.includes('acceso web') ||
+        msg.includes('acceso_web') ||
+        msg.includes('inactivo') ||
+        msg === WEB_ACCESS_DENIED_MESSAGE;
+      if (isAccessDenied) {
+        try {
+          sessionStorage.setItem('bodega_auth_denied', 'web');
+        } catch { /* ignore */ }
+        try {
+          await supabase.auth.signOut();
+        } catch { /* ignore */ }
+      }
       return null;
     }
   }, []);
@@ -63,19 +87,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let cancelled = false;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (cancelled) return;
-      if (session?.user) {
-        await applySessionUser(session.user);
-      } else {
-        setUser(null);
-      }
+    const finishLoading = () => {
       if (!cancelled) setIsLoading(false);
-    });
+    };
+
+    const boot = async () => {
+      try {
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          SESSION_BOOT_TIMEOUT_MS,
+          'Lectura de sesión',
+        );
+        if (cancelled) return;
+        if (session?.user) {
+          await applySessionUser(session.user);
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.warn('[Auth] bootstrap sesión:', err);
+        if (!cancelled) setUser(null);
+      } finally {
+        finishLoading();
+      }
+    };
+
+    void boot();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Evita doble trabajo en SIGNED_IN justo tras login (login() ya resolvió el user)
       if (event === 'INITIAL_SESSION') return;
+      if (cancelled) return;
       if (session?.user) {
         await applySessionUser(session.user);
       } else {
