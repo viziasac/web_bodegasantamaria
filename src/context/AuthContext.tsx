@@ -36,8 +36,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const applySessionUser = useCallback(async (supaUser: {
     id: string;
-    email?: string;
-    app_metadata?: { role?: string };
+    email?: string | null;
+    app_metadata?: Record<string, unknown>;
   } | null): Promise<AppUser | null> => {
     if (!supaUser) {
       setUser(null);
@@ -50,6 +50,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {
       // Gate falló o perfil ilegible → sin sesión web
       setUser(null);
+      try {
+        sessionStorage.setItem('bodega_auth_denied', 'web');
+      } catch { /* ignore */ }
+      try {
+        await supabase.auth.signOut();
+      } catch { /* ignore */ }
       return null;
     }
   }, []);

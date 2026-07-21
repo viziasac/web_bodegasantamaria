@@ -145,12 +145,14 @@ export function profileToAppUser(
 export async function resolveAuthenticatedWebUser(authUser: {
   id: string;
   email?: string | null;
-  app_metadata?: { role?: string };
+  app_metadata?: Record<string, unknown> | { role?: string };
 }): Promise<AppUser> {
   const profile = await fetchUserRoleProfile({
     userId: authUser.id,
     email: authUser.email,
-    appMetadataRole: authUser.app_metadata?.role,
+    appMetadataRole: typeof authUser.app_metadata?.role === 'string'
+      ? authUser.app_metadata.role
+      : undefined,
   });
 
   try {

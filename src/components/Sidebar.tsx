@@ -23,6 +23,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   const groups = getModulesGrouped(user?.role, { accesoVentas: user?.accesoVentas });
   const roleLabel = ROLE_LABELS[user?.role ?? ''] ?? (user?.role || 'Operario');
 
+  /** Paths that are prefixes of other module paths need exact match. */
+  const prefixPaths = React.useMemo(() => {
+    const paths = groups.flatMap((g) => g.modules.map((m) => m.path));
+    return new Set(
+      paths.filter((p) => paths.some((other) => other !== p && other.startsWith(`${p}/`))),
+    );
+  }, [groups]);
+
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `sidebar-link ${isActive ? 'active' : ''}`;
 
@@ -48,7 +56,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
                 {g.label}
               </div>
               {g.modules.map((m) => (
-                <NavLink key={m.id} to={m.path} className={linkClass} onClick={onClose}>
+                <NavLink
+                  key={m.id}
+                  to={m.path}
+                  end={prefixPaths.has(m.path)}
+                  className={linkClass}
+                  onClick={onClose}
+                >
                   <span className="material-icons-round">{m.icon}</span>
                   {m.title}
                 </NavLink>

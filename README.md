@@ -51,7 +51,7 @@ Salida en `dist/`
 | Node.js version | 20 |
 
 4. Variables de entorno (Production): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-5. Deploy — la SPA usa `BrowserRouter` (`/inventory`, `/privacidad`). Cloudflare Pages necesita `public/_redirects` (`/* /index.html 200`) para rutas profundas.
+5. Deploy — la SPA usa `BrowserRouter` (`/inventory`, `/privacidad`). Cloudflare Pages necesita `public/_redirects` (`/* /index.html 200`) para rutas profundas. El `base` de Vite debe ser `/` (no relativo) para que los assets carguen en rutas anidadas.
 
 Headers de seguridad y caché de assets: `public/_headers`.
 

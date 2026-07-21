@@ -1,15 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getStockSaldo } from '../../services/apiProvider';
-import { useInventarioData } from '../inventory/useInventarioData';
 import { InventoryPanorama } from '../inventory/InventoryPanorama';
 import { InventoryFilters } from '../inventory/InventoryFilters';
 import { TIPO_LABELS, TIPO_COLORS } from '../inventory/constants';
+import type { useInventarioData } from '../inventory/useInventarioData';
 import {
   TabBar, PageLoader, Alert, EmptyState, StatusBadge, DataTable, fmtNum, fmtDate, toUserMessage,
 } from '../ui';
 import type { CatUbicacion, InvStockSaldo, InventarioFila } from '../../types';
-import type { useInventarioData } from '../inventory/useInventarioData';
 
 type InvData = ReturnType<typeof useInventarioData>;
 type InvTab = 'panorama' | 'detalle' | 'matriz' | 'lotes';

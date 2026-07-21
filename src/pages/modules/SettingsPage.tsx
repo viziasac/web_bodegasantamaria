@@ -15,6 +15,7 @@ const SettingsPage: React.FC = () => {
   const { ubicaciones, canalesVenta, proveedores, clientes, refreshCatalog, loaded, loading, error } = useCatalog();
   const prefs0 = loadWebPrefs();
   const [msg, setMsg] = useState<string | null>(null);
+  const [msgType, setMsgType] = useState<'success' | 'error'>('success');
   const [refreshing, setRefreshing] = useState(false);
   const [defaultPvId, setDefaultPvId] = useState(prefs0.defaultPvId ?? '');
   const [defaultCanal, setDefaultCanal] = useState(prefs0.defaultCanal ?? '');
@@ -27,6 +28,7 @@ const SettingsPage: React.FC = () => {
   const handleClearCache = () => {
     if (!confirm('¿Eliminar la caché local de catálogos?')) return;
     clearCatalogCache();
+    setMsgType('success');
     setMsg('Caché local eliminada. Los catálogos se recargarán en la próxima operación.');
   };
 
@@ -34,7 +36,11 @@ const SettingsPage: React.FC = () => {
     setRefreshing(true);
     try {
       await refreshCatalog();
+      setMsgType('success');
       setMsg('Catálogos actualizados.');
+    } catch (e) {
+      setMsgType('error');
+      setMsg(e instanceof Error ? e.message : 'No se pudieron actualizar los catálogos.');
     } finally {
       setRefreshing(false);
     }
@@ -45,6 +51,7 @@ const SettingsPage: React.FC = () => {
       defaultPvId: defaultPvId || undefined,
       defaultCanal: defaultCanal || undefined,
     });
+    setMsgType('success');
     setMsg('Preferencias locales guardadas (PV / canal por defecto).');
   };
 
@@ -56,8 +63,10 @@ const SettingsPage: React.FC = () => {
         redirectTo: `${window.location.origin}/login`,
       });
       if (err) throw err;
+      setMsgType('success');
       setMsg(`Se envió un enlace de restablecimiento a ${user.email}.`);
     } catch (e) {
+      setMsgType('error');
       setMsg(e instanceof Error ? e.message : 'No se pudo enviar el correo de restablecimiento.');
     } finally {
       setResetSending(false);
@@ -67,7 +76,7 @@ const SettingsPage: React.FC = () => {
   return (
     <div className="animate-in">
       <PageHeader title="Configuración" subtitle="Cuenta, preferencias y caché local" moduleId="configuracion" />
-      {msg && <Alert type="success" message={msg} onClose={() => setMsg(null)} />}
+      {msg && <Alert type={msgType} message={msg} onClose={() => setMsg(null)} />}
       {error && <Alert type="error" message={error} />}
 
       <div className="card card-section">

@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toUserMessage } from '../components/ui';
 import { getLoginGuardStatus } from '../utils/loginGuard';
 
 const PUBLIC_WEB_URL = 'https://santamarialunahuana.com/';
 
 const LoginPage: React.FC = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +29,22 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    const denied = searchParams.get('denied');
+    let fromStorage = false;
+    try {
+      fromStorage = sessionStorage.getItem('bodega_auth_denied') === 'web';
+      if (fromStorage) sessionStorage.removeItem('bodega_auth_denied');
+    } catch { /* ignore */ }
+    if (denied === 'web' || fromStorage) {
+      setError('Su cuenta no tiene acceso a la web. Contacte al administrador.');
+      if (denied === 'web') {
+        searchParams.delete('denied');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     refreshGuard();
@@ -61,7 +78,23 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const submitDisabled = isSubmitting || guardBlocked;
+  const submitDisabled = isSubmitting || guardBlocked || isLoading;
+  const alertText = error || guardMsg;
+
+  if (isLoading) {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <div className="gold-line" />
+          <div className="login-brand">
+            <span className="material-icons-round">hourglass_empty</span>
+            <h1>SANTA MARÍA</h1>
+            <p>Verificando sesión…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-page">
@@ -84,7 +117,6 @@ const LoginPage: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
-          {/* Honeypot anti-bot — oculto para usuarios reales */}
           <label className="login-honeypot" aria-hidden="true">
             <span>No completar</span>
             <input
@@ -127,9 +159,9 @@ const LoginPage: React.FC = () => {
             />
           </label>
 
-          {(guardMsg || error) && (
-            <div className={`login-error${guardBlocked ? ' login-error-lock' : ''}`} role="alert">
-              {guardMsg || error}
+          {alertText && (
+            <div className={`login-error${guardBlocked && !error ? ' login-error-lock' : ''}`} role="alert">
+              {alertText}
             </div>
           )}
 

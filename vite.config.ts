@@ -7,7 +7,9 @@ export default defineConfig({
     port: 3000,
     host: '0.0.0.0',
   },
-  base: './',
+  // Absolute base required for BrowserRouter deep-links on Cloudflare Pages SPA.
+  // Relative './' breaks /sales/income, /production/bulk, etc. (assets resolve under the path).
+  base: '/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -17,5 +19,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    emptyOutDir: true,
   }
 });
