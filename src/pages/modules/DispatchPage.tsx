@@ -55,7 +55,7 @@ const DispatchPage: React.FC = () => {
   const cantIngresada = parseFloat(cantidad);
   const botellas = presSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
     ? cantidadBaseDesdeEntrada({
-      cantidadIngresada,
+      cantidadIngresada: cantIngresada,
       modo: modoCantidad,
       cantUnidadesPresentacion: presSel.cant_unidades,
     })
@@ -249,7 +249,7 @@ const DispatchPage: React.FC = () => {
           </FormRow>
           {presSel && botellas > 0 && (
             <p className="qty-base-summary">
-              {resumenCantidadBase({ cantidadIngresada, modo: modoCantidad, cantUnidadesPresentacion: presSel.cant_unidades })}
+              {resumenCantidadBase({ cantidadIngresada: cantIngresada, modo: modoCantidad, cantUnidadesPresentacion: presSel.cant_unidades })}
               {totalVenta > 0 && ` · Total: ${fmtMoney(totalVenta)}`}
             </p>
           )}

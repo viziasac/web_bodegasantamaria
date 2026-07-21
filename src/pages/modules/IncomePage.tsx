@@ -23,6 +23,7 @@ import { clienteLabel, getDefaultClienteId } from '../../utils/partnerCatalog';
 import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
+import type { ProductoPv, VentaResumen } from '../../types';
 
 interface CartLine {
   presentacionId: string;
@@ -81,7 +82,7 @@ const IncomePage: React.FC = () => {
   const cantIngresada = parseFloat(cantidad);
   const botellas = presSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
     ? cantidadBaseDesdeEntrada({
-      cantidadIngresada,
+      cantidadIngresada: cantIngresada,
       modo: modoCantidad,
       cantUnidadesPresentacion: presSel.cant_unidades,
     })
@@ -91,6 +92,8 @@ const IncomePage: React.FC = () => {
   const precioUnitarioBotella = modo === 'rapida' && botellas > 0 && Number.isFinite(precioNum)
     ? precioNum / botellas
     : precioNum;
+
+  const cartTotal = cart.reduce((s, l) => s + l.cantidadBotellas * l.precioUnitarioBotella, 0);
 
   useEffect(() => {
     if (!clienteId && clientes.length > 0) {
@@ -459,7 +462,7 @@ const IncomePage: React.FC = () => {
         </FormRow>
         {presSel && botellas > 0 && (
           <p className="qty-base-summary">
-            {resumenCantidadBase({ cantidadIngresada, modo: modoCantidad, cantUnidadesPresentacion: presSel.cant_unidades })}
+            {resumenCantidadBase({ cantidadIngresada: cantIngresada, modo: modoCantidad, cantUnidadesPresentacion: presSel.cant_unidades })}
             {esRapida && Number.isFinite(precioUnitarioBotella) && precioUnitarioBotella > 0 && (
               <> · P. unit. {fmtMoney(precioUnitarioBotella)}/bot.</>
             )}

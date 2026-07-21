@@ -64,7 +64,7 @@ const ProductionPage: React.FC = () => {
   const cantIngresada = parseFloat(cantidad);
   const botellasPlan = presSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
     ? cantidadBaseDesdeEntrada({
-      cantidadIngresada,
+      cantidadIngresada: cantIngresada,
       modo: modoCantidad,
       cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
     })

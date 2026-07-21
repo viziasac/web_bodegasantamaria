@@ -63,7 +63,7 @@ const TransfersPage: React.FC = () => {
   const cantIngresada = parseFloat(cantidad);
   const cantFinal = tipo === 'pt' && presSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
     ? cantidadBaseDesdeEntrada({
-      cantidadIngresada,
+      cantidadIngresada: cantIngresada,
       modo: modoCantidad,
       cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
     })
@@ -251,7 +251,7 @@ const TransfersPage: React.FC = () => {
               {presSel && cantFinal > 0 && (
                 <p className="qty-base-summary">
                   {resumenCantidadBase({
-                    cantidadIngresada,
+                    cantidadIngresada: cantIngresada,
                     modo: modoCantidad,
                     cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
                   })}

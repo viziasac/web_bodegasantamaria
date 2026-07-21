@@ -1,4 +1,5 @@
 /** Borrador modo documento de Ingreso Insumos. */
+import { createLocalDraftStorage } from './localDraft';
 
 const STORAGE_KEY = 'bodega_compras_doc_draft_v1';
 
@@ -16,26 +17,11 @@ export interface ComprasDocDraft {
   }>;
 }
 
-export function loadComprasDocDraft(): ComprasDocDraft | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ComprasDocDraft;
-    if (!parsed || typeof parsed !== 'object') return null;
-    return { ...parsed, docLineas: Array.isArray(parsed.docLineas) ? parsed.docLineas : [] };
-  } catch {
-    return null;
-  }
-}
+const store = createLocalDraftStorage<ComprasDocDraft>(STORAGE_KEY, (parsed) => ({
+  ...parsed,
+  docLineas: Array.isArray(parsed.docLineas) ? parsed.docLineas : [],
+}));
 
-export function saveComprasDocDraft(draft: ComprasDocDraft): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
-  } catch { /* ignore */ }
-}
-
-export function clearComprasDocDraft(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch { /* ignore */ }
-}
+export const loadComprasDocDraft = store.load;
+export const saveComprasDocDraft = store.save;
+export const clearComprasDocDraft = store.clear;

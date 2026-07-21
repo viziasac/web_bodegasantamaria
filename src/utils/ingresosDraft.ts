@@ -1,4 +1,5 @@
 /** Borrador de carrito Ingresos POS (equivalente Hive de Flutter). */
+import { createLocalDraftStorage } from './localDraft';
 
 const STORAGE_KEY = 'bodega_ingresos_cart_draft_v1';
 
@@ -26,34 +27,12 @@ export interface IngresosCartDraft {
   cart: IngresosCartLineDraft[];
 }
 
-export function loadIngresosCartDraft(): IngresosCartDraft | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as IngresosCartDraft;
-    if (!parsed || typeof parsed !== 'object') return null;
-    return {
-      ...parsed,
-      cart: Array.isArray(parsed.cart) ? parsed.cart : [],
-      modo: parsed.modo === 'rapida' ? 'rapida' : 'agrupada',
-    };
-  } catch {
-    return null;
-  }
-}
+const store = createLocalDraftStorage<IngresosCartDraft>(STORAGE_KEY, (parsed) => ({
+  ...parsed,
+  cart: Array.isArray(parsed.cart) ? parsed.cart : [],
+  modo: parsed.modo === 'rapida' ? 'rapida' : 'agrupada',
+}));
 
-export function saveIngresosCartDraft(draft: IngresosCartDraft): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
-  } catch {
-    /* quota / private mode */
-  }
-}
-
-export function clearIngresosCartDraft(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
-}
+export const loadIngresosCartDraft = store.load;
+export const saveIngresosCartDraft = store.save;
+export const clearIngresosCartDraft = store.clear;

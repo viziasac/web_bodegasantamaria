@@ -1,4 +1,5 @@
 /** Borrador carrito de egresos (localStorage). */
+import { createLocalDraftStorage } from './localDraft';
 
 const STORAGE_KEY = 'bodega_egresos_cart_draft_v1';
 
@@ -19,26 +20,11 @@ export interface EgresosCartDraft {
   }>;
 }
 
-export function loadEgresosCartDraft(): EgresosCartDraft | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as EgresosCartDraft;
-    if (!parsed || typeof parsed !== 'object') return null;
-    return { ...parsed, cart: Array.isArray(parsed.cart) ? parsed.cart : [] };
-  } catch {
-    return null;
-  }
-}
+const store = createLocalDraftStorage<EgresosCartDraft>(STORAGE_KEY, (parsed) => ({
+  ...parsed,
+  cart: Array.isArray(parsed.cart) ? parsed.cart : [],
+}));
 
-export function saveEgresosCartDraft(draft: EgresosCartDraft): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
-  } catch { /* ignore */ }
-}
-
-export function clearEgresosCartDraft(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch { /* ignore */ }
-}
+export const loadEgresosCartDraft = store.load;
+export const saveEgresosCartDraft = store.save;
+export const clearEgresosCartDraft = store.clear;
