@@ -25,26 +25,6 @@ const Lazy = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<PageLoader />}>{children}</Suspense>
 );
 
-function ModuleRoute({
-  path,
-  Page,
-  gate,
-}: {
-  path: string;
-  Page: React.LazyExoticComponent<React.ComponentType<unknown>>;
-  gate: boolean;
-}) {
-  const el = (
-    <Route path={moduleRoutePath(path)} element={<Lazy><Page /></Lazy>} />
-  );
-  if (!gate) return el;
-  return (
-    <Route element={<ProtectedModuleRoute path={path} />}>
-      {el}
-    </Route>
-  );
-}
-
 const AppRoutes = () => {
   const modules = getRoutableModules();
 
@@ -57,12 +37,30 @@ const AppRoutes = () => {
           <Route index element={<Lazy><Dashboard /></Lazy>} />
           <Route path="inventory/adjust" element={<Navigate to="/inventory?tab=ajuste" replace />} />
 
+          {/*
+            Importante: hijos de <Routes>/<Route> deben ser <Route> o Fragment.
+            Un wrapper custom (p.ej. ModuleRoute) rompe en production build
+            (invariant sin mensaje → ErrorBoundary genérico).
+          */}
           {modules.map((m) => {
             const Page = MODULE_PAGES[m.id];
             const gate = Boolean(m.adminOnly) || VENTAS_MODULE_IDS.has(m.id);
-            return (
-              <ModuleRoute key={m.id} path={m.path} Page={Page} gate={gate} />
+            const path = moduleRoutePath(m.path);
+            const pageEl = (
+              <Lazy>
+                <Page />
+              </Lazy>
             );
+
+            if (gate) {
+              return (
+                <Route key={m.id} element={<ProtectedModuleRoute path={m.path} />}>
+                  <Route path={path} element={pageEl} />
+                </Route>
+              );
+            }
+
+            return <Route key={m.id} path={path} element={pageEl} />;
           })}
 
           <Route path="production-hub" element={<Navigate to="/production" replace />} />

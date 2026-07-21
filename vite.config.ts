@@ -21,13 +21,14 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
     cssCodeSplit: true,
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-xlsx': ['xlsx'],
+        // Solo separar vendors pesados/opcionales. NO partir react/react-dom:
+        // manualChunks de React suele romper el runtime en producción.
+        manualChunks(id) {
+          if (id.includes('node_modules/xlsx')) return 'vendor-xlsx';
+          return undefined;
         },
       },
     },
