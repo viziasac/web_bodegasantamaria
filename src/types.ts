@@ -72,14 +72,36 @@ export interface MaEmpaqueTipo {
 export interface MaProveedor {
   id: string;
   nombre: string;
-  ruc?: string;
+  codigo?: string | null;
+  tipo?: string | null;
+  ruc?: string | null;
+  tipo_documento?: string | null;
+  numero_documento?: string | null;
+  condicion_pago?: string | null;
+  contacto_nombre?: string | null;
+  direccion?: string | null;
+  distrito?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  observaciones?: string | null;
+  es_default?: boolean;
   activo?: boolean;
 }
 
 export interface MaCliente {
   id: string;
   nombre: string;
-  tipo?: string;
+  codigo?: string | null;
+  tipo?: string | null;
+  tipo_documento?: string | null;
+  numero_documento?: string | null;
+  ruc_dni?: string | null;
+  condicion_pago?: string | null;
+  direccion?: string | null;
+  distrito?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  es_default?: boolean;
   activo?: boolean;
 }
 
@@ -165,6 +187,7 @@ export interface GasGasto {
   monto: number;
   descripcion?: string;
   categoria_id?: string;
+  proveedor_id?: string | null;
   proveedor_nombre?: string | null;
   tipo_comprobante?: string | null;
   nro_comprobante?: string | null;
@@ -402,6 +425,7 @@ export interface EgresoLineaDraft {
   monto: number;
   categoriaId: string;
   categoriaNombre?: string;
+  proveedorId?: string;
   proveedorNombre?: string;
   tipoDocumento?: string;
   nroDocumento?: string;

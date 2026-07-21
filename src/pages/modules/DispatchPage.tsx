@@ -16,6 +16,7 @@ import {
   DataTable, toUserMessage, fmtMoney, fmtDate,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { clienteLabel, getDefaultClienteId } from '../../utils/partnerCatalog';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
 import type { ProductoPv, VentaResumen } from '../../types';
@@ -78,6 +79,13 @@ const DispatchPage: React.FC = () => {
       setCanal(preferred);
     }
   }, [canalesVenta]);
+
+  useEffect(() => {
+    if (!clienteId && clientes.length > 0) {
+      const def = getDefaultClienteId(clientes);
+      if (def) setClienteId(def);
+    }
+  }, [clientes, clienteId]);
 
   const loadProductos = async (ubi: string) => {
     if (!ubi) { setProductos([]); return; }
@@ -258,7 +266,7 @@ const DispatchPage: React.FC = () => {
           <FormSelect label="Cliente (opcional)" value={clienteId} onChange={setClienteId}
             options={[
               { value: '', label: '— Sin cliente —' },
-              ...clientes.map((c) => ({ value: c.id, label: c.nombre })),
+              ...clientes.map((c) => ({ value: c.id, label: clienteLabel(c) })),
             ]} />
           <FormInput label="Referencia / destino (opcional)" value={referencia} onChange={setReferencia}
             placeholder="Nombre cliente o nota de despacho" />

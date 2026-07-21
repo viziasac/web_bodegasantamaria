@@ -239,16 +239,37 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
   maestros: {
     id: 'maestros',
     title: 'Maestros',
-    summary: 'Administra proveedores, clientes, canales de venta, empaques y categorías de gasto.',
+    summary: 'Administra canales de venta, empaques y categorías de gasto.',
     steps: [
       'Elija la pestaña del maestro a mantener.',
       'Cree o edite registros; no hay borrado físico (use Activo = No cuando aplique).',
       'Recargue catálogos en Configuración si otro usuario editó maestros en paralelo.',
     ],
     related: [
+      { label: 'Proveedores y clientes', path: '/proveedores-clientes' },
       { label: 'Materiales / SKUs', path: '/materials' },
       { label: 'Egresos', path: '/expenses' },
       { label: 'Usuarios', path: '/usuarios' },
+    ],
+  },
+  proveedores_clientes: {
+    id: 'proveedores_clientes',
+    title: 'Proveedores y clientes',
+    summary: 'Catálogo maestro para compras, egresos y ventas. Proveedor/cliente son opcionales al registrar operaciones.',
+    steps: [
+      'Pestaña Proveedores o Clientes según lo que quiera mantener.',
+      'Cree o edite con Nuevo / Editar; use códigos internos para identificar rápido en la app.',
+      'Eliminar borra el registro si no tiene movimientos; si tiene compras/ventas vinculadas se desactiva.',
+      'Los predeterminados (Compras Generales / Varios Bodega) no se pueden eliminar.',
+    ],
+    tips: [
+      'En compras y ventas el proveedor/cliente del catálogo es opcional (nullable en Supabase).',
+      'Tras cambios, refresque el catálogo en Configuración o use Actualizar en esta pantalla.',
+    ],
+    related: [
+      { label: 'Ingreso Insumos', path: '/purchases' },
+      { label: 'Ingresos', path: '/sales/income' },
+      { label: 'Maestros', path: '/maestros' },
     ],
   },
   usuarios: {

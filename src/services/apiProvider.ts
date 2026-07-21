@@ -296,16 +296,47 @@ export async function getCategoriasGasto(): Promise<GasCategoria[]> {
 export async function upsertProveedor(opts: {
   id?: string;
   nombre: string;
-  ruc?: string;
+  codigo?: string | null;
+  tipo?: string | null;
+  ruc?: string | null;
+  tipo_documento?: string | null;
+  numero_documento?: string | null;
+  condicion_pago?: string | null;
+  contacto_nombre?: string | null;
+  direccion?: string | null;
+  distrito?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  observaciones?: string | null;
+  es_default?: boolean;
   activo?: boolean;
 }): Promise<MaProveedor> {
   const nombre = opts.nombre.trim();
   if (!nombre) throw new Error('Nombre de proveedor obligatorio.');
+  const numDoc = opts.numero_documento?.trim() || opts.ruc?.trim() || null;
+  const tipoDoc = opts.tipo_documento?.trim()
+    || (numDoc ? 'RUC' : null);
   const payload: Record<string, unknown> = {
     nombre,
-    ruc: opts.ruc?.trim() || null,
+    codigo: opts.codigo?.trim().toUpperCase() || null,
+    tipo: opts.tipo?.trim().toUpperCase() || null,
+    ruc: numDoc,
+    tipo_documento: tipoDoc,
+    numero_documento: numDoc,
+    condicion_pago: opts.condicion_pago?.trim().toUpperCase() || 'CONTADO',
+    contacto_nombre: opts.contacto_nombre?.trim() || null,
+    direccion: opts.direccion?.trim() || null,
+    distrito: opts.distrito?.trim() || null,
+    telefono: opts.telefono?.trim() || null,
+    email: opts.email?.trim() || null,
+    observaciones: opts.observaciones?.trim() || null,
+    es_default: opts.es_default ?? false,
     activo: opts.activo ?? true,
   };
+  if (opts.es_default) {
+    const { error: clearErr } = await supabase.from(Tables.maProveedor).update({ es_default: false }).neq('id', opts.id ?? '00000000-0000-0000-0000-000000000000');
+    if (clearErr) throw new Error(friendlyDbError(clearErr));
+  }
   if (opts.id) {
     const { data, error } = await supabase.from(Tables.maProveedor).update(payload).eq('id', opts.id).select('*').single();
     if (error) throw new Error(friendlyDbError(error));
@@ -319,16 +350,40 @@ export async function upsertProveedor(opts: {
 export async function upsertCliente(opts: {
   id?: string;
   nombre: string;
-  tipo?: string;
+  codigo?: string | null;
+  tipo?: string | null;
+  tipo_documento?: string | null;
+  numero_documento?: string | null;
+  condicion_pago?: string | null;
+  direccion?: string | null;
+  distrito?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  es_default?: boolean;
   activo?: boolean;
 }): Promise<MaCliente> {
   const nombre = opts.nombre.trim();
   if (!nombre) throw new Error('Nombre de cliente obligatorio.');
+  const numDoc = opts.numero_documento?.trim() || null;
   const payload: Record<string, unknown> = {
     nombre,
-    tipo: opts.tipo?.trim() || null,
+    codigo: opts.codigo?.trim().toUpperCase() || null,
+    tipo: opts.tipo?.trim().toUpperCase() || null,
+    tipo_documento: opts.tipo_documento?.trim().toUpperCase() || null,
+    numero_documento: numDoc,
+    ruc_dni: numDoc,
+    condicion_pago: opts.condicion_pago?.trim().toUpperCase() || 'CONTADO',
+    direccion: opts.direccion?.trim() || null,
+    distrito: opts.distrito?.trim() || null,
+    telefono: opts.telefono?.trim() || null,
+    email: opts.email?.trim() || null,
+    es_default: opts.es_default ?? false,
     activo: opts.activo ?? true,
   };
+  if (opts.es_default) {
+    const { error: clearErr } = await supabase.from(Tables.maCliente).update({ es_default: false }).neq('id', opts.id ?? '00000000-0000-0000-0000-000000000000');
+    if (clearErr) throw new Error(friendlyDbError(clearErr));
+  }
   if (opts.id) {
     const { data, error } = await supabase.from(Tables.maCliente).update(payload).eq('id', opts.id).select('*').single();
     if (error) throw new Error(friendlyDbError(error));
@@ -337,6 +392,41 @@ export async function upsertCliente(opts: {
   const { data, error } = await supabase.from(Tables.maCliente).insert(payload).select('*').single();
   if (error) throw new Error(friendlyDbError(error));
   return data as MaCliente;
+}
+
+/** Elimina o desactiva si hay documentos vinculados (FK). */
+export async function eliminarProveedor(id: string): Promise<'deleted' | 'deactivated'> {
+  const { data: row, error: readErr } = await supabase
+    .from(Tables.maProveedor).select('id, es_default, nombre').eq('id', id).maybeSingle();
+  if (readErr) throw new Error(friendlyDbError(readErr));
+  if (!row) throw new Error('Proveedor no encontrado.');
+  if (row.es_default) throw new Error('No puede eliminar el proveedor predeterminado del sistema.');
+
+  const { error } = await supabase.from(Tables.maProveedor).delete().eq('id', id);
+  if (!error) return 'deleted';
+  if (error.code === '23503') {
+    const { error: updErr } = await supabase.from(Tables.maProveedor).update({ activo: false }).eq('id', id);
+    if (updErr) throw new Error(friendlyDbError(updErr));
+    return 'deactivated';
+  }
+  throw new Error(friendlyDbError(error));
+}
+
+export async function eliminarCliente(id: string): Promise<'deleted' | 'deactivated'> {
+  const { data: row, error: readErr } = await supabase
+    .from(Tables.maCliente).select('id, es_default, nombre').eq('id', id).maybeSingle();
+  if (readErr) throw new Error(friendlyDbError(readErr));
+  if (!row) throw new Error('Cliente no encontrado.');
+  if (row.es_default) throw new Error('No puede eliminar el cliente predeterminado del sistema.');
+
+  const { error } = await supabase.from(Tables.maCliente).delete().eq('id', id);
+  if (!error) return 'deleted';
+  if (error.code === '23503') {
+    const { error: updErr } = await supabase.from(Tables.maCliente).update({ activo: false }).eq('id', id);
+    if (updErr) throw new Error(friendlyDbError(updErr));
+    return 'deactivated';
+  }
+  throw new Error(friendlyDbError(error));
 }
 
 export async function upsertCanalVenta(opts: {
@@ -1706,7 +1796,7 @@ export async function registrarCompra(opts: {
   txnId?: string;
 }) {
   const uid = await getUserId();
-  const { data, error } = await supabase.rpc(ErpRpc.compraRegistrar, {
+  const data = await callRpc<string | { compra_id?: string }>(ErpRpc.compraRegistrar, {
     p_txn_id: opts.txnId ?? newTxnId(),
     p_item_id: opts.itemId,
     p_ubicacion_id: opts.ubicacionId,
@@ -1716,9 +1806,8 @@ export async function registrarCompra(opts: {
     p_observacion: opts.observacion ?? null,
     p_fecha_vencimiento: opts.fechaVencimiento ?? null,
     p_usuario_id: uid ?? null,
-  });
-  if (error) throw new Error(friendlyDbError(error));
-  return String(data);
+  }, 'No se pudo registrar la compra.');
+  return typeof data === 'string' ? data : String(data);
 }
 
 /** Compra + egreso opcional (`fn_compra_registrar_con_gasto`). */
@@ -1738,7 +1827,7 @@ export async function registrarCompraConGasto(opts: {
   gastoProveedorNombre?: string;
 }) {
   const uid = await getUserId();
-  const { data, error } = await supabase.rpc(ErpRpc.compraRegistrarConGasto, {
+  const data = await callRpc<string | { compra_id?: string }>(ErpRpc.compraRegistrarConGasto, {
     p_txn_id: opts.txnId ?? newTxnId(),
     p_item_id: opts.itemId,
     p_ubicacion_id: opts.ubicacionId,
@@ -1753,9 +1842,8 @@ export async function registrarCompraConGasto(opts: {
     p_gasto_centro_costo: opts.gastoCentroCosto ?? 'BODEGA',
     p_gasto_descripcion: opts.gastoDescripcion ?? null,
     p_gasto_proveedor_nombre: opts.gastoProveedorNombre ?? null,
-  });
-  if (error) throw new Error(friendlyDbError(error));
-  return String(data);
+  }, 'No se pudo registrar la compra con egreso.');
+  return typeof data === 'string' ? data : String(data);
 }
 
 export async function registrarCompraDoc(opts: {
@@ -1909,7 +1997,7 @@ export async function registrarVentaAtomica(opts: {
   txnId?: string;
 }) {
   const uid = await getUserId();
-  const { data, error } = await supabase.rpc(ErpRpc.ventaRegistrar, {
+  const data = await callRpc<string | { venta_id?: string }>(ErpRpc.ventaRegistrar, {
     p_txn_id: opts.txnId ?? newTxnId(),
     p_ubicacion_id: opts.ubicacionId,
     p_canal: opts.canal,
@@ -1918,9 +2006,8 @@ export async function registrarVentaAtomica(opts: {
     p_observaciones: opts.observaciones ?? null,
     p_usuario_id: uid ?? null,
     p_lineas: opts.lineas,
-  });
-  if (error) throw new Error(friendlyDbError(error));
-  return String(data);
+  }, 'No se pudo registrar la venta.');
+  return typeof data === 'string' ? data : String(data);
 }
 
 export async function registrarGasto(payload: Record<string, unknown>, txnId?: string) {
@@ -2057,22 +2144,20 @@ export async function crearTransferencia(opts: {
 }) {
   const uid = await getUserId();
   const lineasExpandidas = await expandTransferLineasFifo(opts.origenId, opts.lineas);
-  const { data, error } = await supabase.rpc(ErpRpc.transferenciaRegistrar, {
+  const data = await callRpc<string | { transferencia_id?: string }>(ErpRpc.transferenciaRegistrar, {
     p_txn_id: opts.txnId ?? newTxnId(),
     p_origen_id: opts.origenId,
     p_destino_id: opts.destinoId,
     p_observaciones: opts.observaciones ?? null,
     p_usuario_id: uid ?? null,
     p_lineas: lineasExpandidas.map((l) => ({
-      // XOR: enviar solo un lado (null el otro) para CHECK de BD.
       item_id: l.presentacion_id ? null : (l.item_id ?? null),
       presentacion_id: l.presentacion_id ?? null,
       lote_id: l.lote_id,
       cantidad: l.cantidad,
     })),
-  });
-  if (error) throw new Error(friendlyDbError(error));
-  return String(data);
+  }, 'No se pudo registrar la transferencia.');
+  return typeof data === 'string' ? data : String(data);
 }
 
 export async function confirmarRecepcionTransferencia(transferenciaId: string) {

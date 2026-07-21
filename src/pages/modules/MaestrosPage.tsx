@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   listMaestrosAdmin,
-  upsertProveedor, upsertCliente, upsertCanalVenta,
-  upsertEmpaqueTipo, upsertCategoriaGasto,
+  upsertCanalVenta,
+  upsertEmpaqueTipo,
+  upsertCategoriaGasto,
 } from '../../services/apiProvider';
 import {
   PageHeader, PageLoader, Alert, TabBar, DataTable, EmptyState, FormInput, FormSelect,
@@ -10,20 +12,18 @@ import {
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
-import type { GasCategoria, MaCliente, MaEmpaqueTipo, MaProveedor } from '../../types';
+import type { GasCategoria, MaEmpaqueTipo } from '../../types';
 
-type MaestroTab = 'proveedores' | 'clientes' | 'canales' | 'empaques' | 'categorias';
+type MaestroTab = 'canales' | 'empaques' | 'categorias';
 
 const MaestrosPage: React.FC = () => {
   const { refreshCatalog } = useCatalog();
-  const [tab, setTab] = useState<MaestroTab>('proveedores');
+  const [tab, setTab] = useState<MaestroTab>('canales');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const [proveedores, setProveedores] = useState<MaProveedor[]>([]);
-  const [clientes, setClientes] = useState<MaCliente[]>([]);
   const [canales, setCanales] = useState<{ codigo: string; nombre: string }[]>([]);
   const [empaques, setEmpaques] = useState<MaEmpaqueTipo[]>([]);
   const [categorias, setCategorias] = useState<GasCategoria[]>([]);
@@ -39,8 +39,6 @@ const MaestrosPage: React.FC = () => {
     setError(null);
     try {
       const data = await listMaestrosAdmin();
-      setProveedores(data.proveedores);
-      setClientes(data.clientes);
       setCanales(data.canales);
       setEmpaques(data.empaques);
       setCategorias(data.categorias);
@@ -58,22 +56,6 @@ const MaestrosPage: React.FC = () => {
     setCampoA('');
     setCampoB('');
     setActivo('1');
-    setModalOpen(true);
-  };
-
-  const openEditProveedor = (p: MaProveedor) => {
-    setEditId(p.id);
-    setCampoA(p.nombre);
-    setCampoB(p.ruc ?? '');
-    setActivo(p.activo === false ? '0' : '1');
-    setModalOpen(true);
-  };
-
-  const openEditCliente = (c: MaCliente) => {
-    setEditId(c.id);
-    setCampoA(c.nombre);
-    setCampoB(c.tipo ?? '');
-    setActivo(c.activo === false ? '0' : '1');
     setModalOpen(true);
   };
 
@@ -107,21 +89,7 @@ const MaestrosPage: React.FC = () => {
     setError(null);
     setSuccess(null);
     try {
-      if (tab === 'proveedores') {
-        await upsertProveedor({
-          id: editId || undefined,
-          nombre: campoA,
-          ruc: campoB || undefined,
-          activo: activo === '1',
-        });
-      } else if (tab === 'clientes') {
-        await upsertCliente({
-          id: editId || undefined,
-          nombre: campoA,
-          tipo: campoB || undefined,
-          activo: activo === '1',
-        });
-      } else if (tab === 'canales') {
+      if (tab === 'canales') {
         if (editId) {
           await upsertCanalVenta({ codigoOriginal: editId, nombre: campoA });
         } else {
@@ -162,24 +130,27 @@ const MaestrosPage: React.FC = () => {
     <div className="animate-in">
       <PageHeader
         title="Maestros"
-        subtitle="Proveedores, clientes, canales, empaques y categorías de gasto"
+        subtitle="Canales de venta, empaques y categorías de gasto"
         moduleId="maestros"
-        action={
+        action={(
           <button type="button" className="btn btn-primary" onClick={openCreate}>
             <span className="material-icons-round">add</span>
             Nuevo
           </button>
-        }
+        )}
       />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+
+      <Alert type="info">
+        Para proveedores y clientes use el módulo{' '}
+        <Link to="/proveedores-clientes">Proveedores y clientes</Link>.
+      </Alert>
 
       <TabBar
         active={tab}
         onChange={(id) => setTab(id as MaestroTab)}
         tabs={[
-          { id: 'proveedores', label: 'Proveedores', icon: 'local_shipping' },
-          { id: 'clientes', label: 'Clientes', icon: 'people' },
           { id: 'canales', label: 'Canales', icon: 'storefront' },
           { id: 'empaques', label: 'Empaques', icon: 'inventory_2' },
           { id: 'categorias', label: 'Cat. gasto', icon: 'category' },
@@ -188,44 +159,6 @@ const MaestrosPage: React.FC = () => {
 
       {loading ? <PageLoader /> : (
         <div className="card">
-          {tab === 'proveedores' && (
-            proveedores.length === 0 ? <EmptyState icon="local_shipping" title="Sin proveedores" /> : (
-              <DataTable>
-                <thead><tr><th>Nombre</th><th>RUC</th><th>Activo</th><th /></tr></thead>
-                <tbody>
-                  {proveedores.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.nombre}</td>
-                      <td>{p.ruc || '—'}</td>
-                      <td>{p.activo === false ? 'No' : 'Sí'}</td>
-                      <td className="cell-actions">
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEditProveedor(p)}>Editar</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            )
-          )}
-          {tab === 'clientes' && (
-            clientes.length === 0 ? <EmptyState icon="people" title="Sin clientes" /> : (
-              <DataTable>
-                <thead><tr><th>Nombre</th><th>Tipo</th><th>Activo</th><th /></tr></thead>
-                <tbody>
-                  {clientes.map((c) => (
-                    <tr key={c.id}>
-                      <td>{c.nombre}</td>
-                      <td>{c.tipo || '—'}</td>
-                      <td>{c.activo === false ? 'No' : 'Sí'}</td>
-                      <td className="cell-actions">
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEditCliente(c)}>Editar</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            )
-          )}
           {tab === 'canales' && (
             canales.length === 0 ? <EmptyState icon="storefront" title="Sin canales" /> : (
               <DataTable>
@@ -288,29 +221,6 @@ const MaestrosPage: React.FC = () => {
       <Modal title={modalTitle} isOpen={modalOpen} onClose={() => setModalOpen(false)}>
         <form onSubmit={save}>
           <FormSection title="Datos">
-            {tab === 'proveedores' && (
-              <>
-                <FormInput label="Nombre" value={campoA} onChange={setCampoA} required />
-                <FormInput label="RUC (opcional)" value={campoB} onChange={setCampoB} />
-                <FormSelect label="Activo" value={activo} onChange={setActivo}
-                  options={[{ value: '1', label: 'Sí' }, { value: '0', label: 'No' }]} required />
-              </>
-            )}
-            {tab === 'clientes' && (
-              <>
-                <FormInput label="Nombre" value={campoA} onChange={setCampoA} required />
-                <FormSelect label="Tipo (opcional)" value={campoB} onChange={setCampoB}
-                  options={[
-                    { value: '', label: '— Sin tipo —' },
-                    { value: 'natural', label: 'Persona natural' },
-                    { value: 'juridica', label: 'Empresa' },
-                    { value: 'mayorista', label: 'Mayorista' },
-                    { value: 'minorista', label: 'Minorista' },
-                  ]} />
-                <FormSelect label="Activo" value={activo} onChange={setActivo}
-                  options={[{ value: '1', label: 'Sí' }, { value: '0', label: 'No' }]} required />
-              </>
-            )}
             {tab === 'canales' && (
               <>
                 {!editId && (

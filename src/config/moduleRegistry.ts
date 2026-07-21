@@ -52,7 +52,8 @@ export const ALL_MODULES: ModuleDefExt[] = [
   { id: 'descargas', title: 'Descargas', icon: 'download', subtitle: 'Exportar Excel por mes', path: '/downloads', section: 'consulta' },
   // Admin
   { id: 'materiales_skus', title: 'Materiales / SKUs', icon: 'category', subtitle: 'Catálogo maestro', path: '/materials', section: 'admin', adminOnly: true },
-  { id: 'maestros', title: 'Maestros', icon: 'folder_shared', subtitle: 'Proveedores, clientes, canales…', path: '/maestros', section: 'admin', adminOnly: true },
+  { id: 'maestros', title: 'Maestros', icon: 'folder_shared', subtitle: 'Canales, empaques y cat. gasto', path: '/maestros', section: 'admin', adminOnly: true },
+  { id: 'proveedores_clientes', title: 'Proveedores y clientes', icon: 'contacts', subtitle: 'Catálogo compras y ventas', path: '/proveedores-clientes', section: 'admin', adminOnly: true },
   { id: 'usuarios', title: 'Usuarios', icon: 'manage_accounts', subtitle: 'Roles y permisos', path: '/usuarios', section: 'admin', adminOnly: true },
   { id: 'reportes', title: 'Reportes', icon: 'analytics', subtitle: 'Resumen operativo', path: '/reporting', section: 'admin', adminOnly: true },
   { id: 'configuracion', title: 'Configuración', icon: 'settings', subtitle: 'Cuenta y sesión', path: '/settings', section: 'admin' },

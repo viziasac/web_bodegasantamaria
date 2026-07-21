@@ -7,6 +7,7 @@ import {
   DataTable, EmptyState, toUserMessage, fmtMoney,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { getDefaultProveedorId, proveedorLabel } from '../../utils/partnerCatalog';
 import type { CompraLinea, MaItem } from '../../types';
 import {
   clearComprasDocDraft, loadComprasDocDraft, saveComprasDocDraft,
@@ -108,11 +109,18 @@ const PurchasesPage: React.FC = () => {
   }, [almacenes, ubicacionId]);
 
   useEffect(() => {
+    if (!proveedorId && proveedores.length > 0) {
+      const def = getDefaultProveedorId(proveedores);
+      if (def) setProveedorId(def);
+    }
+  }, [proveedores, proveedorId]);
+
+  useEffect(() => {
     if (selectedInsumo?.tipo === 'GRANEL') {
       const almGr = almacenes.find((u) => u.codigo === 'ALM_GR');
       if (almGr) setUbicacionId(almGr.id);
     }
-  }, [itemId, selectedInsumo?.tipo]);
+  }, [itemId, selectedInsumo?.tipo, almacenes]);
 
   const syncPrecioFromQty = (qty: number, unit: string, total: string) => {
     const q = parseFloat(String(qty));
@@ -207,10 +215,15 @@ const PurchasesPage: React.FC = () => {
           precioUnitario: pu,
           fechaVencimiento: fechaVenc || undefined,
           clientTxnId: txnId,
+          proveedorId: proveedorId || undefined,
           registrarGasto: registrarEgreso,
           gastoCategoriaId: registrarEgreso ? gastoCategoriaId : undefined,
           gastoCentroCosto: registrarEgreso ? gastoCentroCosto : undefined,
           gastoDescripcion: registrarEgreso ? descripcionEgresoAuto : undefined,
+          gastoProveedorNombre: registrarEgreso
+            ? proveedores.find((p) => p.id === proveedorId)?.nombre
+            : undefined,
+          gastoProveedorId: registrarEgreso ? proveedorId || undefined : undefined,
         });
         setSuccess(registrarEgreso
           ? 'Compra y egreso registrados correctamente.'
@@ -290,10 +303,11 @@ const PurchasesPage: React.FC = () => {
         <form onSubmit={handleSubmit}>
           <FormSelect label="Ubicación destino" value={ubicacionId} onChange={setUbicacionId} required
             options={almacenes.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
-          {mode === 'doc' && (
-            <FormSelect label="Proveedor" value={proveedorId} onChange={setProveedorId}
-              options={proveedores.map((p) => ({ value: p.id, label: p.nombre }))} />
-          )}
+          <FormSelect label="Proveedor (opcional)" value={proveedorId} onChange={setProveedorId}
+            options={[
+              { value: '', label: '— Sin proveedor —' },
+              ...proveedores.map((p) => ({ value: p.id, label: proveedorLabel(p) })),
+            ]} />
           <FormInput label="Referencia / N° documento" value={referencia} onChange={setReferencia} required />
           <FormInput label="Observaciones (opcional)" value={observaciones} onChange={setObservaciones} />
           {renderInsumoFields()}

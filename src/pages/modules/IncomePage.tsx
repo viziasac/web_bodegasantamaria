@@ -19,6 +19,7 @@ import {
   DataTable, EmptyState, fmtMoney, fmtDate, toUserMessage,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { clienteLabel, getDefaultClienteId } from '../../utils/partnerCatalog';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
 
@@ -90,7 +91,12 @@ const IncomePage: React.FC = () => {
     ? precioNum / botellas
     : precioNum;
 
-  const cartTotal = cart.reduce((s, l) => s + l.cantidadBotellas * l.precioUnitarioBotella, 0);
+  useEffect(() => {
+    if (!clienteId && clientes.length > 0) {
+      const def = getDefaultClienteId(clientes);
+      if (def) setClienteId(def);
+    }
+  }, [clientes, clienteId]);
   const esRapida = modo === 'rapida';
 
   const loadProductos = async (almacenId: string) => {
@@ -268,6 +274,7 @@ const IncomePage: React.FC = () => {
     e.preventDefault();
     if (loading) return;
     if (!ubicacionId) { setError('Seleccione un punto de venta.'); return; }
+    if (!clienteId) { setError('Seleccione un cliente del catálogo.'); return; }
     if (cart.length === 0) { setError('Agregue al menos una línea al carrito.'); return; }
     setLoading(true);
     setError(null);
@@ -396,10 +403,10 @@ const IncomePage: React.FC = () => {
           Fecha de registro de nuevas ventas = hoy (el RPC no acepta fecha histórica).
         </p>
         <FormRow>
-          <FormSelect label="Cliente (catálogo)" value={clienteId} onChange={setClienteId}
+          <FormSelect label="Cliente (catálogo)" value={clienteId} onChange={setClienteId} required={!esRapida}
             options={[
-              { value: '', label: '— Sin cliente —' },
-              ...clientes.map((c) => ({ value: c.id, label: c.nombre })),
+              { value: '', label: '— Seleccionar cliente —' },
+              ...clientes.map((c) => ({ value: c.id, label: clienteLabel(c) })),
             ]} />
           <FormInput label="Cliente (texto libre)" value={clienteTexto} onChange={setClienteTexto} />
         </FormRow>

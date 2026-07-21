@@ -11,6 +11,7 @@ import {
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
+import { clienteLabel, proveedorLabel } from '../../utils/partnerCatalog';
 import { hoyYmd, inicioMesYmd } from '../../utils/fechaLocal';
 import type { GasGasto, VentaDetalleLinea, VentaResumen } from '../../types';
 
@@ -24,7 +25,7 @@ const TIPOS_DOC = [
 ];
 
 const ModificacionesPage: React.FC = () => {
-  const { categoriasGasto, clientes, canalesVenta, ensureCatalogLoaded } = useCatalog();
+  const { categoriasGasto, clientes, canalesVenta, proveedores, ensureCatalogLoaded } = useCatalog();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab: ModTab = searchParams.get('tab') === 'egresos' ? 'egresos' : 'ingresos';
   const setTab = (id: ModTab) => {
@@ -56,6 +57,7 @@ const ModificacionesPage: React.FC = () => {
   const [gDesc, setGDesc] = useState('');
   const [gCat, setGCat] = useState('');
   const [gProv, setGProv] = useState('');
+  const [gProvId, setGProvId] = useState('');
   const [gTipoDoc, setGTipoDoc] = useState('');
   const [gNroDoc, setGNroDoc] = useState('');
   const [gCentro, setGCentro] = useState('BODEGA');
@@ -181,6 +183,7 @@ const ModificacionesPage: React.FC = () => {
     setGDesc(g.descripcion ?? '');
     setGCat(g.categoria_id ?? '');
     setGProv(g.proveedor_nombre ?? '');
+    setGProvId(g.proveedor_id ?? '');
     setGTipoDoc(g.tipo_comprobante ?? '');
     setGNroDoc(g.nro_comprobante ?? '');
     setGCentro(g.centro_costo ?? 'BODEGA');
@@ -200,7 +203,8 @@ const ModificacionesPage: React.FC = () => {
         monto,
         descripcion: gDesc,
         categoria_id: gCat || null,
-        proveedor_nombre: gProv,
+        proveedor_id: gProvId || null,
+        proveedor_nombre: gProv || null,
         tipo_comprobante: gTipoDoc,
         nro_comprobante: gNroDoc,
         centro_costo: gCentro,
@@ -558,7 +562,17 @@ const ModificacionesPage: React.FC = () => {
               required
               options={categoriasGasto.map((c) => ({ value: c.id, label: c.nombre }))}
             />
-            <FormInput label="Proveedor" value={gProv} onChange={setGProv} />
+            <FormSelect label="Proveedor (catálogo)" value={gProvId}
+              onChange={(id) => {
+                setGProvId(id);
+                const p = proveedores.find((x) => x.id === id);
+                if (p) setGProv(p.nombre);
+              }}
+              options={[
+                { value: '', label: '— Sin proveedor —' },
+                ...proveedores.map((p) => ({ value: p.id, label: proveedorLabel(p) })),
+              ]} />
+            <FormInput label="Proveedor (nombre)" value={gProv} onChange={setGProv} />
             <FormRow>
               <FormSelect label="Tipo comprobante" value={gTipoDoc} onChange={setGTipoDoc} options={TIPOS_DOC} />
               <FormInput label="N° comprobante" value={gNroDoc} onChange={setGNroDoc} />

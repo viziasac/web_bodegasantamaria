@@ -123,13 +123,59 @@ export const bodegaService = {
     precioUnitario?: number;
     fechaVencimiento?: string;
     clientTxnId?: string;
+    proveedorId?: string;
     registrarGasto?: boolean;
     gastoCategoriaId?: string;
     gastoCentroCosto?: string;
     gastoDescripcion?: string;
     gastoProveedorNombre?: string;
+    gastoProveedorId?: string;
   }) {
     const txnId = opts.clientTxnId ?? newTxnId();
+    const linea = {
+      item_id: opts.insumoId,
+      cantidad: opts.cantidad,
+      precio_unitario: opts.precioUnitario,
+      fecha_vencimiento: opts.fechaVencimiento,
+    };
+
+    if (opts.proveedorId && !opts.registrarGasto) {
+      return api.registrarCompraDoc({
+        ubicacionId: opts.almacenId,
+        proveedorId: opts.proveedorId,
+        referencia: opts.referencia,
+        observaciones: opts.observaciones,
+        lineas: [linea],
+        txnId,
+      });
+    }
+
+    if (opts.proveedorId && opts.registrarGasto) {
+      await api.registrarCompraDoc({
+        ubicacionId: opts.almacenId,
+        proveedorId: opts.proveedorId,
+        referencia: opts.referencia,
+        observaciones: opts.observaciones,
+        lineas: [linea],
+        txnId,
+      });
+      const monto = (opts.precioUnitario ?? 0) * opts.cantidad;
+      if (monto > 0 && opts.gastoCategoriaId) {
+        await api.registrarGasto({
+          fecha: new Date().toISOString().slice(0, 10),
+          monto,
+          descripcion: opts.gastoDescripcion ?? `Compra: ${opts.referencia}`,
+          categoria_id: opts.gastoCategoriaId,
+          centro_costo: opts.gastoCentroCosto ?? 'BODEGA',
+          proveedor_id: opts.gastoProveedorId ?? opts.proveedorId,
+          proveedor_nombre: opts.gastoProveedorNombre ?? null,
+          origen_tipo: 'COMPRA',
+          origen_txn_id: txnId,
+        }, `${txnId}:gasto`);
+      }
+      return txnId;
+    }
+
     if (opts.registrarGasto) {
       return api.registrarCompraConGasto({
         itemId: opts.insumoId,
@@ -351,6 +397,7 @@ export const bodegaService = {
         categoria_id: line.categoriaId,
         centro_costo: header.centroCosto ?? 'BODEGA',
         moneda: header.moneda ?? 'PEN',
+        proveedor_id: line.proveedorId ?? null,
         proveedor_nombre: line.proveedorNombre ?? null,
         con_comprobante: tipoDoc.length > 0 || nroDoc.length > 0,
       };
