@@ -394,39 +394,43 @@ export async function upsertCliente(opts: {
   return data as MaCliente;
 }
 
-/** Elimina o desactiva si hay documentos vinculados (FK). */
-export async function eliminarProveedor(id: string): Promise<'deleted' | 'deactivated'> {
+/** Cambia flag activo (baja lógica; el registro permanece en BD). */
+export async function setProveedorActivo(id: string, activo: boolean): Promise<MaProveedor> {
   const { data: row, error: readErr } = await supabase
     .from(Tables.maProveedor).select('id, es_default, nombre').eq('id', id).maybeSingle();
   if (readErr) throw new Error(friendlyDbError(readErr));
   if (!row) throw new Error('Proveedor no encontrado.');
-  if (row.es_default) throw new Error('No puede eliminar el proveedor predeterminado del sistema.');
-
-  const { error } = await supabase.from(Tables.maProveedor).delete().eq('id', id);
-  if (!error) return 'deleted';
-  if (error.code === '23503') {
-    const { error: updErr } = await supabase.from(Tables.maProveedor).update({ activo: false }).eq('id', id);
-    if (updErr) throw new Error(friendlyDbError(updErr));
-    return 'deactivated';
+  if (row.es_default && !activo) {
+    throw new Error('No puede desactivar el proveedor predeterminado del sistema.');
   }
-  throw new Error(friendlyDbError(error));
+
+  const { data, error } = await supabase
+    .from(Tables.maProveedor)
+    .update({ activo })
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaProveedor;
 }
 
-export async function eliminarCliente(id: string): Promise<'deleted' | 'deactivated'> {
+export async function setClienteActivo(id: string, activo: boolean): Promise<MaCliente> {
   const { data: row, error: readErr } = await supabase
     .from(Tables.maCliente).select('id, es_default, nombre').eq('id', id).maybeSingle();
   if (readErr) throw new Error(friendlyDbError(readErr));
   if (!row) throw new Error('Cliente no encontrado.');
-  if (row.es_default) throw new Error('No puede eliminar el cliente predeterminado del sistema.');
-
-  const { error } = await supabase.from(Tables.maCliente).delete().eq('id', id);
-  if (!error) return 'deleted';
-  if (error.code === '23503') {
-    const { error: updErr } = await supabase.from(Tables.maCliente).update({ activo: false }).eq('id', id);
-    if (updErr) throw new Error(friendlyDbError(updErr));
-    return 'deactivated';
+  if (row.es_default && !activo) {
+    throw new Error('No puede desactivar el cliente predeterminado del sistema.');
   }
-  throw new Error(friendlyDbError(error));
+
+  const { data, error } = await supabase
+    .from(Tables.maCliente)
+    .update({ activo })
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw new Error(friendlyDbError(error));
+  return data as MaCliente;
 }
 
 export async function upsertCanalVenta(opts: {

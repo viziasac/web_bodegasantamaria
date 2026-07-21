@@ -258,9 +258,10 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     summary: 'Catálogo maestro para compras, egresos y ventas. Proveedor/cliente son opcionales al registrar operaciones.',
     steps: [
       'Pestaña Proveedores o Clientes según lo que quiera mantener.',
-      'Cree o edite con Nuevo / Editar; use códigos internos para identificar rápido en la app.',
-      'Eliminar borra el registro si no tiene movimientos; si tiene compras/ventas vinculadas se desactiva.',
-      'Los predeterminados (Compras Generales / Varios Bodega) no se pueden eliminar.',
+      'Cree o edite con Nuevo / Editar; el código interno se genera automáticamente si se deja vacío.',
+      'Para dar de baja use Desactivar: el registro queda en BD con activo=false y deja de verse en operaciones.',
+      'Reactive con el botón Reactivar (active «Ver inactivos» para encontrarlos).',
+      'Los predeterminados (Compras Generales / Varios Bodega) no se pueden desactivar.',
     ],
     tips: [
       'En compras y ventas el proveedor/cliente del catálogo es opcional (nullable en Supabase).',

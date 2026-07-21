@@ -4,8 +4,8 @@ import {
   listMaestrosAdmin,
   upsertProveedor,
   upsertCliente,
-  eliminarProveedor,
-  eliminarCliente,
+  setProveedorActivo,
+  setClienteActivo,
 } from '../../services/apiProvider';
 import {
   PageHeader, PageLoader, Alert, TabBar, DataTable, EmptyState, FormInput, FormSelect,
@@ -72,13 +72,60 @@ function docLabel(tipo?: string | null, numero?: string | null, legacy?: string 
   return tipo?.trim() ? `${tipo} ${n}` : n;
 }
 
+function PartnerRowActions({
+  row,
+  entityLabel,
+  onEdit,
+  onToggleActivo,
+  toggling,
+}: {
+  row: MaProveedor | MaCliente;
+  entityLabel: string;
+  onEdit: () => void;
+  onToggleActivo: (activo: boolean) => void;
+  toggling: boolean;
+}) {
+  const isActive = row.activo !== false;
+  const isDefault = Boolean(row.es_default);
+
+  return (
+    <td className="cell-actions">
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}>
+        Editar
+      </button>
+      {isActive ? (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          disabled={isDefault || toggling}
+          title={isDefault ? `El ${entityLabel} predeterminado no se puede desactivar` : undefined}
+          onClick={() => onToggleActivo(false)}
+        >
+          Desactivar
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={toggling}
+          onClick={() => onToggleActivo(true)}
+        >
+          Reactivar
+        </button>
+      )}
+    </td>
+  );
+}
+
 const ProveedoresClientesPage: React.FC = () => {
   const { refreshCatalog } = useCatalog();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab: PartnerTab = searchParams.get('tab') === 'clientes' ? 'clientes' : 'proveedores';
+  const entityLabel = tab === 'proveedores' ? 'proveedor' : 'cliente';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -117,6 +164,7 @@ const ProveedoresClientesPage: React.FC = () => {
   const openCreate = () => {
     setEditId('');
     setForm(tab === 'proveedores' ? { ...EMPTY_PROV } : { ...EMPTY_CLI } as typeof EMPTY_PROV);
+    setError(null);
     setModalOpen(true);
   };
 
@@ -138,6 +186,7 @@ const ProveedoresClientesPage: React.FC = () => {
       es_default: p.es_default ? '1' : '0',
       activo: p.activo === false ? '0' : '1',
     });
+    setError(null);
     setModalOpen(true);
   };
 
@@ -159,6 +208,7 @@ const ProveedoresClientesPage: React.FC = () => {
       es_default: c.es_default ? '1' : '0',
       activo: c.activo === false ? '0' : '1',
     });
+    setError(null);
     setModalOpen(true);
   };
 
@@ -173,11 +223,12 @@ const ProveedoresClientesPage: React.FC = () => {
     setError(null);
     setSuccess(null);
     try {
+      const activo = editId ? form.activo === '1' : true;
       if (tab === 'proveedores') {
         await upsertProveedor({
           id: editId || undefined,
           nombre: form.nombre,
-          codigo: form.codigo || null,
+          codigo: editId ? (form.codigo || null) : null,
           tipo: form.tipo || null,
           tipo_documento: form.tipo_documento || null,
           numero_documento: form.numero_documento || null,
@@ -189,13 +240,13 @@ const ProveedoresClientesPage: React.FC = () => {
           email: form.email || null,
           observaciones: form.observaciones || null,
           es_default: form.es_default === '1',
-          activo: form.activo === '1',
+          activo,
         });
       } else {
         await upsertCliente({
           id: editId || undefined,
           nombre: form.nombre,
-          codigo: form.codigo || null,
+          codigo: editId ? (form.codigo || null) : null,
           tipo: form.tipo || null,
           tipo_documento: form.tipo_documento || null,
           numero_documento: form.numero_documento || null,
@@ -205,10 +256,10 @@ const ProveedoresClientesPage: React.FC = () => {
           telefono: form.telefono || null,
           email: form.email || null,
           es_default: form.es_default === '1',
-          activo: form.activo === '1',
+          activo,
         });
       }
-      setSuccess(editId ? 'Registro actualizado.' : 'Registro creado.');
+      setSuccess(editId ? `${entityLabel} actualizado.` : `${entityLabel} creado y activo.`);
       setModalOpen(false);
       await load();
       await refreshCatalog();
@@ -219,28 +270,35 @@ const ProveedoresClientesPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (row: MaProveedor | MaCliente) => {
-    const label = row.nombre;
-    if (row.es_default) {
-      setError('No puede eliminar el registro predeterminado del sistema.');
+  const handleToggleActivo = async (row: MaProveedor | MaCliente, activo: boolean) => {
+    if (row.es_default && !activo) {
+      setError(`No puede desactivar el ${entityLabel} predeterminado del sistema.`);
       return;
     }
-    if (!window.confirm(`¿Eliminar "${label}"?\n\nSi tiene compras/ventas/gastos vinculados se desactivará en lugar de borrarse.`)) {
-      return;
+    if (!activo) {
+      const ok = window.confirm(
+        `¿Desactivar "${row.nombre}"?\n\nDejará de aparecer en compras, egresos y ventas, pero el historial en base de datos se conserva.`,
+      );
+      if (!ok) return;
     }
+    setTogglingId(row.id);
     setError(null);
     setSuccess(null);
     try {
-      const result = tab === 'proveedores'
-        ? await eliminarProveedor(row.id)
-        : await eliminarCliente(row.id);
-      setSuccess(result === 'deleted'
-        ? `"${label}" eliminado.`
-        : `"${label}" tiene movimientos vinculados — se desactivó.`);
+      if (tab === 'proveedores') {
+        await setProveedorActivo(row.id, activo);
+      } else {
+        await setClienteActivo(row.id, activo);
+      }
+      setSuccess(activo
+        ? `"${row.nombre}" reactivado — visible en operaciones.`
+        : `"${row.nombre}" desactivado — ya no aparece en listas operativas.`);
       await load();
       await refreshCatalog();
     } catch (err) {
-      setError(toUserMessage(err, 'No se pudo eliminar'));
+      setError(toUserMessage(err, `No se pudo ${activo ? 'reactivar' : 'desactivar'}`));
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -250,6 +308,10 @@ const ProveedoresClientesPage: React.FC = () => {
     const hay = `${nombre} ${codigo ?? ''} ${doc ?? ''}`.toLowerCase();
     return hay.includes(q);
   };
+
+  const list = tab === 'proveedores' ? proveedores : clientes;
+  const activeCount = list.filter((r) => r.activo !== false).length;
+  const inactiveCount = list.length - activeCount;
 
   const provFiltered = useMemo(() => proveedores.filter((p) => {
     if (!showInactive && p.activo === false) return false;
@@ -262,25 +324,32 @@ const ProveedoresClientesPage: React.FC = () => {
   }), [clientes, showInactive, q]);
 
   const modalTitle = editId
-    ? `Editar ${tab === 'proveedores' ? 'proveedor' : 'cliente'}`
-    : `Nuevo ${tab === 'proveedores' ? 'proveedor' : 'cliente'}`;
+    ? `Editar ${entityLabel}`
+    : `Nuevo ${entityLabel}`;
+
+  const editingDefault = editId && form.es_default === '1';
 
   return (
     <div className="animate-in">
       <PageHeader
         title="Proveedores y clientes"
-        subtitle="Catálogo para compras, egresos y ventas (proveedor/cliente opcionales en operaciones)"
+        subtitle="Alta y edición de catálogo — la baja es lógica (activo/inactivo), sin borrado en BD"
         moduleId="proveedores_clientes"
         action={(
           <button type="button" className="btn btn-primary" onClick={openCreate}>
             <span className="material-icons-round">add</span>
-            Nuevo
+            Nuevo {entityLabel}
           </button>
         )}
       />
 
       {error && !modalOpen && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+
+      <Alert type="info">
+        Los registros <strong>inactivos</strong> no aparecen en compras, egresos ni ventas, pero se conservan
+        en Supabase para historial y auditoría. Use <em>Desactivar</em> en lugar de eliminar.
+      </Alert>
 
       <TabBar
         active={tab}
@@ -290,6 +359,12 @@ const ProveedoresClientesPage: React.FC = () => {
           { id: 'clientes', label: 'Clientes', icon: 'people' },
         ]}
       />
+
+      <div className="kpi-sub" style={{ marginBottom: '0.75rem' }}>
+        {activeCount} activo{activeCount !== 1 ? 's' : ''}
+        {inactiveCount > 0 && ` · ${inactiveCount} inactivo${inactiveCount !== 1 ? 's' : ''}`}
+        {!showInactive && inactiveCount > 0 && ' (active «Ver inactivos» para gestionarlos)'}
+      </div>
 
       <div className="form-actions form-actions--flat" style={{ marginBottom: '1rem', alignItems: 'center' }}>
         <SearchInput
@@ -314,10 +389,12 @@ const ProveedoresClientesPage: React.FC = () => {
             provFiltered.length === 0 ? (
               <EmptyState
                 icon="local_shipping"
-                title="Sin proveedores"
+                title={showInactive ? 'Sin proveedores en esta vista' : 'Sin proveedores activos'}
                 hint={proveedores.length === 0
-                  ? 'Cree el primer proveedor con el botón Nuevo.'
-                  : 'Ningún proveedor coincide con el filtro.'}
+                  ? 'Cree el primer proveedor con el botón Nuevo proveedor.'
+                  : showInactive
+                    ? 'Ningún proveedor coincide con la búsqueda.'
+                    : 'No hay proveedores activos. Active «Ver inactivos» o cree uno nuevo.'}
               />
             ) : (
               <DataTable>
@@ -328,7 +405,7 @@ const ProveedoresClientesPage: React.FC = () => {
                     <th>Tipo</th>
                     <th>Documento</th>
                     <th>Pago</th>
-                    <th>Activo</th>
+                    <th>Estado</th>
                     <th />
                   </tr>
                 </thead>
@@ -343,11 +420,20 @@ const ProveedoresClientesPage: React.FC = () => {
                       <td>{p.tipo || '—'}</td>
                       <td>{docLabel(p.tipo_documento, p.numero_documento, p.ruc)}</td>
                       <td>{p.condicion_pago || '—'}</td>
-                      <td><StatusBadge ok={p.activo !== false} okLabel="Sí" failLabel="No" /></td>
-                      <td className="cell-actions">
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEditProveedor(p)}>Editar</button>
-                        <button type="button" className="btn btn-ghost btn-sm" disabled={p.es_default} onClick={() => handleDelete(p)}>Eliminar</button>
+                      <td>
+                        <StatusBadge
+                          ok={p.activo !== false}
+                          okLabel="Activo"
+                          failLabel="Inactivo"
+                        />
                       </td>
+                      <PartnerRowActions
+                        row={p}
+                        entityLabel="proveedor"
+                        onEdit={() => openEditProveedor(p)}
+                        onToggleActivo={(activo) => handleToggleActivo(p, activo)}
+                        toggling={togglingId === p.id}
+                      />
                     </tr>
                   ))}
                 </tbody>
@@ -359,10 +445,12 @@ const ProveedoresClientesPage: React.FC = () => {
             cliFiltered.length === 0 ? (
               <EmptyState
                 icon="people"
-                title="Sin clientes"
+                title={showInactive ? 'Sin clientes en esta vista' : 'Sin clientes activos'}
                 hint={clientes.length === 0
-                  ? 'Cree el primer cliente con el botón Nuevo.'
-                  : 'Ningún cliente coincide con el filtro.'}
+                  ? 'Cree el primer cliente con el botón Nuevo cliente.'
+                  : showInactive
+                    ? 'Ningún cliente coincide con la búsqueda.'
+                    : 'No hay clientes activos. Active «Ver inactivos» o cree uno nuevo.'}
               />
             ) : (
               <DataTable>
@@ -373,7 +461,7 @@ const ProveedoresClientesPage: React.FC = () => {
                     <th>Segmento</th>
                     <th>Documento</th>
                     <th>Pago</th>
-                    <th>Activo</th>
+                    <th>Estado</th>
                     <th />
                   </tr>
                 </thead>
@@ -388,11 +476,20 @@ const ProveedoresClientesPage: React.FC = () => {
                       <td>{c.tipo || '—'}</td>
                       <td>{docLabel(c.tipo_documento, c.numero_documento, c.ruc_dni)}</td>
                       <td>{c.condicion_pago || '—'}</td>
-                      <td><StatusBadge ok={c.activo !== false} okLabel="Sí" failLabel="No" /></td>
-                      <td className="cell-actions">
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEditCliente(c)}>Editar</button>
-                        <button type="button" className="btn btn-ghost btn-sm" disabled={c.es_default} onClick={() => handleDelete(c)}>Eliminar</button>
+                      <td>
+                        <StatusBadge
+                          ok={c.activo !== false}
+                          okLabel="Activo"
+                          failLabel="Inactivo"
+                        />
                       </td>
+                      <PartnerRowActions
+                        row={c}
+                        entityLabel="cliente"
+                        onEdit={() => openEditCliente(c)}
+                        onToggleActivo={(activo) => handleToggleActivo(c, activo)}
+                        toggling={togglingId === c.id}
+                      />
                     </tr>
                   ))}
                 </tbody>
@@ -407,7 +504,16 @@ const ProveedoresClientesPage: React.FC = () => {
         <form onSubmit={save}>
           <FormSection title="Identificación">
             <FormInput label="Nombre" value={form.nombre} onChange={(v) => setField('nombre', v)} required />
-            <FormInput label="Código interno (opcional)" value={form.codigo} onChange={(v) => setField('codigo', v)} placeholder="Se genera PROV-0001 / CLI-0001 si se deja vacío" />
+            {editId ? (
+              <p className="kpi-sub">
+                Código: <code className="code-tag">{form.codigo || '—'}</code>
+                {form.codigo ? '' : ' (se asigna automáticamente al crear)'}
+              </p>
+            ) : (
+              <p className="kpi-sub">
+                El código interno (PROV-0001 / CLI-0001) se genera automáticamente al guardar.
+              </p>
+            )}
             <FormSelect label="Tipo / segmento" value={form.tipo} onChange={(v) => setField('tipo', v)}
               options={tab === 'proveedores' ? PROVEEDOR_TIPOS : CLIENTE_TIPOS} />
           </FormSection>
@@ -428,15 +534,30 @@ const ProveedoresClientesPage: React.FC = () => {
               <FormInput label="Observaciones" value={form.observaciones} onChange={(v) => setField('observaciones', v)} />
             )}
           </FormSection>
-          <FormSection title="Estado">
-            <FormSelect label="Predeterminado" value={form.es_default} onChange={(v) => setField('es_default', v)}
-              options={BOOL_OPTS} />
-            <FormSelect label="Activo" value={form.activo} onChange={(v) => setField('activo', v)}
-              options={BOOL_OPTS} required />
-          </FormSection>
+          {editId && (
+            <FormSection title="Estado en catálogo">
+              {editingDefault && (
+                <Alert type="info" message="Registro predeterminado: no puede desactivarse ni dejar de ser predeterminado desde aquí sin otro activo." />
+              )}
+              <FormSelect
+                label="Activo en listas operativas"
+                value={form.activo}
+                onChange={(v) => setField('activo', v)}
+                options={editingDefault ? [{ value: '1', label: 'Activo' }] : BOOL_OPTS}
+                required
+              />
+              <p className="kpi-sub">
+                Inactivo = no aparece en dropdowns de compras/egresos/ventas; el registro sigue en base de datos.
+              </p>
+              {!editingDefault && (
+                <FormSelect label="Predeterminado" value={form.es_default} onChange={(v) => setField('es_default', v)}
+                  options={BOOL_OPTS} />
+              )}
+            </FormSection>
+          )}
           <div className="form-actions">
             <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => !saving && setModalOpen(false)}>Cancelar</button>
-            <SubmitButton loading={saving} label="Guardar" />
+            <SubmitButton loading={saving} label={editId ? 'Guardar cambios' : `Crear ${entityLabel}`} />
           </div>
         </form>
       </Modal>
