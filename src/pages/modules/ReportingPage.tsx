@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getResumenReportes } from '../../services/apiProvider';
 import {
   PageHeader, Alert, FormInput, FormSelect, SubmitButton, PageLoader, FormRow,
-  DataTable, EmptyState, fmtMoney, toUserMessage,
+  DataTable, EmptyState, fmtMoney, fmtNum, toUserMessage,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { hoyYmd, inicioMesYmd } from '../../utils/fechaLocal';
@@ -97,15 +97,15 @@ const ReportingPage: React.FC = () => {
             </div>
             <div className="kpi-card">
               <span className="kpi-label">Unidades vendidas</span>
-              <div className="kpi-value">{resumen.ventas_unidades.toLocaleString()}</div>
+              <div className="kpi-value">{fmtNum(resumen.ventas_unidades)}</div>
             </div>
             <div className="kpi-card">
               <span className="kpi-label">Producción completada</span>
-              <div className="kpi-value">{resumen.produccion.toLocaleString()} bot.</div>
+              <div className="kpi-value">{fmtNum(resumen.produccion)} bot.</div>
             </div>
             <div className="kpi-card">
               <span className="kpi-label">Entradas insumo (COMPRA)</span>
-              <div className="kpi-value">{resumen.entradas_insumo_cantidad.toLocaleString()}</div>
+              <div className="kpi-value">{fmtNum(resumen.entradas_insumo_cantidad)}</div>
             </div>
           </div>
           {Object.keys(gastosPorCategoria).length > 0 && (

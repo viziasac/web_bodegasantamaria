@@ -71,6 +71,8 @@ const RecipesPage: React.FC = () => {
   const [filterPt, setFilterPt] = useState('');
 
   const [bomModal, setBomModal] = useState(false);
+  /** create = solo PT sin receta; add = agregar componentes a receta existente */
+  const [bomMode, setBomMode] = useState<'create' | 'add'>('create');
   const [editModal, setEditModal] = useState(false);
   const [editLine, setEditLine] = useState<RecReceta | null>(null);
   const [ptId, setPtId] = useState('');
@@ -161,11 +163,59 @@ const RecipesPage: React.FC = () => {
     return componentes.filter((c) => !used.has(c.id) && !pickedInDraft.has(c.id));
   }, [componentes, usedByPt, draftLines]);
 
-  const openBom = (presetPt?: string) => {
-    setPtId(presetPt ?? filterPt ?? '');
+  const openCreateRecipe = () => {
+    if (ptsSinReceta.length === 0) {
+      setError('Todos los productos terminados ya tienen una receta. Use «Agregar» en la receta del producto para sumar componentes (no se crea otra receta).');
+      return;
+    }
+    const preferred = filterPt && ptsSinReceta.some((p) => p.id === filterPt) ? filterPt : '';
+    setBomMode('create');
+    setPtId(preferred);
     setDraftLines([emptyDraft()]);
     setModalError(null);
+    setError(null);
     setBomModal(true);
+  };
+
+  /** Agregar líneas a una receta ya existente (mismo PT). */
+  const openAddToRecipe = (targetPt: string) => {
+    if (!targetPt) return;
+    if (!ptsConReceta.has(targetPt)) {
+      openCreateRecipeForPt(targetPt);
+      return;
+    }
+    setBomMode('add');
+    setPtId(targetPt);
+    setDraftLines([emptyDraft()]);
+    setModalError(null);
+    setError(null);
+    setBomModal(true);
+  };
+
+  const openCreateRecipeForPt = (targetPt: string) => {
+    if (ptsConReceta.has(targetPt)) {
+      setError('Este producto ya tiene receta. Use «Agregar» para incluir más componentes.');
+      return;
+    }
+    setBomMode('create');
+    setPtId(targetPt);
+    setDraftLines([emptyDraft()]);
+    setModalError(null);
+    setError(null);
+    setBomModal(true);
+  };
+
+  const openBom = (presetPt?: string) => {
+    if (presetPt) {
+      if (ptsConReceta.has(presetPt)) openAddToRecipe(presetPt);
+      else openCreateRecipeForPt(presetPt);
+      return;
+    }
+    if (filterPt && ptsConReceta.has(filterPt)) {
+      openAddToRecipe(filterPt);
+      return;
+    }
+    openCreateRecipe();
   };
 
   const openEdit = (line: RecReceta) => {
@@ -191,6 +241,9 @@ const RecipesPage: React.FC = () => {
     setSuccess(null);
     try {
       if (!ptId) throw new Error('Seleccione el producto terminado.');
+      if (bomMode === 'create' && ptsConReceta.has(ptId)) {
+        throw new Error('Este producto ya tiene una receta. Cierre y use «Agregar» en esa receta.');
+      }
       const lines = draftLines
         .filter((d) => d.componenteId)
         .map((d) => {
@@ -217,9 +270,13 @@ const RecipesPage: React.FC = () => {
         await createRecetaLineas(ptId, lines);
       }
       setSuccess(
-        lines.length === 1
-          ? 'Componente agregado a la receta.'
-          : `${lines.length} componentes agregados a la receta.`,
+        bomMode === 'create'
+          ? (lines.length === 1
+            ? 'Receta creada con 1 componente.'
+            : `Receta creada con ${lines.length} componentes.`)
+          : (lines.length === 1
+            ? 'Componente agregado a la receta.'
+            : `${lines.length} componentes agregados a la receta.`),
       );
       setBomModal(false);
       await load();
@@ -300,9 +357,9 @@ const RecipesPage: React.FC = () => {
           : 'Consulta de fórmulas por botella'}
         moduleId="recetas"
         action={isAdmin ? (
-          <button type="button" className="btn btn-primary" onClick={() => openBom(filterPt || undefined)}>
+          <button type="button" className="btn btn-primary" onClick={() => openBom()}>
             <span className="material-icons-round">playlist_add</span>
-            Nueva / agregar receta
+            {ptsSinReceta.length > 0 ? 'Nueva receta' : 'Agregar a receta'}
           </button>
         ) : undefined}
       />
@@ -310,8 +367,9 @@ const RecipesPage: React.FC = () => {
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
       <Alert type="info">
-        Cada cantidad es <strong>por 1 botella</strong> (no por pack). Al producir, el granel
-        se toma de ALM_GR y el resto de ALM_MP.
+        Cada producto terminado tiene <strong>una sola receta</strong>. Las cantidades son
+        {' '}<strong>por 1 botella</strong> (no por pack). Al producir, el granel se toma de ALM_GR
+        y el resto de ALM_MP.
         {!isAdmin && ' Solo un administrador puede crear o editar recetas.'}
       </Alert>
 
@@ -469,21 +527,39 @@ const RecipesPage: React.FC = () => {
       )}
 
       <Modal
-        title="Armar / agregar a la receta"
+        title={bomMode === 'create' ? 'Nueva receta' : 'Agregar componentes a la receta'}
         isOpen={bomModal}
         onClose={() => !saving && setBomModal(false)}
       >
         {modalError && <Alert type="error" message={modalError} onClose={() => setModalError(null)} />}
         <form onSubmit={handleSaveBom}>
           <FormSection title="Producto terminado">
-            <FormSelect
-              label="Producto (debe existir en Materiales)"
-              value={ptId}
-              onChange={setPtId}
-              required
-              options={pts.map((p) => ({ value: p.id, label: `${p.codigo} — ${p.nombre}` }))}
-            />
-            {ptId && (usedByPt.get(ptId)?.size ?? 0) > 0 && (
+            {bomMode === 'add' ? (
+              <>
+                <p className="kpi-sub" style={{ marginBottom: '0.75rem' }}>
+                  Receta existente — solo se agregan materiales nuevos (no se crea otra receta).
+                </p>
+                <FormSelect
+                  label="Producto"
+                  value={ptId}
+                  onChange={() => { /* bloqueado en modo add */ }}
+                  required
+                  disabled
+                  options={pts
+                    .filter((p) => p.id === ptId)
+                    .map((p) => ({ value: p.id, label: `${p.codigo} — ${p.nombre}` }))}
+                />
+              </>
+            ) : (
+              <FormSelect
+                label="Producto sin receta"
+                value={ptId}
+                onChange={setPtId}
+                required
+                options={ptsSinReceta.map((p) => ({ value: p.id, label: `${p.codigo} — ${p.nombre}` }))}
+              />
+            )}
+            {bomMode === 'add' && ptId && (usedByPt.get(ptId)?.size ?? 0) > 0 && (
               <p className="kpi-sub">
                 Esta receta ya tiene {usedByPt.get(ptId)!.size} componente(s). Solo se listan materiales aún no usados.
               </p>
@@ -562,7 +638,11 @@ const RecipesPage: React.FC = () => {
             <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => !saving && setBomModal(false)}>
               Cancelar
             </button>
-            <SubmitButton loading={saving} label="Guardar en receta" icon="save" />
+            <SubmitButton
+              loading={saving}
+              label={bomMode === 'create' ? 'Crear receta' : 'Agregar a la receta'}
+              icon="save"
+            />
           </div>
         </form>
       </Modal>

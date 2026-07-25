@@ -329,7 +329,7 @@ const MaterialsPage: React.FC = () => {
                     <td>{i.tipo}</td>
                     <td>{i.unidad_medida}</td>
                     <td>{i.categoria || '—'}</td>
-                    <td className="cell-num">{fmtNum(i.stock_minimo, 2)}</td>
+                    <td className="cell-num">{fmtNum(i.stock_minimo ?? 0, 2)}</td>
                     <td>{i.activo === false ? 'No' : 'Sí'}</td>
                     <td>
                       <button type="button" className="btn-icon" title="Editar" onClick={() => openEditItem(i)}>

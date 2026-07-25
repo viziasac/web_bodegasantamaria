@@ -42,7 +42,7 @@ const DashActionPanel: React.FC<DashActionPanelProps> = ({ ej }) => {
   if (ej.mermaCount > 0) {
     items.push({
       icon: 'warning',
-      text: `${ej.mermaCount} registro(s) de merma (${ej.mermaVolumen.toLocaleString()} uds)`,
+      text: `${ej.mermaCount} registro(s) de merma (${(ej.mermaVolumen ?? 0).toLocaleString()} uds)`,
       path: '/audit',
       tone: 'warn',
     });

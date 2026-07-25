@@ -14,8 +14,9 @@ const SERIES = [
 ];
 
 const DashTrendChart: React.FC<DashTrendChartProps> = ({ data, height = 220 }) => {
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   const maxVal = Math.max(
-    ...data.flatMap((d) => [d.entradas, d.salidas, d.ajustes, d.merma]),
+    ...data.flatMap((d) => [num(d.entradas), num(d.salidas), num(d.ajustes), num(d.merma)]),
     1,
   );
 
@@ -34,7 +35,7 @@ const DashTrendChart: React.FC<DashTrendChartProps> = ({ data, height = 220 }) =
           <div className="dash-trend-col" key={d.fecha}>
             <div className="dash-trend-bars">
               {SERIES.map((s) => {
-                const val = d[s.key];
+                const val = num(d[s.key]);
                 return (
                   <div
                     key={s.key}

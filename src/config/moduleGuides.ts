@@ -85,6 +85,7 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
       'Edite cantidad o márquela variable; puede quitar una línea o toda la receta.',
     ],
     tips: [
+      'Cada producto terminado tiene una sola receta; «Agregar» suma componentes a la existente.',
       'La cantidad es siempre por botella (no por pack).',
       'Solo administradores pueden crear o editar (política de seguridad en base de datos).',
       'Al completar producción, el granel se valida en ALM_GR y el resto en ALM_MP.',

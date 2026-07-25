@@ -16,17 +16,19 @@ interface ChartDonutProps {
 const DONUT_COLORS = ['#5E664F', '#C5A059', '#7A8368', '#3F4536', '#D4B574', '#8B956F', '#6B7280', '#9CA3AF'];
 
 const ChartDonut: React.FC<ChartDonutProps> = ({ data, totalLabel = 'Total', size = 160 }) => {
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+  const safe = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? n : 0);
+  const total = data.reduce((sum, d) => sum + safe(d.value), 0);
   if (total === 0) {
     return <div className="empty-state"><p>Sin datos disponibles</p></div>;
   }
 
   let cumulative = 0;
   const segments = data.map((d, i) => {
-    const pct = (d.value / total) * 100;
+    const val = safe(d.value);
+    const pct = (val / total) * 100;
     const start = cumulative;
     cumulative += pct;
-    return { ...d, pct, start, color: d.color || DONUT_COLORS[i % DONUT_COLORS.length] };
+    return { ...d, value: val, pct, start, color: d.color || DONUT_COLORS[i % DONUT_COLORS.length] };
   });
 
   const gradient = segments

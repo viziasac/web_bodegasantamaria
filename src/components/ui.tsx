@@ -299,11 +299,15 @@ export const FilterBar: React.FC<{ children: React.ReactNode }> = ({ children })
   <div className="filter-bar card">{children}</div>
 );
 
-export const fmtNum = (n: number, decimals = 0) =>
-  n.toLocaleString('es-PE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+export const fmtNum = (n: number | null | undefined, decimals = 0) => {
+  const v = typeof n === 'number' && Number.isFinite(n) ? n : 0;
+  return v.toLocaleString('es-PE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+};
 
-export const fmtMoney = (n: number) =>
-  `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const fmtMoney = (n: number | null | undefined) => {
+  const v = typeof n === 'number' && Number.isFinite(n) ? n : 0;
+  return `S/ ${v.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 export const fmtDate = (d: string) => {
   try {

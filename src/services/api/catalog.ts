@@ -33,7 +33,10 @@ export async function getItems(opts?: { tipo?: string; includeInactive?: boolean
   if (opts?.tipo) q = q.eq('tipo', opts.tipo);
   const { data, error } = await q;
   if (error) throw error;
-  return data || [];
+  return (data || []).map((row: MaItem) => ({
+    ...row,
+    stock_minimo: parseNum(row.stock_minimo),
+  }));
 }
 
 export async function getInsumos(): Promise<MaItem[]> {
