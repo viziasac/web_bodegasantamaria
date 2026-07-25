@@ -119,15 +119,24 @@ const PurchasesPage: React.FC = () => {
       setUbicacionId(almMp?.id ?? almacenes[0].id);
     } else if (ubicacionId && almacenes.length && !almacenes.some((u) => u.id === ubicacionId)) {
       const almMp = almacenes.find((u) => u.codigo === 'ALM_MP');
-      setUbicacionId(almMp?.id ?? almacenes[0].id);
+      const next = almMp?.id ?? almacenes[0].id;
+      setUbicacionId(next);
+      setTipoFilter('');
+      setCategoriaFilter('');
+      setItemId('');
+      if (mode === 'doc' && docLineas.length > 0) {
+        setDocLineas([]);
+        clearComprasDocDraft();
+      }
     }
-  }, [almacenes, ubicacionId]);
+  }, [almacenes, ubicacionId, mode, docLineas.length]);
 
   useEffect(() => {
     if (tipoFilter && tiposPermitidos.length && !tiposPermitidos.includes(tipoFilter as typeof tiposPermitidos[number])) {
       setTipoFilter('');
     }
-    if (itemId && selectedInsumo && !tiposPermitidos.includes(normalizarTipoItem(selectedInsumo.tipo) as typeof tiposPermitidos[number])) {
+    if (itemId && (!selectedInsumo
+      || !tiposPermitidos.includes(normalizarTipoItem(selectedInsumo.tipo) as typeof tiposPermitidos[number]))) {
       setItemId('');
     }
   }, [tiposPermitidos, tipoFilter, itemId, selectedInsumo]);

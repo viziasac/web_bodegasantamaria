@@ -6,6 +6,7 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
+import { ubicacionesParaReempaque, normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
 
 const RepackPage: React.FC = () => {
   const { items, ubicaciones, ensureCatalogLoaded } = useCatalog();
@@ -20,8 +21,9 @@ const RepackPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const ptItems = items.filter((i) => i.tipo === 'PT');
-  const insumoItems = items.filter((i) => i.tipo !== 'PT');
+  const almacenes = ubicacionesParaReempaque(ubicaciones);
+  const ptItems = items.filter((i) => normalizarTipoItem(i.tipo) === 'PT' && i.activo !== false);
+  const insumoItems = items.filter((i) => normalizarTipoItem(i.tipo) !== 'PT' && i.activo !== false);
   const reempaqueItems = [...ptItems, ...insumoItems];
   const itemLabel = (i: { id: string; codigo: string; nombre: string; unidad_medida?: string }) => {
     const stock = stockByItem[i.id];
@@ -95,7 +97,10 @@ const RepackPage: React.FC = () => {
         <div className="card">
           <form onSubmit={handleSubmit}>
             <FormSelect label="Ubicación" value={ubicacionId} onChange={setUbicacionId} required
-              options={ubicaciones.filter((u) => !u.es_punto_venta).map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
+              options={[
+                { value: '', label: almacenes.length ? '— Almacén —' : 'Sin almacenes' },
+                ...almacenes.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
+              ]} />
             <FormSelect label="Ítem origen" value={origenId} onChange={setOrigenId} required
               options={reempaqueItems.map((i) => ({ value: i.id, label: itemLabel(i) }))} />
             {stockOrigen != null && origenSel && (

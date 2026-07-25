@@ -14,7 +14,7 @@ const BulkProductionPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const granelItems = items.filter((i) => i.tipo === 'GRANEL');
+  const granelItems = items.filter((i) => i.tipo === 'GRANEL' && i.activo !== false);
 
   useEffect(() => {
     void ensureCatalogLoaded();
@@ -62,7 +62,10 @@ const BulkProductionPage: React.FC = () => {
         <div className="card">
           <form onSubmit={handleSubmit}>
             <FormSelect label="Ítem granel" value={itemId} onChange={setItemId} required
-              options={granelItems.map((i) => ({ value: i.id, label: `${i.codigo} — ${i.nombre}` }))} />
+              options={[
+                { value: '', label: '— Seleccionar granel —' },
+                ...granelItems.map((i) => ({ value: i.id, label: `${i.codigo} — ${i.nombre}` })),
+              ]} />
             <FormInput label="Cantidad (litros)" type="number" value={cantidad} onChange={setCantidad} required min={0.001} step="any" />
             <FormInput label="Referencia tanque" value={tanque} onChange={setTanque} required placeholder="Ej: T-01, Tanque principal" />
             <div className="form-actions"><SubmitButton loading={loading} label="Registrar granel" icon="wine_bar" /></div>

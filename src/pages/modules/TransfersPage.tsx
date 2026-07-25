@@ -18,6 +18,7 @@ import {
   DataTable, EmptyState, toUserMessage, fmtDate, fmtNum,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
+import { ubicacionesOperativas, tiposPermitidosParaUbicacion, normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
 import type { TrnTransferencia } from '../../types';
 
 type TipoTransfer = 'pt' | 'material';
@@ -54,22 +55,33 @@ const TransfersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const ubiOps = useMemo(() => ubicacionesOperativas(ubicaciones), [ubicaciones]);
+  const origenSel = ubiOps.find((u) => u.id === origenId);
+
   const skus = useMemo(
     () => skusDesdeCatalogoPt(presentaciones, stockByItem),
     [presentaciones, stockByItem],
   );
   const categorias = useMemo(() => categoriasSkus(skus), [skus]);
-  const skusFiltrados = useMemo(
-    () => filtrarSkusPorCategoria(skus, categoria || undefined),
-    [skus, categoria],
-  );
+  const skusFiltrados = useMemo(() => {
+    let list = filtrarSkusPorCategoria(skus, categoria || undefined);
+    if (origenSel) {
+      const allow = tiposPermitidosParaUbicacion(origenSel);
+      if (allow.length && !allow.includes('PT')) list = [];
+    }
+    return list;
+  }, [skus, categoria, origenSel]);
   const skuSel = skus.find((s) => s.itemId === itemId)
     ?? skusFiltrados.find((s) => s.itemId === itemId);
 
-  const materiales = useMemo(
-    () => items.filter((i) => i.tipo !== 'PT' && i.activo !== false),
-    [items],
-  );
+  const materiales = useMemo(() => {
+    let list = items.filter((i) => normalizarTipoItem(i.tipo) !== 'PT' && i.activo !== false);
+    if (origenSel) {
+      const allow = new Set(tiposPermitidosParaUbicacion(origenSel).map((t) => t));
+      list = list.filter((i) => allow.has(normalizarTipoItem(i.tipo) as 'GRANEL' | 'INSUMO' | 'EMPAQUE' | 'MATERIAL'));
+    }
+    return list;
+  }, [items, origenSel]);
   const matSel = materiales.find((i) => i.id === itemId);
 
   const packFactores = skuSel ? factoresPackSku(skuSel) : [];
@@ -135,14 +147,31 @@ const TransfersPage: React.FC = () => {
       setError('Cantidad inválida.');
       return;
     }
+    if (!origenId || !destinoId) {
+      setError('Seleccione origen y destino.');
+      return;
+    }
+    if (origenId === destinoId) {
+      setError('Origen y destino deben ser diferentes.');
+      return;
+    }
     if (stockDisponible != null && cantFinal > stockDisponible) {
       setError(`Stock insuficiente en origen: disponible ${fmtNum(stockDisponible, 2)} bot./uds.`);
       return;
     }
+    const destino = ubiOps.find((u) => u.id === destinoId);
     if (tipo === 'pt') {
       if (!skuSel || !presComercial) { setError('Seleccione un SKU.'); return; }
       if (modoCantidad === 'pack' && !puedePack) {
         setError('Este SKU no tiene presentación pack configurada.');
+        return;
+      }
+      if (!tiposPermitidosParaUbicacion(origenSel).includes('PT')) {
+        setError('El origen no admite producto terminado. Use ALM_PT o un PV.');
+        return;
+      }
+      if (!tiposPermitidosParaUbicacion(destino).includes('PT')) {
+        setError('El destino no admite producto terminado. Use ALM_PT o un PV.');
         return;
       }
       if (cart.some((l) => l.itemId === skuSel.itemId && l.tipo === 'pt')) {
@@ -160,6 +189,15 @@ const TransfersPage: React.FC = () => {
       }]);
     } else {
       if (!matSel) { setError('Seleccione material.'); return; }
+      const tipoMat = normalizarTipoItem(matSel.tipo);
+      if (!tiposPermitidosParaUbicacion(origenSel).includes(tipoMat as 'GRANEL' | 'INSUMO' | 'EMPAQUE' | 'MATERIAL')) {
+        setError(`El origen no admite ${tipoMat}.`);
+        return;
+      }
+      if (!tiposPermitidosParaUbicacion(destino).includes(tipoMat as 'GRANEL' | 'INSUMO' | 'EMPAQUE' | 'MATERIAL')) {
+        setError(`El destino no admite ${tipoMat}.`);
+        return;
+      }
       if (cart.some((l) => l.itemId === itemId)) {
         setError('Ese material ya está en el carrito.');
         return;
@@ -254,15 +292,20 @@ const TransfersPage: React.FC = () => {
           ]}
         />
         <form onSubmit={(e) => { e.preventDefault(); addLine(); }}>
-          <FormSelect label="Origen" value={origenId} onChange={(v) => { setOrigenId(v); setCart([]); }} required
+          <FormSelect label="Origen" value={origenId} onChange={(v) => {
+            setOrigenId(v);
+            setCart([]);
+            setItemId('');
+            setCategoria('');
+          }} required
             options={[
               { value: '', label: '— Origen —' },
-              ...ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
+              ...ubiOps.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
             ]} />
           <FormSelect label="Destino" value={destinoId} onChange={setDestinoId} required
             options={[
               { value: '', label: '— Destino —' },
-              ...ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
+              ...ubiOps.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
             ]} />
           {tipo === 'pt' ? (
             <>

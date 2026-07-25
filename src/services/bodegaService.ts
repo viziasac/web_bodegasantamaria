@@ -67,7 +67,7 @@ export const bodegaService = {
 
     // PT: un SKU por ítem (solo si la ubicación admite PT).
     if (allowed.has('PT')) {
-      const ptItems = allItems.filter((i) => i.tipo === 'PT' && i.activo !== false);
+      const ptItems = allItems.filter((i) => normalizarTipoItem(i.tipo) === 'PT' && i.activo !== false);
       for (const it of ptItems) {
         const presList = allPres.filter((p) => p.item_id === it.id && p.activo !== false);
         if (presList.length === 0) continue;
@@ -452,11 +452,14 @@ export const bodegaService = {
     clientTxnId?: string;
   }) {
     const ubicaciones = await api.getUbicaciones();
-    const almGr = ubicaciones.find((u) => u.codigo === 'ALM_GR');
+    const almGr = ubicaciones.find((u) => u.codigo === 'ALM_GR' && u.activo !== false);
+    if (!almGr?.id) {
+      throw new Error('Falta configurar la ubicación ALM_GR (almacén de granel).');
+    }
     return api.registrarGranel({
       itemId: opts.materialId,
       cantidad: opts.cantidad,
-      ubicacionId: almGr?.id,
+      ubicacionId: almGr.id,
       observacion: opts.tanque ? `Tanque: ${opts.tanque}` : undefined,
       txnId: opts.clientTxnId ?? newTxnId(),
     });

@@ -74,9 +74,26 @@ function labelUbicacionOrden(u: CatUbicacion): number {
   return 9;
 }
 
+/** Ubicaciones operativas (excluye tránsito): almacenes + PV. */
+export function ubicacionesOperativas(ubicaciones: CatUbicacion[]): CatUbicacion[] {
+  return ubicaciones
+    .filter((u) => u.activo !== false && !isTransito(u))
+    .sort((a, b) => labelUbicacionOrden(a) - labelUbicacionOrden(b)
+      || a.codigo.localeCompare(b.codigo, 'es'));
+}
+
 /** Destino de producción envasado: solo ALM_PT. */
 export function ubicacionesParaProduccionPt(ubicaciones: CatUbicacion[]): CatUbicacion[] {
   return ubicaciones.filter((u) => u.activo !== false && (u.codigo || '').toUpperCase() === 'ALM_PT');
+}
+
+/** Ubicaciones para reempaque: almacenes físicos (no PV, no tránsito). */
+export function ubicacionesParaReempaque(ubicaciones: CatUbicacion[]): CatUbicacion[] {
+  return ubicaciones.filter((u) => {
+    if (u.activo === false || isTransito(u) || isPuntoVenta(u)) return false;
+    const code = (u.codigo || '').toUpperCase();
+    return code === 'ALM_MP' || code === 'ALM_GR' || code === 'ALM_PT';
+  });
 }
 
 export function etiquetaFamiliaUbicacion(

@@ -138,6 +138,14 @@ const ProductionPage: React.FC = () => {
       setError('Este SKU no tiene presentación pack configurada.');
       return;
     }
+    if (almacenesDestino.length === 0) {
+      setError('Falta configurar ALM_PT (almacén de productos terminados).');
+      return;
+    }
+    if (!ubicacionId) {
+      setError('Seleccione ubicación destino (ALM_PT).');
+      return;
+    }
     if (previewStock && !previewStock.tiene_stock) {
       const ok = confirm(
         'Hay insumos faltantes (GRANEL en ALM_GR / resto en ALM_MP). Puede crear la orden, pero al completarla el inventario puede quedar negativo si no repone insumos. ¿Continuar?',
@@ -319,11 +327,18 @@ const ProductionPage: React.FC = () => {
                 label="Ubicación destino"
                 value={ubicacionId}
                 onChange={setUbicacionId}
-                options={almacenesDestino.map((u) => ({
-                  value: u.id,
-                  label: `${u.codigo} — ${u.nombre}`,
-                }))}
+                required
+                options={[
+                  { value: '', label: almacenesDestino.length ? '— ALM_PT —' : 'Sin ALM_PT configurado' },
+                  ...almacenesDestino.map((u) => ({
+                    value: u.id,
+                    label: `${u.codigo} — ${u.nombre}`,
+                  })),
+                ]}
               />
+              {almacenesDestino.length === 0 && (
+                <p className="kpi-sub text-danger">Configure la ubicación ALM_PT en el catálogo.</p>
+              )}
               <FormInput label="Observaciones (opcional)" value={observaciones} onChange={setObservaciones} />
 
               <div className="form-actions form-actions--flat">
