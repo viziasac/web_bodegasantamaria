@@ -744,19 +744,19 @@ PDF_TARGETS = [
         "input": "00_resumen_general_vizia_web.md",
         "output": "Resumen_General_WEB_VIZIA_Bodega_Santa_Maria.pdf",
         "title": "Resumen general — Web ERP",
-        "subtitle": "Visión ejecutiva · Web 1.0.0 · Julio 2026 · Actualizado",
+        "subtitle": "Visión ejecutiva · Almacenes · SKU/botellas · Web 1.0.0",
     },
     {
         "input": "02_resumen_tecnico_vizia_web.md",
         "output": "Resumen_Tecnico_WEB_VIZIA_Bodega_Santa_Maria.pdf",
         "title": "Resumen técnico — Web ERP",
-        "subtitle": "Arquitectura · SKU/botellas · RPC · Cloudflare · Web 1.0.0",
+        "subtitle": "Arquitectura · Política almacén↔tipo · RPC · Web 1.0.0",
     },
     {
         "input": "01_manual_usuario_cliente_web.md",
         "output": "Manual_Usuario_WEB_VIZIA_Bodega_Santa_Maria.pdf",
         "title": "Manual de uso detallado — Web ERP",
-        "subtitle": "Guía módulo a módulo · SKU · Packs · PV · Web 1.0.0",
+        "subtitle": "Operación · Almacenes · SKU · Packs · Ajustes · Web 1.0.0",
     },
 ]
 

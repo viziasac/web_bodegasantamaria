@@ -15,165 +15,131 @@ Desarrollado y entregado por **VIZIA S.A.C.** Acceso por correo y contraseña; d
 
 ---
 
-## 2. Principio clave: un SKU = botellas
+## 2. Dos reglas de oro
 
-Todo el producto terminado se inventaría en **botellas físicas** (`item_id`). Pack ×6, ×12 u otros empaques son solo **formas de contar o vender**; no crean stock separado.
+### 2.1 Un SKU = botellas
 
-```mermaid
-flowchart TD
-  A[Compra / Producción / Ajuste] --> B[Stock unificado en botellas]
-  B --> C[Venta en botellas o packs]
-  C --> D[Descuenta botellas del mismo pool]
-  B --> E[Transferencia / PV]
-  E --> D
-```
+El producto terminado se inventaría en **botellas** (`item_id`). Pack ×6 / ×12 solo cambia cómo se cuenta o vende.
 
-| Entrada en pantalla | Qué queda en inventario |
-|---------------------|-------------------------|
+| Entrada en pantalla | Inventario |
+|---------------------|------------|
 | 10 packs ×6 | **60 botellas** |
 | 5 packs ×12 | **60 botellas** |
 | 60 botellas | **60 botellas** |
 
-Puede **vender por botellas** aunque el stock haya entrado contado como pack.
+### 2.2 Cada almacén = una familia de materiales
+
+| Almacén | Solo admite |
+|---------|-------------|
+| **ALM_GR** | Granel (litros) |
+| **ALM_MP** | Material, insumo y empaque |
+| **ALM_PT** | Producto terminado (botellas) |
+| **PV_*** | Producto terminado (botellas) |
+| **TRANSIT** | Solo sistema (transferencias); no se elige a mano |
+
+La web filtra los desplegables y Supabase **rechaza** movimientos incorrectos.
+
+```mermaid
+flowchart TD
+  A[Ingreso ALM_MP o ALM_GR] --> B[Granel opcional en ALM_GR]
+  B --> C[Producción a ALM_PT]
+  C --> D[Transferir a PV]
+  D --> E[Vender botellas o packs]
+  E --> F[Ajuste / egresos / panel]
+```
 
 ---
 
 ## 3. Qué resuelve
 
-| Necesidad del negocio | Cómo lo cubre el web |
-|-----------------------|----------------------|
-| Ver el mes de un vistazo | Panel de control con pestañas (Ejecutivo, Financiero, Comercial, etc.) |
-| Saber cuánto hay y dónde | Inventario por almacén **y PV**; ajustes de conteo; auditoría |
-| Comprar insumos sin perder el gasto | Ingreso de insumos; egreso opcional; corrección en Modificaciones |
-| Producir granel y embotellar | Granel, órdenes de envasado y recetas (BOM por botella) |
-| No duplicar productos al vender | Un producto (SKU) por ítem; stock en botellas; luego botella o pack ×N |
-| Vender en tienda | Ingresos (POS) y Despacho; cliente opcional |
-| Ajustar stock en el PV | Inventario → Ajuste: almacenes y puntos de venta |
-| Corregir errores de captura | Módulo **Modificaciones** (ventas, egresos, anulación de compra) |
-| Mover stock entre bodegas | Transferencias por SKU (envío + recepción) |
-| Exportar para Excel | Descargas por módulo y mes |
-| Administrar catálogos | Materiales/SKUs, maestros, clientes y proveedores (admin) |
+| Necesidad | Cómo lo cubre el web |
+|-----------|----------------------|
+| Ver el mes | Panel de control por pestañas |
+| Stock por almacén | Inventario + ajuste con filtro de tipo según ubicación |
+| Comprar sin mezclar almacenes | Ingreso solo a ALM_MP o ALM_GR |
+| Embotellar | Producción → destino ALM_PT |
+| Vender en botellas aunque haya entrado como pack | Ingresos / Despacho por SKU |
+| Ajustar en el PV | Ajuste de inventario en puntos de venta |
+| Corregir errores | Modificaciones (ventas y egresos / anular compra) |
+| Mover stock | Transferencias sin TRANSIT manual; valida origen/destino |
+| Exportar | Descargas Excel por mes |
+| Catálogos | Materiales/SKUs, maestros, clientes y proveedores (admin) |
 
 ---
 
-## 4. Flujo operativo (de punta a punta)
-
-```mermaid
-flowchart TD
-  A[Comprar materiales] --> B[Producir granel opcional]
-  B --> C[Envasar órdenes a botellas]
-  C --> D[Transferir a puntos de venta]
-  D --> E[Vender Ingresos o Despacho]
-  E --> F[Egresos y Modificaciones]
-  F --> G[Panel Reportes Descargas]
-```
-
-**Menú web:** Panel → Inventario → Producción → Comercial → Consulta → Administración.
-
----
-
-## 5. Módulos en una mirada
+## 4. Módulos en una mirada
 
 | Módulo | Para qué sirve |
 |--------|----------------|
-| **Panel de control** | Resumen del mes por pestañas |
-| **Inventario** | Stock; ajuste/conteo en almacenes **y PV**; filtro por tipo |
-| **Ingreso Insumos** | Compras / entradas; egreso opcional |
-| **Transferencias** | Entre ubicaciones por SKU (botellas) |
-| **Recetas** | Fórmula por 1 botella (admin escribe) |
-| **Granel** | Alta de litros a ALM_GR |
-| **Producción** | Órdenes de envasado por SKU |
-| **Reempaque** | Cambio de formato ítem→ítem |
-| **Ingresos** | POS multi-línea o venta rápida |
+| **Panel de control** | Resumen del mes |
+| **Inventario** | Stock; ajuste por almacén + tipo permitido |
+| **Ingreso Insumos** | Compras a ALM_MP o ALM_GR |
+| **Transferencias** | Entre almacenes/PV (sin TRANSIT) |
+| **Recetas** | BOM por 1 botella |
+| **Granel** | Alta de litros en ALM_GR |
+| **Producción** | Órdenes SKU → ALM_PT |
+| **Reempaque** | Ítem→ítem en ALM_MP / ALM_GR / ALM_PT |
+| **Ingresos** | POS multi-línea o rápida |
 | **Despacho** | Venta de una línea |
-| **Egresos** | Gastos operativos del día |
-| **Modificaciones** | Corregir o anular ventas y egresos |
-| **Clientes y proveedores** | Catálogo (admin; baja lógica) |
-| **Auditoría** | Historial y trazabilidad |
-| **Descargas** | Excel por mes |
+| **Egresos** | Gastos del día |
+| **Modificaciones** | Corregir/anular ventas y egresos |
+| **Clientes y proveedores** | Catálogo (admin) |
+| **Auditoría** | Historial y lotes |
+| **Descargas** | Excel |
 | **Materiales / SKUs** | Ítems y presentaciones (admin) |
-| **Maestros** | Canales, empaques, categorías de gasto (admin) |
-| **Usuarios** | Consulta de cuentas (solo lectura) |
-| **Reportes** | Resumen operativo del periodo (admin) |
-| **Configuración** | Cuenta, preferencias, caché, cerrar sesión |
+| **Maestros** | Canales, empaques, categorías gasto (admin) |
+| **Usuarios** | Consulta (solo lectura) |
+| **Reportes** | Resumen del periodo (admin) |
+| **Configuración** | Preferencias y cerrar sesión |
+
+**Menú:** Panel → Inventario → Producción → Comercial → Consulta → Administración.
 
 ---
 
-## 6. Beneficios para la operación
+## 5. Beneficios
 
-1. **Una sola verdad de stock** — misma BD que la app móvil.
-2. **Unidades claras** — PT siempre en botellas; packs solo convierten la cantidad.
-3. **Listados claros** — un SKU por producto; empaque después.
-4. **Venta flexible** — botellas aunque el ingreso haya sido en packs.
-5. **Ajuste en PV** — conteo físico directo en el punto de venta.
-6. **Corrección segura** — Modificaciones anula ventas y compras con trazabilidad.
-7. **Menos doble carga** — compra con precio puede generar el egreso.
-8. **Trazabilidad** — lotes, auditoría y descargas.
-9. **Visión gerencial** — panel mensual y reportes.
-10. **Sesión estable** — no pide login por timeouts de red al renovar token.
+1. Una sola verdad de stock (misma BD que la app).
+2. PT siempre en botellas; packs solo convierten.
+3. Almacenes no se mezclan (UI + Supabase).
+4. Venta flexible en botellas aunque el ingreso haya sido en packs.
+5. Ajuste de conteo en almacén o PV.
+6. Corrección segura con Modificaciones.
+7. Panel gerencial y descargas.
+8. Sesión estable en el navegador.
 
 ---
 
-## 7. Unidades y almacenes
+## 6. Quién usa qué
 
-| Qué | Unidad en inventario |
-|-----|----------------------|
-| Producto terminado | **Botellas** |
-| Insumos / empaque | Su unidad (und, kg, etc.) |
-| Granel | **Litros** |
-
-**Almacenes habituales**
-
-| Código | Uso |
-|--------|-----|
-| ALM_MP | Materias primas / insumos / empaque |
-| ALM_GR | Granel (litros) |
-| ALM_PT | Productos terminados (botellas) |
-| PV_* | Puntos de venta (venta y ajuste) |
+| Perfil | Acceso |
+|--------|--------|
+| Sin acceso web | No inicia sesión |
+| Acceso web, sin ventas | Bodega / producción / consulta |
+| Acceso web + ventas | También Ingresos, Despacho, Egresos, Modificaciones |
+| Admin | Además catálogos, usuarios, reportes |
 
 ---
 
-## 8. Quién usa qué
+## 7. Relación con la app móvil
 
-| Perfil | Acceso típico |
-|--------|---------------|
-| Sin **acceso web** | No puede iniciar sesión |
-| Acceso web, sin ventas | Bodega/producción/consulta; sin Ingresos, Despacho, Egresos ni Modificaciones |
-| Acceso web + ventas | También módulos comerciales |
-| Administrador | Además Materiales/SKUs, Maestros, Usuarios, Reportes, Clientes y proveedores |
+Misma Supabase. Use web u app según el contexto; **no duplique** la misma operación en ambos.
 
 ---
 
-## 9. Relación con la app móvil
+## 8. Plataforma
 
-| Tema | Web | App móvil |
-|------|-----|-----------|
-| Datos | Misma Supabase | Misma Supabase |
-| Uso típico | Oficina, gerencia, correcciones, catálogos | Planta, PV, operación en campo |
-| Offline | Requiere conexión | Cola local ante cortes de red |
-| Modificaciones | Módulo dedicado | Corrección limitada según versión |
-
-**No duplique** la misma venta o compra en ambos canales.
+React 19 + TypeScript + Vite · Supabase · Cloudflare Pages · Documentación VIZIA S.A.C.
 
 ---
 
-## 10. Plataforma
+## 9. Documentos relacionados
 
-- Cliente: **React 19 + TypeScript + Vite**
-- Backend: **Supabase** (PostgreSQL, Auth, RPC)
-- Hosting: **Cloudflare Pages**
-- Documentación entregada por **VIZIA S.A.C.**
+| Documento | Uso |
+|-----------|-----|
+| Manual de uso web (PDF) | Operación día a día |
+| Resumen técnico web (PDF) | Arquitectura, RPC, política almacén |
 
----
-
-## 11. Documentos relacionados
-
-| Documento | Contenido |
-|-----------|-----------|
-| Manual de uso web detallado | Paso a paso por módulo, con ejemplos y diagramas |
-| Resumen técnico web | Arquitectura, SKU/botellas, RPC y despliegue |
-
-Para soporte: anote el módulo, la hora y el mensaje de error, y contacte a Bodega Santa María / **VIZIA S.A.C.**
+Soporte: Bodega Santa María / **VIZIA S.A.C.**
 
 ---
 
