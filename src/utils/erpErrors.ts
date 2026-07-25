@@ -19,6 +19,12 @@ export function friendlyDbError(e: unknown): string {
     return 'Operación duplicada (ya registrada).';
   }
   if (err?.code === '23503') return 'Referencia inválida (ubicación, lote o ítem).';
+  if (err?.code === '23514') {
+    if (blob.includes('origen_tipo')) {
+      return 'Tipo de origen de movimiento no permitido. Actualice el sistema o contacte a soporte.';
+    }
+    return 'Los datos no cumplen una regla de validación de la base de datos.';
+  }
   if (err?.code === '42703' && err.message) {
     return 'Error de consulta en base de datos. Recargue la página e intente de nuevo.';
   }

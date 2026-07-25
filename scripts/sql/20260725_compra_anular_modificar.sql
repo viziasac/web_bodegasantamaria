@@ -3,6 +3,9 @@
 --   fn_compra_anular_desde_gasto(p_gasto_id, p_motivo, p_usuario_id)
 --   fn_gasto_eliminar — si origen COMPRA, anula compra (stock + egreso)
 --   fn_gasto_actualizar — permite corregir egreso COMPRA y sincroniza precio_unitario del movimiento
+--
+-- Requisito: inv_movimiento.origen_tipo permite ANULACION_COMPRA / ANULACION_VENTA
+--   (ver 20260725_inv_origen_tipo_anulacion.sql)
 
 CREATE OR REPLACE FUNCTION public.fn_compra_anular_desde_gasto(
   p_gasto_id uuid,
