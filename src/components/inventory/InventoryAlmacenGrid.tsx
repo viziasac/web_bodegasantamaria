@@ -12,7 +12,13 @@ interface Props {
 
 export const InventoryAlmacenGrid: React.FC<Props> = ({ almacenes, selectedId, onSelectAlmacen }) => {
   if (almacenes.length === 0) {
-    return <EmptyState icon="inventory_2" title="Sin stock con estos filtros" hint="Pruebe ampliar la búsqueda" />;
+    return (
+      <EmptyState
+        icon="inventory_2"
+        title="Sin stock físico registrado"
+        hint="El catálogo de materiales existe; registre compras, producción o un ajuste de conteo para cargar saldos."
+      />
+    );
   }
 
   return (

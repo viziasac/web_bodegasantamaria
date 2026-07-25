@@ -28,10 +28,11 @@ export async function getResumenStockItems(tipo?: string): Promise<StockResumenI
 }
 
 async function getStockSaldoFallback(tipo?: string): Promise<StockResumenItem[]> {
-  const { data: rows } = await supabase
+  const { data: rows, error } = await supabase
     .from(Tables.invStockSaldo)
     .select('item_id, cantidad')
     .gt('cantidad', 0);
+  if (error) throw error;
   if (!rows?.length) return [];
 
   const byItem: Record<string, number> = {};
@@ -44,7 +45,8 @@ async function getStockSaldoFallback(tipo?: string): Promise<StockResumenItem[]>
     .select('id, codigo, nombre, tipo, unidad_medida, stock_minimo, categoria')
     .in('id', Object.keys(byItem));
   if (tipo) itemQ = itemQ.eq('tipo', tipo);
-  const { data: items } = await itemQ;
+  const { data: items, error: itemErr } = await itemQ;
+  if (itemErr) throw itemErr;
   return (items || []).map((m: MaItem) =>
     normalizeStockRow({
       ...m,
@@ -84,7 +86,7 @@ export async function getStockAgregadoPorUbicacion(ubicacionId: string): Promise
 
 export async function getPresentacionesConStock(ubicacionId: string) {
   const stockItems = await getStockAgregadoPorUbicacion(ubicacionId);
-  const ptItems = stockItems.filter((i) => i.tipo === 'PT');
+  const ptItems = stockItems.filter((i) => (i.tipo || '').trim().toUpperCase() === 'PT');
   if (!ptItems.length) return [];
 
   const { data: pres, error } = await supabase

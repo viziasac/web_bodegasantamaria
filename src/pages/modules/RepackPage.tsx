@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getStockAgregadoPorUbicacion, registrarReempaque } from '../../services/apiProvider';
 import { newTxnId } from '../../utils/txnId';
 import {
@@ -6,7 +6,12 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
-import { ubicacionesParaReempaque, normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
+import {
+  ubicacionesParaReempaque,
+  normalizarTipoItem,
+  tiposPermitidosParaUbicacion,
+  resumenTiposPermitidos,
+} from '../../utils/ubicacionItemPolicy';
 
 const RepackPage: React.FC = () => {
   const { items, ubicaciones, ensureCatalogLoaded } = useCatalog();
@@ -22,9 +27,21 @@ const RepackPage: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
 
   const almacenes = ubicacionesParaReempaque(ubicaciones);
-  const ptItems = items.filter((i) => normalizarTipoItem(i.tipo) === 'PT' && i.activo !== false);
-  const insumoItems = items.filter((i) => normalizarTipoItem(i.tipo) !== 'PT' && i.activo !== false);
-  const reempaqueItems = [...ptItems, ...insumoItems];
+  const ubiSel = almacenes.find((u) => u.id === ubicacionId);
+  const tiposPermitidos = useMemo(() => tiposPermitidosParaUbicacion(ubiSel), [ubiSel]);
+  const reempaqueItems = useMemo(() => {
+    const allow = new Set(tiposPermitidos.map((t) => t));
+    if (!allow.size) return [];
+    return items.filter(
+      (i) => i.activo !== false && allow.has(normalizarTipoItem(i.tipo) as typeof tiposPermitidos[number]),
+    );
+  }, [items, tiposPermitidos]);
+
+  useEffect(() => {
+    if (origenId && !reempaqueItems.some((i) => i.id === origenId)) setOrigenId('');
+    if (destinoId && !reempaqueItems.some((i) => i.id === destinoId)) setDestinoId('');
+  }, [reempaqueItems, origenId, destinoId]);
+
   const itemLabel = (i: { id: string; codigo: string; nombre: string; unidad_medida?: string }) => {
     const stock = stockByItem[i.id];
     const stockTxt = stock != null ? ` · stock ${fmtNum(stock, 2)}` : '';
@@ -47,8 +64,20 @@ const RepackPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tiposPermitidos.length) {
+      setError('Ubicación no admite reempaque (TRANSIT o sin tipos permitidos).');
+      return;
+    }
     if (origenId === destinoId) {
       setError('El ítem origen y destino deben ser diferentes.');
+      return;
+    }
+    const tipoO = normalizarTipoItem(origenSel?.tipo);
+    const dest = reempaqueItems.find((i) => i.id === destinoId);
+    const tipoD = normalizarTipoItem(dest?.tipo);
+    if (!tiposPermitidos.includes(tipoO as typeof tiposPermitidos[number])
+      || !tiposPermitidos.includes(tipoD as typeof tiposPermitidos[number])) {
+      setError(`En ${ubiSel?.codigo ?? 'esta ubicación'} solo: ${resumenTiposPermitidos(tiposPermitidos)}.`);
       return;
     }
     if (stockOrigen != null && Number.isFinite(cantO) && cantO > stockOrigen) {
@@ -90,7 +119,7 @@ const RepackPage: React.FC = () => {
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       <CatalogGate
-        ready={reempaqueItems.length > 0}
+        ready={almacenes.length > 0 && items.some((i) => i.activo !== false)}
         emptyIcon="transform"
         emptyTitle="Sin ítems disponibles para reempaque"
       >
@@ -101,15 +130,26 @@ const RepackPage: React.FC = () => {
                 { value: '', label: almacenes.length ? '— Almacén —' : 'Sin almacenes' },
                 ...almacenes.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
               ]} />
+            {ubiSel && (
+              <p className="qty-base-summary">
+                Tipos permitidos: {resumenTiposPermitidos(tiposPermitidos)}.
+              </p>
+            )}
             <FormSelect label="Ítem origen" value={origenId} onChange={setOrigenId} required
-              options={reempaqueItems.map((i) => ({ value: i.id, label: itemLabel(i) }))} />
+              options={[
+                { value: '', label: ubicacionId ? (reempaqueItems.length ? '— Ítem —' : 'Sin ítems para esta ubicación') : 'Elija ubicación' },
+                ...reempaqueItems.map((i) => ({ value: i.id, label: itemLabel(i) })),
+              ]} />
             {stockOrigen != null && origenSel && (
               <p className="qty-base-summary">
                 Disponible origen: {fmtNum(stockOrigen, 2)} {origenSel.unidad_medida}
               </p>
             )}
             <FormSelect label="Ítem destino" value={destinoId} onChange={setDestinoId} required
-              options={reempaqueItems.map((i) => ({ value: i.id, label: itemLabel(i) }))} />
+              options={[
+                { value: '', label: ubicacionId ? (reempaqueItems.length ? '— Ítem —' : 'Sin ítems para esta ubicación') : 'Elija ubicación' },
+                ...reempaqueItems.map((i) => ({ value: i.id, label: itemLabel(i) })),
+              ]} />
             <FormInput label="Cantidad origen" type="number" value={cantOrigen} onChange={setCantOrigen} required min={0.001} step="any" />
             <FormInput label="Cantidad destino" type="number" value={cantDestino} onChange={setCantDestino} required min={0.001} step="any" />
             <FormInput label="Observación" value={observacion} onChange={setObservacion} />

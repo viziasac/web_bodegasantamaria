@@ -222,6 +222,25 @@ const PurchasesPage: React.FC = () => {
     setItemId('');
   };
 
+  const clearFormAfterSuccess = () => {
+    setCantidad('');
+    setPrecioUnitario('');
+    setPrecioTotal('');
+    setFechaVenc('');
+    setItemId('');
+    setTipoFilter('');
+    setCategoriaFilter('');
+    setReferencia('');
+    setObservaciones('');
+    setProveedorId('');
+    setRegistrarEgreso(false);
+    setGastoCategoriaId('');
+    setGastoCentroCosto('BODEGA');
+    setModoPrecio('unitario');
+    setDocLineas([]);
+    clearComprasDocDraft();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
@@ -271,9 +290,6 @@ const PurchasesPage: React.FC = () => {
             : undefined,
           gastoProveedorId: registrarEgreso ? proveedorId || undefined : undefined,
         });
-        setSuccess(registrarEgreso
-          ? 'Compra y egreso registrados correctamente.'
-          : 'Compra registrada correctamente.');
       } else {
         if (docLineas.length === 0) throw new Error('Agregue al menos una línea al documento.');
         for (const l of docLineas) {
@@ -292,14 +308,9 @@ const PurchasesPage: React.FC = () => {
           })),
           clientTxnId: txnId,
         });
-        setDocLineas([]);
-        clearComprasDocDraft();
-        setSuccess('Compra registrada correctamente.');
       }
-      setCantidad('');
-      setReferencia('');
-      setRegistrarEgreso(false);
-      setGastoCategoriaId('');
+      clearFormAfterSuccess();
+      setSuccess('Registrado correctamente');
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar compra'));
     } finally {

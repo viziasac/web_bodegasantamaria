@@ -22,6 +22,7 @@ import { clienteLabel } from '../../utils/partnerCatalog';
 import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
+import { isPuntoVenta } from '../../utils/ubicacionItemPolicy';
 import type { ProductoPv, VentaResumen } from '../../types';
 
 /**
@@ -51,17 +52,13 @@ const DispatchPage: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [ventasHoy, setVentasHoy] = useState<VentaResumen[]>([]);
 
-  const pvUbicaciones = ubicaciones.filter((u) => u.es_punto_venta);
+  const pvUbicaciones = ubicaciones.filter((u) => isPuntoVenta(u));
 
   const skus = useMemo(() => skusDesdeProductosPv(productos), [productos]);
   const categorias = useMemo(() => categoriasSkus(skus), [skus]);
   const skusFiltrados = useMemo(
     () => filtrarSkusPorCategoria(skus, categoria || undefined),
     [skus, categoria],
-  );
-  const skusConStock = useMemo(
-    () => skusFiltrados.filter((s) => s.stockItem > 0),
-    [skusFiltrados],
   );
 
   const skuSel = skus.find((s) => s.itemId === itemId)
@@ -186,7 +183,11 @@ const DispatchPage: React.FC = () => {
       setError('Ingrese precio por botella válido.');
       return;
     }
-    if (skuSel.stockItem > 0 && botellas > skuSel.stockItem) {
+    if (skuSel.stockItem <= 0) {
+      setError('Sin stock en este punto de venta. Ingrese o transfiera producto antes de vender.');
+      return;
+    }
+    if (botellas > skuSel.stockItem) {
       setError(`Stock insuficiente: hay ${skuSel.stockItem} botellas disponibles.`);
       return;
     }
@@ -207,10 +208,16 @@ const DispatchPage: React.FC = () => {
         loteId: loteId || undefined,
         clientTxnId: newTxnId(),
       });
-      setSuccess(`Venta registrada: ${botellas} bot. · ${fmtMoney(totalVenta)}`);
       setCantidad('');
+      setPrecioBotella('');
+      setItemId('');
+      setCategoria('');
       setLoteId('');
+      setReferencia('');
+      setModoCantidad('botella');
+      setFactorPackSel(1);
       await Promise.all([loadProductos(ubicacionId), loadVentasHoy(ubicacionId)]);
+      setSuccess('Registrado correctamente');
     } catch (err) {
       setError(toUserMessage(err, 'No se pudo registrar la venta'));
     } finally {
@@ -253,14 +260,22 @@ const DispatchPage: React.FC = () => {
                 options={[{ value: '', label: 'Todas' }, ...categorias.map((c) => ({ value: c, label: c }))]} />
             )}
             <FormSelect
-              label="Producto (con stock)"
+              label="Producto"
               value={itemId}
               onChange={onSkuChange}
               required
-              options={skusConStock.map((s) => ({
-                value: s.itemId,
-                label: etiquetaSkuConStock(s),
-              }))}
+              options={[
+                {
+                  value: '',
+                  label: skusFiltrados.length
+                    ? '— Seleccionar producto —'
+                    : (loadingProductos ? 'Cargando…' : 'Sin SKUs de PT en catálogo'),
+                },
+                ...skusFiltrados.map((s) => ({
+                  value: s.itemId,
+                  label: etiquetaSkuConStock(s),
+                })),
+              ]}
             />
             {skuSel && puedePack && (
               <CantidadEmpaqueToggle

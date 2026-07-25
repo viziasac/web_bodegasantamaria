@@ -94,7 +94,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   /** Conteo del usuario convertido a unidad de inventario (botellas si PT+pack). */
   const conteoEnInventario = useMemo(() => {
     if (!Number.isFinite(conteoNum)) return null;
-    if (usaPack) return conteoNum * factorPack;
+    if (usaPack) return Math.round(conteoNum * factorPack);
     return conteoNum;
   }, [conteoNum, usaPack, factorPack]);
 
@@ -213,6 +213,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (!selected) {
       setError('Seleccione un ítem o SKU.');
       return;
@@ -243,17 +244,17 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
         loteId: loteId !== LOTE_AUTO ? loteId : undefined,
         txnId: newTxnId(),
       });
-      const um = selected.isProducto ? 'bot.' : (selected.unidadMedida ?? '');
-      setSuccess(
-        `Ajuste registrado en ${ubicacionesAjuste.find((u) => u.id === ubicacionId)?.codigo ?? 'ubicación'}: `
-        + `delta ${delta! > 0 ? '+' : ''}${fmtNum(delta!, 2)} ${um}`,
-      );
       setConteo('');
       setSelectedKey('');
       setLoteId(LOTE_AUTO);
       setModoEmpaque('botella');
       setFactorPackSel(1);
+      setTipoFilter('');
+      setMotivoPreset(MOTIVO_PRESETS[0]);
+      setMotivo(MOTIVO_PRESETS[0]);
+      setLotes([]);
       await loadItems(ubicacionId);
+      setSuccess('Registrado correctamente');
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar ajuste'));
     } finally {

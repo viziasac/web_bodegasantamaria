@@ -13,6 +13,7 @@ interface CatalogGateProps {
 
 /**
  * Evita EmptyState falso mientras el catálogo aún carga.
+ * Si el catálogo falla, muestra error + reintento (no spinner infinito).
  */
 export const CatalogGate: React.FC<CatalogGateProps> = ({
   ready,
@@ -21,7 +22,22 @@ export const CatalogGate: React.FC<CatalogGateProps> = ({
   emptyHint,
   children,
 }) => {
-  const { loaded, loading } = useCatalog();
+  const { loaded, loading, error, refreshCatalog } = useCatalog();
+
+  if (error && !loaded && !loading) {
+    return (
+      <EmptyState
+        icon="cloud_off"
+        title="No se pudo cargar el catálogo"
+        hint={error}
+        action={(
+          <button type="button" className="btn btn-primary" onClick={() => { void refreshCatalog(); }}>
+            Reintentar
+          </button>
+        )}
+      />
+    );
+  }
 
   if (!loaded || (loading && !ready)) {
     return <PageLoader />;

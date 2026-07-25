@@ -6,6 +6,7 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { hoyYmd, inicioMesYmd } from '../../utils/fechaLocal';
+import { isPuntoVenta } from '../../utils/ubicacionItemPolicy';
 
 function ventaRowLabel(v: Record<string, unknown>): string {
   return String(
@@ -23,7 +24,7 @@ const ReportingPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const pvUbicaciones = ubicaciones.filter((u) => u.es_punto_venta);
+  const pvUbicaciones = ubicaciones.filter((u) => isPuntoVenta(u));
 
   const generar = async (e?: React.FormEvent) => {
     e?.preventDefault();

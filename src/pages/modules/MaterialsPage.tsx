@@ -10,6 +10,7 @@ import {
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
 import type { MaEmpaqueTipo, MaItem, MaPresentacion } from '../../types';
+import { normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
 
 const TIPOS_ITEM = [
   { value: 'INSUMO', label: 'INSUMO' },
@@ -65,13 +66,13 @@ const MaterialsPage: React.FC = () => {
   const [skuActivo, setSkuActivo] = useState(true);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  const graneles = useMemo(() => items.filter((i) => i.tipo === 'GRANEL' && i.activo !== false), [items]);
-  const pts = useMemo(() => items.filter((i) => i.tipo === 'PT' && i.activo !== false), [items]);
+  const graneles = useMemo(() => items.filter((i) => normalizarTipoItem(i.tipo) === 'GRANEL' && i.activo !== false), [items]);
+  const pts = useMemo(() => items.filter((i) => normalizarTipoItem(i.tipo) === 'PT' && i.activo !== false), [items]);
   const empSel = empaques.find((e) => e.id === skuEmpaqueId);
 
   const itemsFiltrados = useMemo(() => {
     let list = items;
-    if (tipoFilter) list = list.filter((i) => i.tipo === tipoFilter);
+    if (tipoFilter) list = list.filter((i) => normalizarTipoItem(i.tipo) === tipoFilter);
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((i) =>

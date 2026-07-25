@@ -55,7 +55,7 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
   const refreshCatalog = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const [ubicaciones, items, presentaciones, categoriasGasto, proveedores, clientes, canalesVenta] = await Promise.all([
+      const settled = await Promise.allSettled([
         bodegaService.getUbicaciones(),
         bodegaService.getItems(),
         bodegaService.getPresentaciones(),
@@ -64,6 +64,37 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
         bodegaService.getClientes(),
         bodegaService.getCanalesVenta(),
       ]);
+
+      const value = <T,>(i: number, fallback: T): T => {
+        const r = settled[i];
+        return r.status === 'fulfilled' ? (r.value as T) : fallback;
+      };
+      const failMsg = (i: number) => {
+        const r = settled[i];
+        return r.status === 'rejected'
+          ? (r.reason instanceof Error ? r.reason.message : String(r.reason))
+          : null;
+      };
+
+      // Núcleo operativo: sin ubicaciones/ítems la web no puede trabajar.
+      const coreErr = failMsg(0) || failMsg(1) || failMsg(2);
+      if (coreErr && value(0, [] as CatUbicacion[]).length === 0 && value(1, [] as MaItem[]).length === 0) {
+        throw new Error(coreErr);
+      }
+
+      const ubicaciones = value(0, [] as CatUbicacion[]);
+      const items = value(1, [] as MaItem[]);
+      const presentaciones = value(2, [] as MaPresentacion[]);
+      const categoriasGasto = value(3, [] as GasCategoria[]);
+      const proveedores = value(4, [] as MaProveedor[]);
+      const clientes = value(5, [] as MaCliente[]);
+      const canalesVenta = value(6, [] as { codigo: string; nombre: string }[]);
+
+      const softFails = [failMsg(3), failMsg(4), failMsg(5), failMsg(6)].filter(Boolean);
+      const softWarn = softFails.length
+        ? `Catálogo parcial: ${softFails[0]}${softFails.length > 1 ? ` (+${softFails.length - 1})` : ''}`
+        : null;
+
       const next = {
         ubicaciones,
         items,
@@ -71,10 +102,10 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
         categoriasGasto,
         proveedores,
         clientes,
-        canalesVenta: canalesVenta as { codigo: string; nombre: string }[],
+        canalesVenta,
         loaded: true,
         loading: false,
-        error: null,
+        error: softWarn ?? (coreErr && (ubicaciones.length === 0 || items.length === 0) ? coreErr : null),
       };
       setState(next);
       localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -84,6 +115,7 @@ export const CatalogProvider: React.FC<{ children: ReactNode }> = ({ children })
       setState((s) => ({
         ...s,
         loading: false,
+        loaded: s.ubicaciones.length > 0 || s.items.length > 0 ? true : s.loaded,
         error: e instanceof Error ? e.message : 'Error cargando catálogos',
       }));
     }

@@ -25,6 +25,7 @@ import { clienteLabel } from '../../utils/partnerCatalog';
 import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
+import { isPuntoVenta } from '../../utils/ubicacionItemPolicy';
 import type { ProductoPv, VentaResumen } from '../../types';
 
 interface CartLine {
@@ -79,16 +80,12 @@ const IncomePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const pvUbicaciones = ubicaciones.filter((u) => u.es_punto_venta);
+  const pvUbicaciones = ubicaciones.filter((u) => isPuntoVenta(u));
   const skus = useMemo(() => skusDesdeProductosPv(productos), [productos]);
   const categorias = useMemo(() => categoriasSkus(skus), [skus]);
   const skusFiltrados = useMemo(
     () => filtrarSkusPorCategoria(skus, categoria || undefined),
     [skus, categoria],
-  );
-  const skusConStock = useMemo(
-    () => skusFiltrados.filter((s) => s.stockItem > 0),
-    [skusFiltrados],
   );
 
   const skuSel = skus.find((s) => s.itemId === itemId)
@@ -302,7 +299,11 @@ const IncomePage: React.FC = () => {
       return;
     }
     const disponible = stockDisponibleSku(skuSel.itemId, skuSel.stockItem);
-    if (skuSel.stockItem > 0 && botellas > disponible) {
+    if (disponible <= 0) {
+      setError('Sin stock en este punto de venta. Ingrese o transfiera producto antes de vender.');
+      return;
+    }
+    if (botellas > disponible) {
       setError(`Stock insuficiente: quedan ${disponible} botellas disponibles (ya hay líneas en el carrito).`);
       return;
     }
@@ -326,6 +327,7 @@ const IncomePage: React.FC = () => {
     setCantidad('');
     setPrecioInput('');
     setItemId('');
+    setCategoria('');
     setModoCantidad('botella');
     setFactorPackSel(1);
     setClienteTexto('');
@@ -358,8 +360,8 @@ const IncomePage: React.FC = () => {
         })),
         clientTxnId: newTxnId(),
       });
-      setSuccess(`Venta registrada: ${cart.length} línea(s) · ${fmtMoney(cartTotal)}`);
       await clearFormAfterSale();
+      setSuccess('Registrado correctamente');
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar venta'));
     } finally {
@@ -380,7 +382,11 @@ const IncomePage: React.FC = () => {
       setError('Este producto no tiene presentación pack configurada.');
       return;
     }
-    if (skuSel.stockItem > 0 && botellas > skuSel.stockItem) {
+    if (skuSel.stockItem <= 0) {
+      setError('Sin stock en este punto de venta. Ingrese o transfiera producto antes de vender.');
+      return;
+    }
+    if (botellas > skuSel.stockItem) {
       setError(`Stock insuficiente: hay ${skuSel.stockItem} botellas.`);
       return;
     }
@@ -399,10 +405,8 @@ const IncomePage: React.FC = () => {
         observaciones: buildObservaciones(),
         clientTxnId: newTxnId(),
       });
-      setSuccess(
-        `Venta rápida: ${etiquetaLinea(skuSel.nombre, modoCantidad, factorActivo)} · ${botellas} bot. · ${fmtMoney(precioNum)}`,
-      );
       await clearFormAfterSale();
+      setSuccess('Registrado correctamente');
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar venta'));
     } finally {
@@ -507,12 +511,17 @@ const IncomePage: React.FC = () => {
             options={[{ value: '', label: 'Todas' }, ...categorias.map((c) => ({ value: c, label: c }))]} />
         )}
         <FormSelect
-          label="Producto (con stock)"
+          label="Producto"
           value={itemId}
           onChange={onSkuChange}
           options={[
-            { value: '', label: '— Seleccionar producto —' },
-            ...skusConStock.map((s) => ({
+            {
+              value: '',
+              label: skusFiltrados.length
+                ? '— Seleccionar producto —'
+                : (loadingProductos ? 'Cargando…' : 'Sin SKUs de PT en catálogo'),
+            },
+            ...skusFiltrados.map((s) => ({
               value: s.itemId,
               label: etiquetaSkuConStock(s),
             })),

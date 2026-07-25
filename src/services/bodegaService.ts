@@ -29,10 +29,12 @@ export const bodegaService = {
       api.getStockAgregadoPorUbicacion(ubicacionId),
     ]);
     const stockByItem = Object.fromEntries(
-      stockRows.filter((r) => r.tipo === 'PT').map((r) => [r.item_id, r.stock_total]),
+      stockRows
+        .filter((r) => normalizarTipoItem(r.tipo) === 'PT')
+        .map((r) => [r.item_id, r.stock_total]),
     );
     return presentaciones
-      .filter((p) => p.ma_item?.tipo === 'PT' && p.activo !== false)
+      .filter((p) => normalizarTipoItem(p.ma_item?.tipo) === 'PT' && p.activo !== false)
       .map((p) => ({
         presentacion_id: p.id,
         item_id: p.item_id,
@@ -170,32 +172,7 @@ export const bodegaService = {
       });
     }
 
-    if (opts.proveedorId && opts.registrarGasto) {
-      await api.registrarCompraDoc({
-        ubicacionId: opts.almacenId,
-        proveedorId: opts.proveedorId,
-        referencia: opts.referencia,
-        observaciones: opts.observaciones,
-        lineas: [linea],
-        txnId,
-      });
-      const monto = (opts.precioUnitario ?? 0) * opts.cantidad;
-      if (monto > 0 && opts.gastoCategoriaId) {
-        await api.registrarGasto({
-          fecha: new Date().toISOString().slice(0, 10),
-          monto,
-          descripcion: opts.gastoDescripcion ?? `Compra: ${opts.referencia}`,
-          categoria_id: opts.gastoCategoriaId,
-          centro_costo: opts.gastoCentroCosto ?? 'BODEGA',
-          proveedor_id: opts.gastoProveedorId ?? opts.proveedorId,
-          proveedor_nombre: opts.gastoProveedorNombre ?? null,
-          origen_tipo: 'COMPRA',
-          origen_txn_id: txnId,
-        }, `${txnId}:gasto`);
-      }
-      return txnId;
-    }
-
+    // Compra + egreso atómico (origen_id = txn) para que Modificaciones pueda anular stock.
     if (opts.registrarGasto) {
       return api.registrarCompraConGasto({
         itemId: opts.insumoId,
@@ -211,6 +188,7 @@ export const bodegaService = {
         gastoCentroCosto: opts.gastoCentroCosto ?? 'BODEGA',
         gastoDescripcion: opts.gastoDescripcion,
         gastoProveedorNombre: opts.gastoProveedorNombre,
+        proveedorId: opts.proveedorId ?? opts.gastoProveedorId,
       });
     }
     return api.registrarCompra({

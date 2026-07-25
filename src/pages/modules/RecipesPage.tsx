@@ -11,6 +11,7 @@ import Modal from '../../components/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useCatalog } from '../../context/CatalogContext';
 import { isAdminRole } from '../../config/moduleRegistry';
+import { normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
 import type { MaItem, RecReceta } from '../../types';
 
 const TIPO_ORDER: Record<string, number> = {
@@ -83,14 +84,14 @@ const RecipesPage: React.FC = () => {
   const [modalError, setModalError] = useState<string | null>(null);
 
   const pts = useMemo(
-    () => items.filter((i) => i.tipo === 'PT' && i.activo !== false),
+    () => items.filter((i) => normalizarTipoItem(i.tipo) === 'PT' && i.activo !== false),
     [items],
   );
   const componentes = useMemo(
-    () => items.filter((i) => i.tipo !== 'PT' && i.activo !== false)
+    () => items.filter((i) => normalizarTipoItem(i.tipo) !== 'PT' && i.activo !== false)
       .sort((a, b) => {
-        const oa = TIPO_ORDER[a.tipo] ?? 9;
-        const ob = TIPO_ORDER[b.tipo] ?? 9;
+        const oa = TIPO_ORDER[normalizarTipoItem(a.tipo)] ?? 9;
+        const ob = TIPO_ORDER[normalizarTipoItem(b.tipo)] ?? 9;
         if (oa !== ob) return oa - ob;
         return a.codigo.localeCompare(b.codigo);
       }),

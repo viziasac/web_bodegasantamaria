@@ -106,7 +106,7 @@ export function skusDesdeCatalogoPt(
   stockByItem: Record<string, number> = {},
 ): SkuVenta[] {
   const asPv: ProductoPv[] = presentaciones
-    .filter((p) => p.ma_item?.tipo === 'PT' && p.activo !== false)
+    .filter((p) => (p.ma_item?.tipo || '').trim().toUpperCase() === 'PT' && p.activo !== false)
     .map((p) => ({
       presentacion_id: p.id,
       item_id: p.item_id,

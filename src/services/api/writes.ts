@@ -75,6 +75,7 @@ export async function registrarCompraConGasto(opts: {
   gastoCentroCosto?: string;
   gastoDescripcion?: string;
   gastoProveedorNombre?: string;
+  proveedorId?: string;
 }) {
   const uid = await getUserId();
   const data = await callRpc<string | { compra_id?: string }>(ErpRpc.compraRegistrarConGasto, {
@@ -92,6 +93,7 @@ export async function registrarCompraConGasto(opts: {
     p_gasto_centro_costo: opts.gastoCentroCosto ?? 'BODEGA',
     p_gasto_descripcion: opts.gastoDescripcion ?? null,
     p_gasto_proveedor_nombre: opts.gastoProveedorNombre ?? null,
+    p_proveedor_id: opts.proveedorId ?? null,
   }, 'No se pudo registrar la compra con egreso.');
   return typeof data === 'string' ? data : String(data);
 }

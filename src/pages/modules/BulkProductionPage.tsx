@@ -4,6 +4,7 @@ import { newTxnId } from '../../utils/txnId';
 import { PageHeader, Alert, FormSelect, FormInput, SubmitButton, toUserMessage } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
+import { normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
 
 const BulkProductionPage: React.FC = () => {
   const { items, ensureCatalogLoaded } = useCatalog();
@@ -14,7 +15,7 @@ const BulkProductionPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const granelItems = items.filter((i) => i.tipo === 'GRANEL' && i.activo !== false);
+  const granelItems = items.filter((i) => normalizarTipoItem(i.tipo) === 'GRANEL' && i.activo !== false);
 
   useEffect(() => {
     void ensureCatalogLoaded();

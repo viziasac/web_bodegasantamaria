@@ -7,6 +7,7 @@ import { loadWebPrefs, saveWebPrefs } from '../../utils/webPrefs';
 import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { isAdminRole } from '../../config/moduleRegistry';
 import { supabase } from '../../services/supabaseClient';
+import { isPuntoVenta } from '../../utils/ubicacionItemPolicy';
 
 const WEB_VERSION = '1.0.0';
 
@@ -21,7 +22,7 @@ const SettingsPage: React.FC = () => {
   const [defaultCanal, setDefaultCanal] = useState(prefs0.defaultCanal ?? '');
   const [resetSending, setResetSending] = useState(false);
 
-  const pvUbicaciones = ubicaciones.filter((u) => u.es_punto_venta);
+  const pvUbicaciones = ubicaciones.filter((u) => isPuntoVenta(u));
 
   const isAdmin = isAdminRole(user?.role);
 
