@@ -19,6 +19,7 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { ubicacionesOperativas, tiposPermitidosParaUbicacion, normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
+import { MSG_RECIBIDO, MSG_REGISTRADO } from '../../utils/uiFeedback';
 import type { TrnTransferencia } from '../../types';
 
 type TipoTransfer = 'pt' | 'material';
@@ -239,9 +240,10 @@ const TransfersPage: React.FC = () => {
       await bodegaService.crearTransferenciaConFifo({
         origenId, destinoId, lineas, clientTxnId: newTxnId(),
       });
-      setSuccess(`Transferencia creada (${cart.length} línea(s), EN_TRANSITO).`);
+      setSuccess(MSG_REGISTRADO);
       setCart([]);
       setCantidad('');
+      setItemId('');
       await Promise.all([load(), loadStockOrigen(origenId)]);
     } catch (err) {
       setError(toUserMessage(err, 'Error al crear transferencia'));
@@ -256,7 +258,7 @@ const TransfersPage: React.FC = () => {
     setError(null);
     try {
       await confirmarRecepcionTransferencia(id);
-      setSuccess('Transferencia recibida.');
+      setSuccess(MSG_RECIBIDO);
       await load();
     } catch (err) {
       setError(toUserMessage(err, 'Error al recibir transferencia'));

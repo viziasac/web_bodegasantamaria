@@ -50,12 +50,14 @@ Incluye portada VIZIA, tablas, diagramas mermaid como flujo visual, encabezado/p
 
 - **SKU = botellas** — packs ×6/×12 solo convierten cantidad
 - **Almacén ↔ tipo** — ALM_MP (material/insumo/empaque), ALM_GR (granel), ALM_PT/PV (PT)
-- Validación en **web** (`ubicacionItemPolicy`) y **Supabase** (`fn_assert_item_ubicacion`)
+- Validación en **web** (`ubicacionItemPolicy`) y **Supabase** (`fn_assert_item_ubicacion` + reempaque)
 - Ingreso insumos solo ALM_MP/ALM_GR; producción destino ALM_PT
 - Ajuste de inventario: filtro almacén + tipo permitido
 - Transferencias sin TRANSIT manual; valida origen/destino
-- Ventas/despacho por SKU; cliente opcional
-- Modificaciones: ventas y egresos / anular compra
+- Ventas/despacho por SKU (lista catálogo aunque stock = 0); cliente opcional
+- Confirmación UX unificada (`uiFeedback.ts`): éxito limpia formulario; error conserva inputs
+- Catálogo: carga parcial + CatalogGate con reintento
+- Modificaciones: ventas y egresos / anular compra (txn ∪ compra_id)
 - Panel, descargas, auditoría, catálogos admin
 - Sesión persistente en el navegador
 

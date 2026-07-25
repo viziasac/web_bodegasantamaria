@@ -106,6 +106,7 @@ flowchart TD
 6. Corrección segura con Modificaciones.
 7. Panel gerencial y descargas.
 8. Sesión estable en el navegador.
+9. Confirmación clara al registrar (**Registrado correctamente**) y el formulario se limpia solo si hubo éxito.
 
 ---
 

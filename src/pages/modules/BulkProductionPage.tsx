@@ -5,6 +5,7 @@ import { PageHeader, Alert, FormSelect, FormInput, SubmitButton, toUserMessage }
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
 import { normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
+import { MSG_REGISTRADO } from '../../utils/uiFeedback';
 
 const BulkProductionPage: React.FC = () => {
   const { items, ensureCatalogLoaded } = useCatalog();
@@ -38,10 +39,10 @@ const BulkProductionPage: React.FC = () => {
         tanque: tanque.trim(),
         clientTxnId: newTxnId(),
       });
-      const item = granelItems.find((i) => i.id === itemId);
-      setSuccess(`Producción de ${item?.nombre ?? 'granel'} registrada en ALM_GR.`);
+      setSuccess(MSG_REGISTRADO);
       setCantidad('');
       setTanque('');
+      setItemId('');
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar granel'));
     } finally {

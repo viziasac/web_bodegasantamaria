@@ -13,6 +13,7 @@ import {
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
+import { MSG_ACTUALIZADO, MSG_GUARDADO } from '../../utils/uiFeedback';
 import type { MaCliente, MaProveedor } from '../../types';
 
 type PartnerTab = 'proveedores' | 'clientes';
@@ -227,7 +228,7 @@ const ProveedoresClientesPage: React.FC = () => {
           activo,
         });
       }
-      setSuccess(editId ? `${entityLabel} actualizado.` : `${entityLabel} creado.`);
+      setSuccess(editId ? MSG_ACTUALIZADO : MSG_GUARDADO);
       setModalOpen(false);
       await load();
       await refreshCatalog();

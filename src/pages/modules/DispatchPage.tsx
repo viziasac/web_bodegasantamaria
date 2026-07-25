@@ -23,6 +23,7 @@ import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
 import { isPuntoVenta } from '../../utils/ubicacionItemPolicy';
+import { MSG_REGISTRADO } from '../../utils/uiFeedback';
 import type { ProductoPv, VentaResumen } from '../../types';
 
 /**
@@ -217,7 +218,7 @@ const DispatchPage: React.FC = () => {
       setModoCantidad('botella');
       setFactorPackSel(1);
       await Promise.all([loadProductos(ubicacionId), loadVentasHoy(ubicacionId)]);
-      setSuccess('Registrado correctamente');
+      setSuccess(MSG_REGISTRADO);
     } catch (err) {
       setError(toUserMessage(err, 'No se pudo registrar la venta'));
     } finally {

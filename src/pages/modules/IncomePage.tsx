@@ -26,6 +26,7 @@ import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd } from '../../utils/fechaLocal';
 import { loadWebPrefs } from '../../utils/webPrefs';
 import { isPuntoVenta } from '../../utils/ubicacionItemPolicy';
+import { MSG_REGISTRADO } from '../../utils/uiFeedback';
 import type { ProductoPv, VentaResumen } from '../../types';
 
 interface CartLine {
@@ -361,7 +362,7 @@ const IncomePage: React.FC = () => {
         clientTxnId: newTxnId(),
       });
       await clearFormAfterSale();
-      setSuccess('Registrado correctamente');
+      setSuccess(MSG_REGISTRADO);
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar venta'));
     } finally {
@@ -406,7 +407,7 @@ const IncomePage: React.FC = () => {
         clientTxnId: newTxnId(),
       });
       await clearFormAfterSale();
-      setSuccess('Registrado correctamente');
+      setSuccess(MSG_REGISTRADO);
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar venta'));
     } finally {

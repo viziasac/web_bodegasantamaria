@@ -18,6 +18,7 @@ import {
   tiposPermitidosParaUbicacion,
   isPuntoVenta,
 } from '../../utils/ubicacionItemPolicy';
+import { MSG_REGISTRADO } from '../../utils/uiFeedback';
 
 const LOTE_AUTO = '__auto__';
 
@@ -254,7 +255,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
       setMotivo(MOTIVO_PRESETS[0]);
       setLotes([]);
       await loadItems(ubicacionId);
-      setSuccess('Registrado correctamente');
+      setSuccess(MSG_REGISTRADO);
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar ajuste'));
     } finally {

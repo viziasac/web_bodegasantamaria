@@ -11,6 +11,7 @@ import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
 import type { MaEmpaqueTipo, MaItem, MaPresentacion } from '../../types';
 import { normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
+import { MSG_ACTUALIZADO, MSG_GUARDADO } from '../../utils/uiFeedback';
 
 const TIPOS_ITEM = [
   { value: 'INSUMO', label: 'INSUMO' },
@@ -196,7 +197,7 @@ const MaterialsPage: React.FC = () => {
           activo,
           granel_base_id: editItem.tipo === 'PT' ? (granelBaseId || null) : undefined,
         });
-        setSuccess(`Ítem ${editItem.codigo} actualizado.`);
+        setSuccess(MSG_ACTUALIZADO);
       } else {
         await createItem({
           codigo,
@@ -207,7 +208,7 @@ const MaterialsPage: React.FC = () => {
           stock_minimo: Number.isFinite(min) ? min : 0,
           granel_base_id: tipo === 'PT' && granelBaseId ? granelBaseId : undefined,
         });
-        setSuccess(`Ítem ${codigo.trim().toUpperCase()} creado.`);
+        setSuccess(MSG_GUARDADO);
       }
       setItemModal(false);
       resetItemForm();
@@ -235,7 +236,7 @@ const MaterialsPage: React.FC = () => {
           nombre: skuNombre,
           activo: skuActivo,
         });
-        setSuccess(`SKU ${editSku.codigo ?? ''} actualizado.`);
+        setSuccess(MSG_ACTUALIZADO);
       } else {
         if (!empSel) throw new Error('Seleccione un empaque.');
         if (!skuItemId) throw new Error('Seleccione el producto terminado.');
@@ -246,7 +247,7 @@ const MaterialsPage: React.FC = () => {
           empaqueId: skuEmpaqueId,
           cantUnidades: empSel.factor,
         });
-        setSuccess(`SKU ${skuCodigo.trim().toUpperCase()} creado.`);
+        setSuccess(MSG_GUARDADO);
       }
       setSkuModal(false);
       resetSkuForm();

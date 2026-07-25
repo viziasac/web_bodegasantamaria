@@ -30,8 +30,11 @@ flowchart TD
 | `src/utils/skuVenta.ts` | 1 SKU = 1 `item_id` PT |
 | `src/utils/cantidadEmpaque.ts` | Pack × N → botellas |
 | `src/utils/ubicacionItemPolicy.ts` | Matriz almacén ↔ tipo |
+| `src/utils/uiFeedback.ts` | Mensajes de éxito unificados |
 | `src/components/CantidadEmpaqueToggle.tsx` | Botellas / Packs ×N |
+| `src/components/CatalogGate.tsx` | Gate de catálogo + reintento si falla la carga |
 | `src/context/AuthContext.tsx` | Sesión + `acceso_web` |
+| `src/context/CatalogContext.tsx` | Carga parcial de maestros (núcleo + opcionales) |
 
 ---
 
@@ -95,10 +98,30 @@ Integrada en:
 - `fn_ajuste_registrar`
 - `fn_compra_registrar`
 - `fn_compra_registrar_doc`
+- `fn_reempaque_registrar` (origen y destino)
 
 (`fn_compra_registrar_con_gasto` delega en `fn_compra_registrar`.)
 
+Anulación de compra: `fn_compra_origen_ids` resuelve movimientos con `origen_id = txn` **o** `cmp_compra.id` (script `scripts/sql/20260725_audit_compra_anular_reempaque.sql`).
+
 Error típico: `DATOS_INVALIDOS: En ALM_MP solo INSUMO, EMPAQUE o MATERIAL…`
+
+---
+
+## 5. UX de confirmación (post-escritura)
+
+Constantes en `src/utils/uiFeedback.ts`. Patrón en módulos de escritura:
+
+1. `await` RPC / PostgREST  
+2. Si OK → limpiar inputs de captura → `setSuccess(MSG_*)`  
+3. Si error → `setError(...)` **sin** limpiar el formulario  
+
+| Constante | Texto |
+|-----------|-------|
+| `MSG_REGISTRADO` | Registrado correctamente |
+| `MSG_RECIBIDO` | Recibido correctamente |
+| `MSG_GUARDADO` / `MSG_ACTUALIZADO` | Guardado / Actualizado correctamente |
+| `MSG_ANULADO` / `MSG_ELIMINADO` | Anulado / Eliminado correctamente |
 
 ---
 

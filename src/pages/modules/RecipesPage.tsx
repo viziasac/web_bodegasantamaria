@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCatalog } from '../../context/CatalogContext';
 import { isAdminRole } from '../../config/moduleRegistry';
 import { normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
+import { MSG_ACTUALIZADO, MSG_ELIMINADO, MSG_GUARDADO } from '../../utils/uiFeedback';
 import type { MaItem, RecReceta } from '../../types';
 
 const TIPO_ORDER: Record<string, number> = {
@@ -284,15 +285,7 @@ const RecipesPage: React.FC = () => {
       } else {
         await createRecetaLineas(ptId, lines);
       }
-      setSuccess(
-        bomMode === 'create'
-          ? (lines.length === 1
-            ? 'Receta creada con 1 componente.'
-            : `Receta creada con ${lines.length} componentes.`)
-          : (lines.length === 1
-            ? 'Componente agregado a la receta.'
-            : `${lines.length} componentes agregados a la receta.`),
-      );
+      setSuccess(MSG_GUARDADO);
       setBomModal(false);
       await load();
       await refreshCatalog();
@@ -316,7 +309,7 @@ const RecipesPage: React.FC = () => {
         cantidad: qty,
         esVariable: editVariable,
       });
-      setSuccess('Línea de receta actualizada.');
+      setSuccess(MSG_ACTUALIZADO);
       setEditModal(false);
       setEditLine(null);
       await load();
@@ -334,7 +327,7 @@ const RecipesPage: React.FC = () => {
     setError(null);
     try {
       await deleteRecetaLinea(line.id);
-      setSuccess('Línea quitada de la receta.');
+      setSuccess(MSG_ELIMINADO);
       await load();
       await refreshCatalog();
     } catch (err) {
@@ -351,7 +344,7 @@ const RecipesPage: React.FC = () => {
     setError(null);
     try {
       await deleteRecetasDePt(itemProducidoId);
-      setSuccess(`Receta de ${label} quitada.`);
+      setSuccess(MSG_ELIMINADO);
       await load();
       await refreshCatalog();
     } catch (err) {

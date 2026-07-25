@@ -12,6 +12,7 @@ import {
   tiposPermitidosParaUbicacion,
   resumenTiposPermitidos,
 } from '../../utils/ubicacionItemPolicy';
+import { MSG_REGISTRADO } from '../../utils/uiFeedback';
 
 const RepackPage: React.FC = () => {
   const { items, ubicaciones, ensureCatalogLoaded } = useCatalog();
@@ -98,10 +99,12 @@ const RepackPage: React.FC = () => {
         observacion: observacion || undefined,
         txnId: newTxnId(),
       });
-      setSuccess('Reempaque registrado correctamente.');
+      setSuccess(MSG_REGISTRADO);
       setCantOrigen('');
       setCantDestino('');
       setObservacion('');
+      setOrigenId('');
+      setDestinoId('');
       const rows = await getStockAgregadoPorUbicacion(ubicacionId);
       const map: Record<string, number> = {};
       rows.forEach((r) => { map[r.item_id] = r.stock_total; });

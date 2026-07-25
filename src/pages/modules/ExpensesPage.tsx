@@ -12,6 +12,7 @@ import { hoyYmd } from '../../utils/fechaLocal';
 import {
   clearEgresosCartDraft, loadEgresosCartDraft, saveEgresosCartDraft,
 } from '../../utils/egresosDraft';
+import { MSG_REGISTRADO } from '../../utils/uiFeedback';
 import type { EgresoLineaDraft, GasGasto } from '../../types';
 
 const TIPOS_DOC = [
@@ -124,7 +125,7 @@ const ExpensesPage: React.FC = () => {
     try {
       await ensureCatalogLoaded();
       await bodegaService.ingresarEgresosBatch(toSubmit, { fecha, moneda, centroCosto });
-      setSuccess(`${toSubmit.length} egreso(s) registrados.`);
+      setSuccess(MSG_REGISTRADO);
       const remaining = cart.filter((l) => !selectedIds.has(l.id));
       setCart(remaining);
       setSelectedIds(new Set(remaining.map((l) => l.id)));

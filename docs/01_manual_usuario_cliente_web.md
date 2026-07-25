@@ -277,7 +277,22 @@ Cuenta, preferencias, recargar catálogos, cerrar sesión.
 
 ---
 
-## 24. Mensajes frecuentes
+## 24. Mensajes de confirmación y errores
+
+Tras **guardar o registrar** con éxito, la pantalla muestra una alerta verde con un mensaje fijo:
+
+| Acción | Mensaje |
+|--------|---------|
+| Compra, ingreso, despacho, ajuste, producción, granel, reempaque, transferencia, egreso | **Registrado correctamente** |
+| Recepción de transferencia | **Recibido correctamente** |
+| Guardar catálogo (materiales, maestros, recetas, partners) | **Guardado correctamente** / **Actualizado correctamente** |
+| Anular venta o compra | **Anulado correctamente** |
+| Eliminar línea / egreso | **Eliminado correctamente** |
+
+- Si la operación **falla**, el formulario **conserva** lo que escribió y aparece la alerta roja de error.
+- Si tiene éxito, se **limpian** los campos de captura (se mantienen ubicación / PV / canal por comodidad).
+
+### Mensajes frecuentes
 
 | Situación | Qué hacer |
 |-----------|-----------|
@@ -285,6 +300,7 @@ Cuenta, preferencias, recargar catálogos, cerrar sesión.
 | Error “ALM_MP solo INSUMO…” | Elija el almacén correcto para ese material |
 | Sin stock en PV | Transfiera desde ALM_PT o ajuste en el PV |
 | Quiero vender botellas sueltas | Use modo **Botellas** |
+| Producto en 0 botellas | Puede verlo en el listado; no podrá vender hasta reponer stock |
 | Falta ALM_PT / ALM_GR | Configure ubicaciones en catálogo |
 | No se anula compra | El lote ya tiene salidas; revise auditoría |
 

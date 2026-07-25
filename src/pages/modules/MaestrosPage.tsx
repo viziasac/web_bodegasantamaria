@@ -12,6 +12,7 @@ import {
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
+import { MSG_GUARDADO } from '../../utils/uiFeedback';
 import type { GasCategoria, MaEmpaqueTipo } from '../../types';
 
 type MaestroTab = 'canales' | 'empaques' | 'categorias';
@@ -111,7 +112,7 @@ const MaestrosPage: React.FC = () => {
           activo: activo === '1',
         });
       }
-      setSuccess('Registro guardado.');
+      setSuccess(MSG_GUARDADO);
       setModalOpen(false);
       await load();
       await refreshCatalog();

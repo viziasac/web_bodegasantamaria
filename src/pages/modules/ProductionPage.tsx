@@ -22,6 +22,7 @@ import {
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
+import { MSG_REGISTRADO } from '../../utils/uiFeedback';
 import type { PrdOrden, InsumoValidacionOrden } from '../../types';
 
 type FiltroEstado = 'BORRADOR' | 'COMPLETADA' | 'TODAS';
@@ -165,7 +166,7 @@ const ProductionPage: React.FC = () => {
         observaciones: observaciones.trim() || undefined,
         txnId: newTxnId(),
       });
-      setSuccess(`Orden creada: ${botellasPlan} bot. (${skuSel.nombre}).`);
+      setSuccess(MSG_REGISTRADO);
       setCantidad('');
       setObservaciones('');
       setPreviewStock(null);
@@ -212,7 +213,7 @@ const ProductionPage: React.FC = () => {
     setError(null);
     try {
       await completarOrden(selectedOrden.id, real);
-      setSuccess('Orden completada correctamente.');
+      setSuccess(MSG_REGISTRADO);
       setValidacion([]);
       setSelectedOrden(null);
       await load();

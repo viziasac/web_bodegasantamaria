@@ -14,6 +14,7 @@ import { useCatalog } from '../../context/CatalogContext';
 import { clienteLabel, proveedorLabel } from '../../utils/partnerCatalog';
 import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { hoyYmd, inicioMesYmd } from '../../utils/fechaLocal';
+import { MSG_ACTUALIZADO, MSG_ANULADO, MSG_ELIMINADO } from '../../utils/uiFeedback';
 import type { GasGasto, VentaDetalleLinea, VentaResumen } from '../../types';
 
 type ModTab = 'ingresos' | 'egresos';
@@ -143,7 +144,7 @@ const ModificacionesPage: React.FC = () => {
         canal: canal || undefined,
         lineas,
       });
-      setSuccess(`Venta ${ventaEdit.nro_venta ?? ''} actualizada.`);
+      setSuccess(MSG_ACTUALIZADO);
       setVentaEdit(null);
       setDetalleCache({});
       await load();
@@ -160,7 +161,7 @@ const ModificacionesPage: React.FC = () => {
     setError(null);
     try {
       await anularVenta(ventaEdit.id, anulMotivo || undefined);
-      setSuccess(`Venta ${ventaEdit.nro_venta ?? ''} anulada. Stock restituido.`);
+      setSuccess(MSG_ANULADO);
       setAnulModal(false);
       setVentaEdit(null);
       setAnulMotivo('');
@@ -208,11 +209,7 @@ const ModificacionesPage: React.FC = () => {
         centro_costo: gCentro,
         con_comprobante: !!(gTipoDoc || gNroDoc),
       });
-      setSuccess(
-        gastoEdit.origen_tipo === 'COMPRA'
-          ? 'Egreso de compra actualizado (costo unitario sincronizado; stock sin cambios).'
-          : 'Egreso actualizado.',
-      );
+      setSuccess(MSG_ACTUALIZADO);
       setGastoEdit(null);
       await load();
     } catch (err) {
@@ -232,7 +229,7 @@ const ModificacionesPage: React.FC = () => {
     setSuccess(null);
     try {
       await eliminarGasto(g.id);
-      setSuccess(fromCompra ? 'Compra anulada: stock revertido y egreso eliminado.' : 'Egreso eliminado.');
+      setSuccess(fromCompra ? MSG_ANULADO : MSG_ELIMINADO);
       await load();
     } catch (err) {
       setError(toUserMessage(err, fromCompra ? 'No se pudo anular la compra' : 'No se pudo eliminar el egreso'));

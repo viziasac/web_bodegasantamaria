@@ -12,6 +12,7 @@ import type { CompraLinea, MaItem } from '../../types';
 import {
   clearComprasDocDraft, loadComprasDocDraft, saveComprasDocDraft,
 } from '../../utils/comprasDraft';
+import { MSG_REGISTRADO } from '../../utils/uiFeedback';
 import {
   ubicacionesParaIngresoInsumos,
   tiposParaIngresoEnUbicacion,
@@ -310,7 +311,7 @@ const PurchasesPage: React.FC = () => {
         });
       }
       clearFormAfterSuccess();
-      setSuccess('Registrado correctamente');
+      setSuccess(MSG_REGISTRADO);
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar compra'));
     } finally {
