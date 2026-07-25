@@ -289,7 +289,9 @@ Tras **guardar o registrar** con éxito, la pantalla muestra una alerta verde co
 | Anular venta o compra | **Anulado correctamente** |
 | Eliminar línea / egreso | **Eliminado correctamente** |
 
-- Si la operación **falla**, el formulario **conserva** lo que escribió y aparece la alerta roja de error.
+Los mensajes aparecen en una **ventana emergente** centrada (no arriba de la página), con botón **Entendido**. El éxito se cierra solo a los pocos segundos.
+
+- Si la operación **falla**, el formulario **conserva** lo que escribió y aparece el mismo popup en rojo.
 - Si tiene éxito, se **limpian** los campos de captura (se mantienen ubicación / PV / canal por comodidad).
 
 ### Mensajes frecuentes

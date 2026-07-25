@@ -10,6 +10,7 @@ import {
 import {
   PageHeader, PageLoader, Alert, TabBar, DataTable, EmptyState, FormInput, FormSelect,
   SearchInput, SubmitButton, FormSection, FormRow, StatusBadge, toUserMessage,
+  PageFeedback,
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
@@ -322,8 +323,12 @@ const ProveedoresClientesPage: React.FC = () => {
         )}
       />
 
-      {error && !modalOpen && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={!modalOpen ? error : null}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <Alert type="info">
         Al <strong>eliminar</strong>, el {entityLabel} solo se marca como <strong>inactivo</strong>:

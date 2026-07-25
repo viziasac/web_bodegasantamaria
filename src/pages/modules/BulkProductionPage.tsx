@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { bodegaService } from '../../services/bodegaService';
 import { newTxnId } from '../../utils/txnId';
-import { PageHeader, Alert, FormSelect, FormInput, SubmitButton, toUserMessage } from '../../components/ui';
+import { PageHeader, Alert, FormSelect, FormInput, SubmitButton, toUserMessage, PageFeedback } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
 import { normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
@@ -53,8 +53,12 @@ const BulkProductionPage: React.FC = () => {
   return (
     <div className="animate-in">
       <PageHeader title="Producción Granel" subtitle="Entrada de vino/pisco a granel (ALM_GR)" moduleId="produccion_granel" />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
       <CatalogGate
         ready={granelItems.length > 0}
         emptyIcon="wine_bar"

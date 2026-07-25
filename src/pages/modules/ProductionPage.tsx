@@ -19,6 +19,7 @@ import {
   PageHeader, PageLoader, Alert, FormSelect, FormInput, SubmitButton,
   StatusBadge, StockBar, fmtNum, DataTable, EmptyState, toUserMessage,
   TabBar,
+  PageFeedback,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
@@ -253,8 +254,12 @@ const ProductionPage: React.FC = () => {
         subtitle="Órdenes por SKU — planifica en botellas o packs; el stock PT se registra siempre en botellas"
         moduleId="produccion_envasado"
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <div className="grid-2-1">
         <div className="card">

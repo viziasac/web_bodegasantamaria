@@ -318,6 +318,7 @@ export const fmtDate = (d: string) => {
 };
 
 export { toUserMessage } from '../utils/erpErrors';
+export { FeedbackToast, PageFeedback } from './FeedbackToast';
 
 export const FormRow: React.FC<{ children: React.ReactNode; actions?: boolean; className?: string }> = ({
   children, actions, className = '',

@@ -5,6 +5,7 @@ import { labelLote } from '../../utils/lotePolicy';
 import { newTxnId } from '../../utils/txnId';
 import {
   PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, fmtNum, toUserMessage,
+  PageFeedback,
 } from '../../components/ui';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import { useCatalog } from '../../context/CatalogContext';
@@ -272,8 +273,12 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
           moduleId="ver_stock"
         />
       )}
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
       <div className="card">
         <form onSubmit={handleSubmit}>
           <Alert type="info">

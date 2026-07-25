@@ -5,6 +5,7 @@ import { PrecioUnitarioTotalToggle, type ModoPrecio } from '../../components/Pre
 import {
   PageHeader, Alert, FormSelect, FormInput, SubmitButton, TabBar, FormSection,
   DataTable, EmptyState, toUserMessage, fmtMoney,
+  PageFeedback,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { proveedorLabel } from '../../utils/partnerCatalog';
@@ -368,8 +369,12 @@ const PurchasesPage: React.FC = () => {
         subtitle="Compras a ALM_MP (materiales) o ALM_GR (granel)"
         moduleId="ingreso_materiales"
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
       <TabBar
         active={mode}
         onChange={(id) => handleModeChange(id as 'simple' | 'doc')}

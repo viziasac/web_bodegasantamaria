@@ -9,6 +9,7 @@ import {
 import {
   PageHeader, PageLoader, Alert, TabBar, DataTable, EmptyState, FormInput, FormSelect,
   SubmitButton, FormSection, toUserMessage,
+  PageFeedback,
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
@@ -140,8 +141,12 @@ const MaestrosPage: React.FC = () => {
           </button>
         )}
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <Alert type="info">
         Para proveedores y clientes use el módulo{' '}

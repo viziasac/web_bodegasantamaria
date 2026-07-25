@@ -6,6 +6,7 @@ import {
 import {
   PageHeader, PageLoader, Alert, DataTable, EmptyState, FormSelect, FormInput,
   SubmitButton, FormSection, toUserMessage, fmtNum,
+  PageFeedback,
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useAuth } from '../../context/AuthContext';
@@ -375,8 +376,12 @@ const RecipesPage: React.FC = () => {
           </button>
         ) : undefined}
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <Alert type="info">
         Cada producto terminado tiene <strong>una sola receta</strong>. Las cantidades son

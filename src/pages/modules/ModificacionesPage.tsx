@@ -8,6 +8,7 @@ import {
   PageHeader, PageLoader, Alert, DataTable, EmptyState, FormSelect, FormInput,
   SubmitButton, TabBar, FormSection, FormRow,
   toUserMessage, fmtMoney, fmtDate, fmtNum,
+  PageFeedback,
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
@@ -268,8 +269,12 @@ const ModificacionesPage: React.FC = () => {
           </>
         }
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <div className="card card-section">
         <FormRow>

@@ -15,6 +15,7 @@ import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
   PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, EmptyState,
   DataTable, toUserMessage, fmtMoney, fmtDate,
+  PageFeedback,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
@@ -243,8 +244,12 @@ const DispatchPage: React.FC = () => {
         type="info"
         message="Seleccione el producto (SKU). El stock se muestra y descuenta en botellas; use Botellas/Packs solo para indicar cómo cuenta la cantidad."
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
       <CatalogGate
         ready={pvUbicaciones.length > 0}
         emptyIcon="storefront"

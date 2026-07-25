@@ -5,6 +5,7 @@ import { bodegaService } from '../../services/bodegaService';
 import {
   PageHeader, PageLoader, Alert, FormSelect, FormInput, FormSection, FormRow,
   DataTable, EmptyState, fmtMoney, fmtDate, toUserMessage,
+  PageFeedback,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { proveedorLabel } from '../../utils/partnerCatalog';
@@ -164,8 +165,12 @@ const ExpensesPage: React.FC = () => {
           </Link>
         }
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <FormSection title="Cabecera">
         <FormRow>

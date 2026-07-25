@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import MonthSelector from '../../components/MonthSelector';
 import {
   PageHeader, Alert, SubmitButton, FormRow, FormInput, toUserMessage,
+  PageFeedback,
 } from '../../components/ui';
 import { mesActualKey } from '../../utils/periodoMes';
 import { downloadExcelWorkbook } from '../../utils/excelExport';
@@ -67,8 +68,12 @@ const DownloadsPage: React.FC = () => {
         moduleId="descargas"
       />
 
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <form className="card downloads-panel" onSubmit={exportar}>
         <div className="downloads-panel-grid">

@@ -18,6 +18,7 @@ import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
   PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, FormSection,
   DataTable, EmptyState, fmtMoney, fmtDate, toUserMessage,
+  PageFeedback,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
@@ -438,8 +439,12 @@ const IncomePage: React.FC = () => {
         type="info"
         message="Seleccione el producto (SKU). El stock se muestra y descuenta en botellas; use Botellas/Packs solo para indicar cómo cuenta la cantidad. Las ventas nuevas siempre se registran con la fecha de hoy (America/Lima)."
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <CatalogGate
         ready={pvUbicaciones.length > 0}

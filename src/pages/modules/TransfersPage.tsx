@@ -16,6 +16,7 @@ import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
   PageHeader, PageLoader, Alert, FormSelect, FormInput, TabBar,
   DataTable, EmptyState, toUserMessage, fmtDate, fmtNum,
+  PageFeedback,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { ubicacionesOperativas, tiposPermitidosParaUbicacion, normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
@@ -270,8 +271,12 @@ const TransfersPage: React.FC = () => {
   return (
     <div className="animate-in">
       <PageHeader title="Transferencias" subtitle="Movimiento entre ubicaciones — carrito multi-línea" moduleId="transferencias" />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <div className="card card-section">
         <h3 className="card-section-title">Nueva transferencia</h3>

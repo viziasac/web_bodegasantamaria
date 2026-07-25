@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCatalog, clearCatalogCache } from '../../context/CatalogContext';
-import { PageHeader, Alert, FormSelect } from '../../components/ui';
+import { PageHeader, Alert, FormSelect, PageFeedback } from '../../components/ui';
 import { loadWebPrefs, saveWebPrefs } from '../../utils/webPrefs';
 import { canalVentaLabel } from '../../utils/canalVentaLabels';
 import { isAdminRole } from '../../config/moduleRegistry';
@@ -77,8 +77,12 @@ const SettingsPage: React.FC = () => {
   return (
     <div className="animate-in">
       <PageHeader title="Configuración" subtitle="Cuenta, preferencias y caché local" moduleId="configuracion" />
-      {msg && <Alert type={msgType} message={msg} onClose={() => setMsg(null)} />}
-      {error && <Alert type="error" message={error} />}
+      <PageFeedback
+        success={msgType === 'success' ? msg : null}
+        error={(msgType === 'error' && msg) ? msg : (error || null)}
+        onClearSuccess={() => setMsg(null)}
+        onClearError={() => setMsg(null)}
+      />
 
       <div className="card card-section">
         <h3 className="card-section-title">Perfil de usuario</h3>

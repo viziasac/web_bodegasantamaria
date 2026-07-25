@@ -3,6 +3,7 @@ import { getStockAgregadoPorUbicacion, registrarReempaque } from '../../services
 import { newTxnId } from '../../utils/txnId';
 import {
   PageHeader, Alert, FormSelect, FormInput, SubmitButton, toUserMessage, fmtNum,
+  PageFeedback,
 } from '../../components/ui';
 import { useCatalog } from '../../context/CatalogContext';
 import { CatalogGate } from '../../components/CatalogGate';
@@ -119,8 +120,12 @@ const RepackPage: React.FC = () => {
   return (
     <div className="animate-in">
       <PageHeader title="Reempaque" subtitle="Cambio de formato o etiqueta" moduleId="reempaque" />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
       <CatalogGate
         ready={almacenes.length > 0 && items.some((i) => i.activo !== false)}
         emptyIcon="transform"

@@ -6,6 +6,7 @@ import {
 import {
   PageHeader, PageLoader, Alert, DataTable, EmptyState, FormSelect, FormInput,
   SubmitButton, TabBar, FormSection, toUserMessage, fmtNum,
+  PageFeedback,
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
@@ -278,8 +279,12 @@ const MaterialsPage: React.FC = () => {
         subtitle="Catálogo maestro — ver, crear y editar (sin eliminar)"
         moduleId="materiales_skus"
       />
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      <PageFeedback
+        success={success}
+        error={error}
+        onClearSuccess={() => setSuccess(null)}
+        onClearError={() => setError(null)}
+      />
 
       <TabBar
         active={tab}
