@@ -85,6 +85,18 @@ Tras el deploy: hard refresh (`Ctrl+F5`) si el navegador cacheó un JS viejo.
 | `/reporting` | Reportes (solo admin) |
 | `/settings` | Configuración |
 
+## Documentación de usuario
+
+Manuales profesionales (mismo formato que la app móvil) en [`docs/`](docs/):
+
+| Para compartir | Archivo |
+|----------------|---------|
+| Manual operativo | [`docs/pdf/Manual_Usuario_WEB_VIZIA_Bodega_Santa_Maria.pdf`](docs/pdf/Manual_Usuario_WEB_VIZIA_Bodega_Santa_Maria.pdf) |
+| Resumen gerencia | [`docs/pdf/Resumen_General_WEB_VIZIA_Bodega_Santa_Maria.pdf`](docs/pdf/Resumen_General_WEB_VIZIA_Bodega_Santa_Maria.pdf) |
+| Resumen técnico | [`docs/pdf/Resumen_Tecnico_WEB_VIZIA_Bodega_Santa_Maria.pdf`](docs/pdf/Resumen_Tecnico_WEB_VIZIA_Bodega_Santa_Maria.pdf) |
+
+Regenerar: `python docs/build_pdf.py` (requiere `reportlab`).
+
 ## Referencia
 
 Lógica alineada con la app INPUT Flutter (`bodega_santa_maria`). Contrato RPC: `erp_contract.dart` / `src/config/erpContract.ts`.
