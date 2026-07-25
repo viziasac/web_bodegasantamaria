@@ -10,7 +10,11 @@ export const SupabaseConfig = {
   /** JWT anon key — idéntica a SupabaseConfig.supabaseAnonKey en Flutter */
   anonKey:
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6dG5ua3h2d2l3cGVpZnF5Z3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MzA0MDUsImV4cCI6MjA5MTUwNjQwNX0.t-4WSXhkbeauHw-VBvjfkBO-D2LOe0J2Vw64-qnkaiA',
-  sessionTimeoutMinutes: 60,
+  /**
+   * Referencia Flutter. En web la sesión vive en localStorage + autoRefreshToken;
+   * no hay idle logout forzado (se mantiene hasta logout o cierre de sesión Auth).
+   */
+  sessionTimeoutMinutes: 480,
 } as const;
 
 const PLACEHOLDER_KEYS = new Set([

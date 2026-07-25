@@ -45,10 +45,23 @@ function normalizeRole(raw: unknown, fallback: UserRole = 'operario'): UserRole 
   return fallback;
 }
 
+function isTransientDbError(error: { message?: string; details?: string; hint?: string } | null): boolean {
+  if (!error) return false;
+  const blob = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return (
+    blob.includes('fetch')
+    || blob.includes('network')
+    || blob.includes('timeout')
+    || blob.includes('failed to fetch')
+    || blob.includes('abort')
+    || blob.includes('offline')
+  );
+}
+
 /**
  * Perfil desde `app_user_role` (uid o email), alineado a Flutter `fetchUserRoleProfile`.
  * Defaults = acceso total si no hay fila (mismo contrato app).
- * Si RLS bloquea la lectura (p.ej. usuario inactivo) → denegar acceso web.
+ * Errores de red se relanzan (no deben cerrar sesión). RLS/lectura denegada → deny.
  */
 export async function fetchUserRoleProfile(opts: {
   userId: string;
@@ -75,8 +88,12 @@ export async function fetchUserRoleProfile(opts: {
       .eq('user_id', opts.userId)
       .maybeSingle();
 
-    // Error de lectura (RLS / red): no abrir la web por defecto
-    if (byId.error) return denyProfile();
+    if (byId.error) {
+      if (isTransientDbError(byId.error)) {
+        throw new Error('No se pudo validar el perfil (red). Intente de nuevo.');
+      }
+      return denyProfile();
+    }
     if (byId.data) row = byId.data as Record<string, unknown>;
 
     if (!row && opts.email?.trim()) {
@@ -85,7 +102,12 @@ export async function fetchUserRoleProfile(opts: {
         .select('user_id, email, nombre, role, activo, acceso_web, acceso_app, acceso_ventas')
         .eq('email', opts.email.trim())
         .maybeSingle();
-      if (byEmail.error) return denyProfile();
+      if (byEmail.error) {
+        if (isTransientDbError(byEmail.error)) {
+          throw new Error('No se pudo validar el perfil (red). Intente de nuevo.');
+        }
+        return denyProfile();
+      }
       if (byEmail.data) row = byEmail.data as Record<string, unknown>;
     }
 
@@ -93,7 +115,6 @@ export async function fetchUserRoleProfile(opts: {
       return {
         ...DEFAULT_PROFILE,
         email: opts.email ?? null,
-        // Prioridad Flutter: app_user_role → app_metadata → operario
         role: metaRole ? normalizeRole(metaRole) : 'operario',
       };
     }
@@ -108,7 +129,10 @@ export async function fetchUserRoleProfile(opts: {
       accesoApp: flagFrom(row.acceso_app, true),
       accesoVentas: flagFrom(row.acceso_ventas, true),
     };
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('No se pudo validar el perfil')) {
+      throw err;
+    }
     return denyProfile();
   }
 }

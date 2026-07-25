@@ -12,6 +12,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
+    // localStorage: sesión persistente + auto-refresh mientras la pestaña esté abierta.
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
   },
   global: {
