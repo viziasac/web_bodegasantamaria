@@ -1,17 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   getOrdenes, validarInsumosOrden, crearOrdenProduccion, completarOrden, anularOrden,
-  resolveItemPtId, checkStockProduccion,
+  checkStockProduccion,
 } from '../../services/apiProvider';
 import { newTxnId } from '../../utils/txnId';
 import {
   cantidadBaseDesdeEntrada, etiquetaModoCantidad, resumenCantidadBase,
-  presentacionPermiteModoPack, modoCantidadToDb, type ModoCantidadEmpaque,
+  modoCantidadToDb, type ModoCantidadEmpaque,
 } from '../../utils/cantidadEmpaque';
 import {
-  presentacionesParaProduccion, categoriasDistintas, categoriaDePresentacion,
-  etiquetaPresentacionCatalogo, etiquetaOrdenPlan,
-} from '../../utils/presentacionLabels';
+  skusDesdeCatalogoPt, categoriasSkus, filtrarSkusPorCategoria,
+  etiquetaSkuConStock, presentacionParaFactor, factorActivoSku, factoresPackSku,
+} from '../../utils/skuVenta';
+import { etiquetaOrdenPlan } from '../../utils/presentacionLabels';
+import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
   PageHeader, PageLoader, Alert, FormSelect, FormInput, SubmitButton,
   StatusBadge, StockBar, fmtNum, DataTable, EmptyState, toUserMessage,
@@ -30,8 +32,9 @@ const ProductionPage: React.FC = () => {
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('BORRADOR');
 
   const [categoria, setCategoria] = useState('');
-  const [presentacionId, setPresentacionId] = useState('');
+  const [itemId, setItemId] = useState('');
   const [modoCantidad, setModoCantidad] = useState<ModoCantidadEmpaque>('botella');
+  const [factorPackSel, setFactorPackSel] = useState(1);
   const [cantidad, setCantidad] = useState('');
   const [ubicacionId, setUbicacionId] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -47,27 +50,31 @@ const ProductionPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const catalogoProd = useMemo(
-    () => presentacionesParaProduccion(presentaciones),
-    [presentaciones],
+  const skus = useMemo(() => skusDesdeCatalogoPt(presentaciones), [presentaciones]);
+  const categorias = useMemo(() => categoriasSkus(skus), [skus]);
+  const skusFiltrados = useMemo(
+    () => filtrarSkusPorCategoria(skus, categoria || undefined),
+    [skus, categoria],
   );
-  const categorias = useMemo(() => categoriasDistintas(catalogoProd), [catalogoProd]);
-  const presentacionesFiltradas = useMemo(() => {
-    if (!categoria) return catalogoProd;
-    return catalogoProd.filter((p) => categoriaDePresentacion(p) === categoria);
-  }, [catalogoProd, categoria]);
+  const skuSel = skus.find((s) => s.itemId === itemId)
+    ?? skusFiltrados.find((s) => s.itemId === itemId);
 
-  const presSel = useMemo(
-    () => catalogoProd.find((p) => p.id === presentacionId) ?? presentacionesFiltradas.find((p) => p.id === presentacionId),
-    [catalogoProd, presentacionesFiltradas, presentacionId],
-  );
+  const packFactores = skuSel ? factoresPackSku(skuSel) : [];
+  const puedePack = packFactores.length > 0;
+  const factorPackSelSafe = puedePack && packFactores.includes(factorPackSel)
+    ? factorPackSel
+    : (packFactores[0] ?? 1);
+  const factorActivo = skuSel ? factorActivoSku(skuSel, modoCantidad, factorPackSelSafe) : 1;
+  const presComercial = skuSel
+    ? presentacionParaFactor(skuSel, modoCantidad, factorPackSelSafe)
+    : undefined;
 
   const cantIngresada = parseFloat(cantidad);
-  const botellasPlan = presSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
+  const botellasPlan = skuSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
     ? cantidadBaseDesdeEntrada({
       cantidadIngresada: cantIngresada,
       modo: modoCantidad,
-      cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
+      cantUnidadesPresentacion: factorActivo,
     })
     : 0;
 
@@ -103,14 +110,14 @@ const ProductionPage: React.FC = () => {
   const resetPreview = () => setPreviewStock(null);
 
   const cargarPreview = async () => {
-    if (!presSel || !botellasPlan) {
-      setError('Seleccione presentación y cantidad válida.');
+    if (!presComercial || !botellasPlan) {
+      setError('Seleccione SKU y cantidad válida.');
       return;
     }
     setPreviewLoading(true);
     setError(null);
     try {
-      const res = await checkStockProduccion(presSel.id, botellasPlan);
+      const res = await checkStockProduccion(presComercial.presentacion_id, botellasPlan);
       setPreviewStock(res);
     } catch (err) {
       setError(toUserMessage(err, 'Error al validar insumos'));
@@ -122,8 +129,12 @@ const ProductionPage: React.FC = () => {
 
   const crearOrden = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!presSel || botellasPlan <= 0) {
-      setError('Indique presentación y cantidad válida.');
+    if (!skuSel || !presComercial || botellasPlan <= 0) {
+      setError('Indique SKU y cantidad válida.');
+      return;
+    }
+    if (modoCantidad === 'pack' && !puedePack) {
+      setError('Este SKU no tiene presentación pack configurada.');
       return;
     }
     if (previewStock && !previewStock.tiene_stock) {
@@ -136,17 +147,16 @@ const ProductionPage: React.FC = () => {
     setError(null);
     try {
       await ensureCatalogLoaded();
-      const itemPtId = await resolveItemPtId(presSel.id);
       await crearOrdenProduccion({
-        itemProducidoId: itemPtId,
-        presentacionId: presSel.id,
+        itemProducidoId: skuSel.itemId,
+        presentacionId: presComercial.presentacion_id,
         modoCantidad: modoCantidadToDb(modoCantidad),
         cantidadProgramada: botellasPlan,
         ubicacionDestinoId: ubicacionId || undefined,
         observaciones: observaciones.trim() || undefined,
         txnId: newTxnId(),
       });
-      setSuccess(`Orden creada: ${botellasPlan} bot. (${etiquetaPresentacionCatalogo(presSel)}).`);
+      setSuccess(`Orden creada: ${botellasPlan} bot. (${skuSel.nombre}).`);
       setCantidad('');
       setObservaciones('');
       setPreviewStock(null);
@@ -218,18 +228,19 @@ const ProductionPage: React.FC = () => {
     }
   };
 
-  const onPresentacionChange = (id: string) => {
-    setPresentacionId(id);
+  const onSkuChange = (id: string) => {
+    setItemId(id);
     resetPreview();
-    const p = catalogoProd.find((x) => x.id === id);
-    if (p && (p.cant_unidades ?? 1) <= 1) setModoCantidad('botella');
+    setModoCantidad('botella');
+    const sku = skus.find((x) => x.itemId === id);
+    setFactorPackSel(sku?.factorPack ?? 1);
   };
 
   return (
     <div className="animate-in">
       <PageHeader
         title="Producción Envasado"
-        subtitle="Órdenes por presentación — botellas o packs (six pack, caja, etc.)"
+        subtitle="Órdenes por SKU — planifica en botellas o packs; el stock PT se registra siempre en botellas"
         moduleId="produccion_envasado"
       />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
@@ -239,9 +250,9 @@ const ProductionPage: React.FC = () => {
         <div className="card">
           <h3 className="card-section-title">Nueva orden</h3>
           <CatalogGate
-            ready={catalogoProd.length > 0}
+            ready={skus.length > 0}
             emptyIcon="precision_manufacturing"
-            emptyTitle="Sin presentaciones PT"
+            emptyTitle="Sin SKUs PT"
             emptyHint="Recargue catálogos en Configuración"
           >
             <form onSubmit={crearOrden}>
@@ -251,7 +262,7 @@ const ProductionPage: React.FC = () => {
                   value={categoria}
                   onChange={(v) => {
                     setCategoria(v);
-                    setPresentacionId('');
+                    setItemId('');
                     resetPreview();
                   }}
                   options={[
@@ -261,52 +272,44 @@ const ProductionPage: React.FC = () => {
                 />
               )}
               <FormSelect
-                label="Presentación / empaque a producir"
-                value={presentacionId}
-                onChange={onPresentacionChange}
+                label="SKU a producir"
+                value={itemId}
+                onChange={onSkuChange}
                 required
-                options={presentacionesFiltradas.map((p) => ({
-                  value: p.id,
-                  label: etiquetaPresentacionCatalogo(p),
-                }))}
+                options={[
+                  { value: '', label: '— Seleccionar SKU —' },
+                  ...skusFiltrados.map((s) => ({
+                    value: s.itemId,
+                    label: etiquetaSkuConStock(s),
+                  })),
+                ]}
               />
 
-              {presSel && presentacionPermiteModoPack(presSel.cant_unidades ?? 1) && (
-                <div className="qty-mode-toggle" role="group" aria-label="Modo de cantidad">
-                  <button
-                    type="button"
-                    className={`qty-mode-btn ${modoCantidad === 'botella' ? 'active' : ''}`}
-                    onClick={() => { setModoCantidad('botella'); resetPreview(); }}
-                  >
-                    <span className="material-icons-round">wine_bar</span>
-                    Botellas
-                  </button>
-                  <button
-                    type="button"
-                    className={`qty-mode-btn ${modoCantidad === 'pack' ? 'active' : ''}`}
-                    onClick={() => { setModoCantidad('pack'); resetPreview(); }}
-                  >
-                    <span className="material-icons-round">inventory_2</span>
-                    Packs
-                  </button>
-                </div>
+              {skuSel && puedePack && (
+                <CantidadEmpaqueToggle
+                  modo={modoCantidad}
+                  onChange={(m) => { setModoCantidad(m); resetPreview(); }}
+                  cantUnidades={factorPackSelSafe}
+                  packFactores={packFactores}
+                  onFactorChange={(f) => { setFactorPackSel(f); resetPreview(); }}
+                />
               )}
 
               <FormInput
-                label={presSel ? etiquetaModoCantidad(modoCantidad, presSel.cant_unidades ?? 1) : 'Cantidad planificada'}
+                label={skuSel ? etiquetaModoCantidad(modoCantidad, factorActivo) : 'Cantidad planificada'}
                 type="number"
                 value={cantidad}
                 onChange={(v) => { setCantidad(v); resetPreview(); }}
                 required
                 min={1}
-                step={modoCantidad === 'pack' ? 1 : 1}
+                step={1}
               />
-              {presSel && botellasPlan > 0 && (
+              {skuSel && botellasPlan > 0 && (
                 <p className="qty-base-summary">
                   {resumenCantidadBase({
                     cantidadIngresada: cantIngresada,
                     modo: modoCantidad,
-                    cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
+                    cantUnidadesPresentacion: factorActivo,
                   })}
                 </p>
               )}
@@ -326,7 +329,7 @@ const ProductionPage: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  disabled={previewLoading || !presSel || botellasPlan <= 0}
+                  disabled={previewLoading || !skuSel || botellasPlan <= 0}
                   onClick={cargarPreview}
                 >
                   <span className="material-icons-round">{previewLoading ? 'hourglass_empty' : 'fact_check'}</span>

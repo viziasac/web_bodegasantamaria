@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   getTransferencias, confirmarRecepcionTransferencia,
-  getStockAgregadoPorUbicacion, getPresentacionesConStock,
+  getStockAgregadoPorUbicacion,
 } from '../../services/apiProvider';
 import { bodegaService } from '../../services/bodegaService';
 import { newTxnId } from '../../utils/txnId';
 import {
   cantidadBaseDesdeEntrada, etiquetaModoCantidad, resumenCantidadBase, type ModoCantidadEmpaque,
 } from '../../utils/cantidadEmpaque';
-import { etiquetaPresentacionCatalogo } from '../../utils/presentacionLabels';
+import {
+  skusDesdeCatalogoPt, categoriasSkus, filtrarSkusPorCategoria,
+  etiquetaSkuConStock, presentacionParaFactor, factorActivoSku, factoresPackSku,
+} from '../../utils/skuVenta';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
   PageHeader, PageLoader, Alert, FormSelect, FormInput, TabBar,
@@ -23,8 +26,9 @@ type FiltroHist = 'EN_TRANSITO' | 'TODAS';
 interface CartLine {
   id: string;
   tipo: TipoTransfer;
-  presentacionId?: string;
+  /** PT: item_id del SKU (reserva stock). */
   itemId?: string;
+  presentacionId?: string;
   label: string;
   cantidad: number;
   unidad: string;
@@ -37,42 +41,64 @@ const TransfersPage: React.FC = () => {
   const [tipo, setTipo] = useState<TipoTransfer>('pt');
   const [origenId, setOrigenId] = useState('');
   const [destinoId, setDestinoId] = useState('');
-  const [presentacionId, setPresentacionId] = useState('');
+  const [categoria, setCategoria] = useState('');
   const [itemId, setItemId] = useState('');
   const [modoCantidad, setModoCantidad] = useState<ModoCantidadEmpaque>('botella');
+  const [factorPackSel, setFactorPackSel] = useState(1);
   const [cantidad, setCantidad] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [stockMap, setStockMap] = useState<Record<string, number>>({});
+  const [stockByItem, setStockByItem] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [receivingId, setReceivingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const presPt = useMemo(
-    () => presentaciones.filter((p) => p.ma_item?.tipo === 'PT'),
-    [presentaciones],
+  const skus = useMemo(
+    () => skusDesdeCatalogoPt(presentaciones, stockByItem),
+    [presentaciones, stockByItem],
   );
-  const presSel = presPt.find((p) => p.id === presentacionId);
+  const categorias = useMemo(() => categoriasSkus(skus), [skus]);
+  const skusFiltrados = useMemo(
+    () => filtrarSkusPorCategoria(skus, categoria || undefined),
+    [skus, categoria],
+  );
+  const skuSel = skus.find((s) => s.itemId === itemId)
+    ?? skusFiltrados.find((s) => s.itemId === itemId);
+
   const materiales = useMemo(
-    () => items.filter((i) => i.tipo !== 'PT'),
+    () => items.filter((i) => i.tipo !== 'PT' && i.activo !== false),
     [items],
   );
   const matSel = materiales.find((i) => i.id === itemId);
 
+  const packFactores = skuSel ? factoresPackSku(skuSel) : [];
+  const puedePack = packFactores.length > 0;
+  const factorPackSelSafe = puedePack && packFactores.includes(factorPackSel)
+    ? factorPackSel
+    : (packFactores[0] ?? 1);
+  const factorActivo = skuSel ? factorActivoSku(skuSel, modoCantidad, factorPackSelSafe) : 1;
+  const presComercial = skuSel
+    ? presentacionParaFactor(skuSel, modoCantidad, factorPackSelSafe)
+    : undefined;
+
   const cantIngresada = parseFloat(cantidad);
-  const cantFinal = tipo === 'pt' && presSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
+  const cantFinal = tipo === 'pt' && skuSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
     ? cantidadBaseDesdeEntrada({
       cantidadIngresada: cantIngresada,
       modo: modoCantidad,
-      cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
+      cantUnidadesPresentacion: factorActivo,
     })
     : cantIngresada;
 
-  const stockDisponible = tipo === 'pt' && presentacionId
-    ? (stockMap[`P:${presentacionId}`] ?? 0)
+  const stockReservado = (id: string) => cart
+    .filter((l) => l.itemId === id)
+    .reduce((s, l) => s + l.cantidad, 0);
+
+  const stockDisponible = tipo === 'pt' && skuSel
+    ? Math.max(0, skuSel.stockItem - stockReservado(skuSel.itemId))
     : tipo === 'material' && itemId
-      ? (stockMap[`I:${itemId}`] ?? 0)
+      ? Math.max(0, (stockByItem[itemId] ?? 0) - stockReservado(itemId))
       : null;
 
   const load = async () => {
@@ -89,20 +115,14 @@ const TransfersPage: React.FC = () => {
   };
 
   const loadStockOrigen = async (ubi: string) => {
-    if (!ubi) { setStockMap({}); return; }
+    if (!ubi) { setStockByItem({}); return; }
     try {
-      const [agg, pres] = await Promise.all([
-        getStockAgregadoPorUbicacion(ubi),
-        getPresentacionesConStock(ubi),
-      ]);
+      const agg = await getStockAgregadoPorUbicacion(ubi);
       const map: Record<string, number> = {};
-      for (const p of pres) map[`P:${p.presentacion_id}`] = Number(p.stock_item) || 0;
-      for (const r of agg) {
-        if (r.tipo !== 'PT') map[`I:${r.item_id}`] = r.stock_total;
-      }
-      setStockMap(map);
+      for (const r of agg) map[r.item_id] = r.stock_total;
+      setStockByItem(map);
     } catch (err) {
-      setStockMap({});
+      setStockByItem({});
       setError(toUserMessage(err, 'No se pudo cargar el stock del origen'));
     }
   };
@@ -116,20 +136,25 @@ const TransfersPage: React.FC = () => {
       return;
     }
     if (stockDisponible != null && cantFinal > stockDisponible) {
-      setError(`Stock insuficiente en origen: disponible ${fmtNum(stockDisponible, 2)}.`);
+      setError(`Stock insuficiente en origen: disponible ${fmtNum(stockDisponible, 2)} bot./uds.`);
       return;
     }
     if (tipo === 'pt') {
-      if (!presSel) { setError('Seleccione presentación.'); return; }
-      if (cart.some((l) => l.presentacionId === presentacionId)) {
-        setError('Esa presentación ya está en el carrito.');
+      if (!skuSel || !presComercial) { setError('Seleccione un SKU.'); return; }
+      if (modoCantidad === 'pack' && !puedePack) {
+        setError('Este SKU no tiene presentación pack configurada.');
+        return;
+      }
+      if (cart.some((l) => l.itemId === skuSel.itemId && l.tipo === 'pt')) {
+        setError('Ese SKU ya está en el carrito. Quite la línea o ajuste la cantidad.');
         return;
       }
       setCart([...cart, {
         id: `L-${Date.now()}`,
         tipo: 'pt',
-        presentacionId,
-        label: etiquetaPresentacionCatalogo(presSel),
+        itemId: skuSel.itemId,
+        presentacionId: presComercial.presentacion_id,
+        label: `${etiquetaSkuConStock(skuSel).replace(/ · .*disp\.| · sin stock/, '')} · ${modoCantidad === 'pack' ? `pack ×${factorActivo}` : 'botellas'}`,
         cantidad: cantFinal,
         unidad: 'bot.',
       }]);
@@ -150,13 +175,15 @@ const TransfersPage: React.FC = () => {
     }
     setError(null);
     setCantidad('');
+    setItemId('');
+    setModoCantidad('botella');
+    setFactorPackSel(1);
   };
 
   const crear = async (e: React.FormEvent) => {
     e.preventDefault();
     if (origenId === destinoId) { setError('Origen y destino deben ser diferentes.'); return; }
     if (cart.length === 0) { setError('Agregue al menos una línea al carrito.'); return; }
-    // XOR: all lines same family (all PT or all material) — API XOR per line but batch mixes might fail
     const hasPt = cart.some((l) => l.tipo === 'pt');
     const hasMat = cart.some((l) => l.tipo === 'material');
     if (hasPt && hasMat) {
@@ -208,16 +235,26 @@ const TransfersPage: React.FC = () => {
 
       <div className="card card-section">
         <h3 className="card-section-title">Nueva transferencia</h3>
+        <Alert type="info">
+          PT se transfiere por SKU en botellas. Pack ×6 / ×12 solo cambia cómo ingresa la cantidad;
+          el stock físico es el mismo pool de botellas.
+        </Alert>
         <TabBar
           active={tipo}
-          onChange={(id) => { setTipo(id as TipoTransfer); setCantidad(''); }}
+          onChange={(id) => {
+            setTipo(id as TipoTransfer);
+            setCantidad('');
+            setItemId('');
+            setModoCantidad('botella');
+            setFactorPackSel(1);
+          }}
           tabs={[
             { id: 'pt', label: 'Producto terminado', icon: 'inventory_2' },
             { id: 'material', label: 'Material / insumo', icon: 'category' },
           ]}
         />
         <form onSubmit={(e) => { e.preventDefault(); addLine(); }}>
-          <FormSelect label="Origen" value={origenId} onChange={setOrigenId} required
+          <FormSelect label="Origen" value={origenId} onChange={(v) => { setOrigenId(v); setCart([]); }} required
             options={[
               { value: '', label: '— Origen —' },
               ...ubicaciones.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
@@ -229,32 +266,54 @@ const TransfersPage: React.FC = () => {
             ]} />
           {tipo === 'pt' ? (
             <>
-              <FormSelect label="Presentación" value={presentacionId} onChange={(v) => {
-                setPresentacionId(v);
-                const p = presPt.find((x) => x.id === v);
-                if (p && (p.cant_unidades ?? 1) <= 1) setModoCantidad('botella');
-              }} required
+              {categorias.length > 1 && (
+                <FormSelect
+                  label="Categoría"
+                  value={categoria}
+                  onChange={(v) => { setCategoria(v); setItemId(''); }}
+                  options={[
+                    { value: '', label: 'Todas' },
+                    ...categorias.map((c) => ({ value: c, label: c })),
+                  ]}
+                />
+              )}
+              <FormSelect
+                label="SKU (producto terminado)"
+                value={itemId}
+                onChange={(v) => {
+                  setItemId(v);
+                  setModoCantidad('botella');
+                  const sku = skus.find((s) => s.itemId === v);
+                  setFactorPackSel(sku?.factorPack ?? 1);
+                }}
+                required
                 options={[
-                  { value: '', label: '— Presentación —' },
-                  ...presPt.map((p) => ({
-                    value: p.id,
-                    label: `${etiquetaPresentacionCatalogo(p)} · stock ${fmtNum(stockMap[`P:${p.id}`] ?? 0, 0)} bot.`,
+                  { value: '', label: '— Seleccionar SKU —' },
+                  ...skusFiltrados.map((s) => ({
+                    value: s.itemId,
+                    label: etiquetaSkuConStock(s),
                   })),
-                ]} />
-              {presSel && (presSel.cant_unidades ?? 1) > 1 && (
-                <CantidadEmpaqueToggle modo={modoCantidad} onChange={setModoCantidad}
-                  cantUnidades={presSel.cant_unidades ?? 1} />
+                ]}
+              />
+              {skuSel && puedePack && (
+                <CantidadEmpaqueToggle
+                  modo={modoCantidad}
+                  onChange={setModoCantidad}
+                  cantUnidades={factorPackSelSafe}
+                  packFactores={packFactores}
+                  onFactorChange={setFactorPackSel}
+                />
               )}
               <FormInput
-                label={presSel ? etiquetaModoCantidad(modoCantidad, presSel.cant_unidades ?? 1) : 'Cantidad'}
+                label={skuSel ? etiquetaModoCantidad(modoCantidad, factorActivo) : 'Cantidad'}
                 type="number" value={cantidad} onChange={setCantidad} required min={1}
               />
-              {presSel && cantFinal > 0 && (
+              {skuSel && cantFinal > 0 && (
                 <p className="qty-base-summary">
                   {resumenCantidadBase({
                     cantidadIngresada: cantIngresada,
                     modo: modoCantidad,
-                    cantUnidadesPresentacion: presSel.cant_unidades ?? 1,
+                    cantUnidadesPresentacion: factorActivo,
                   })}
                   {stockDisponible != null && ` · Disponible origen: ${fmtNum(stockDisponible, 0)} bot.`}
                 </p>
@@ -267,7 +326,7 @@ const TransfersPage: React.FC = () => {
                   { value: '', label: '— Material —' },
                   ...materiales.map((i) => ({
                     value: i.id,
-                    label: `${i.codigo} — ${i.nombre} · stock ${fmtNum(stockMap[`I:${i.id}`] ?? 0, 2)} ${i.unidad_medida}`,
+                    label: `${i.codigo} — ${i.nombre} · stock ${fmtNum(stockByItem[i.id] ?? 0, 2)} ${i.unidad_medida}`,
                   })),
                 ]} />
               <FormInput label="Cantidad" type="number" value={cantidad} onChange={setCantidad} required min={0.001} step="any" />
@@ -344,7 +403,7 @@ const TransfersPage: React.FC = () => {
                     <td>{t.fecha_envio ? fmtDate(String(t.fecha_envio).split('T')[0]) : '—'}</td>
                     <td className="cell-actions">
                       {t.estado === 'EN_TRANSITO' && (
-                        <button type="button" className="btn btn-sm btn-primary"
+                        <button type="button" className="btn-sm btn-primary"
                           disabled={receivingId === t.id}
                           onClick={() => recibir(t.id)}>
                           <span className="material-icons-round">{receivingId === t.id ? 'hourglass_empty' : 'check'}</span>

@@ -25,10 +25,10 @@ export const bodegaService = {
   async productosParaPuntoVenta(ubicacionId: string): Promise<ProductoPv[]> {
     const [presentaciones, stockRows] = await Promise.all([
       api.getPresentaciones(),
-      api.getPresentacionesConStock(ubicacionId),
+      api.getStockAgregadoPorUbicacion(ubicacionId),
     ]);
     const stockByItem = Object.fromEntries(
-      stockRows.map((r) => [r.item_id as string, r.stock_item as number]),
+      stockRows.filter((r) => r.tipo === 'PT').map((r) => [r.item_id, r.stock_total]),
     );
     return presentaciones
       .filter((p) => p.ma_item?.tipo === 'PT' && p.activo !== false)
@@ -37,7 +37,7 @@ export const bodegaService = {
         item_id: p.item_id,
         nombre: p.nombre,
         cant_unidades: p.cant_unidades ?? 1,
-        // Stock es por ítem (botellas), no por presentación comercial.
+        // Stock unificado por ítem (botellas), sin importar pack ×6 / ×12.
         stock_item: stockByItem[p.item_id] ?? 0,
         categoria: p.ma_item?.categoria,
         item_nombre: p.ma_item?.nombre,
@@ -46,74 +46,82 @@ export const bodegaService = {
   },
 
   async itemsConStockParaAjuste(ubicacionId: string): Promise<AjusteItemOption[]> {
-    const [stockItems, presRows, allItems, allPres] = await Promise.all([
+    const [stockItems, allItems, allPres] = await Promise.all([
       api.getStockAgregadoPorUbicacion(ubicacionId),
-      api.getPresentacionesConStock(ubicacionId),
       api.getItems(),
       api.getPresentaciones(),
     ]);
+    const stockByItem: Record<string, number> = {};
+    for (const row of stockItems) {
+      stockByItem[row.item_id] = Number(row.stock_total) || 0;
+    }
+
     const options: AjusteItemOption[] = [];
-    const seenPres = new Set<string>();
     const seenItems = new Set<string>();
 
-    for (const p of presRows) {
-      const stock = p.stock_item as number;
-      seenPres.add(p.presentacion_id as string);
-      seenItems.add(p.item_id as string);
+    // PT: un SKU por ítem (no una fila por pack/botella). Stock siempre en botellas.
+    const ptItems = allItems.filter((i) => i.tipo === 'PT' && i.activo !== false);
+    for (const it of ptItems) {
+      const presList = allPres.filter((p) => p.item_id === it.id && p.activo !== false);
+      if (presList.length === 0) continue;
+      const sorted = [...presList].sort((a, b) => (a.cant_unidades ?? 1) - (b.cant_unidades ?? 1));
+      const botella = sorted.find((p) => (p.cant_unidades ?? 1) <= 1) ?? sorted[0];
+      const packsRaw = sorted.filter((p) => (p.cant_unidades ?? 1) > 1);
+      const packs: { id: string; factor: number }[] = [];
+      const seen = new Set<number>();
+      for (const p of packsRaw) {
+        const factor = p.cant_unidades ?? 1;
+        if (factor <= 1 || seen.has(factor)) continue;
+        seen.add(factor);
+        packs.push({ id: p.id, factor });
+      }
+      packs.sort((a, b) => a.factor - b.factor);
+      const factorPacks = packs.map((p) => p.factor);
+      const packDefault = packs[0];
+      const stock = stockByItem[it.id] ?? 0;
+      seenItems.add(it.id);
       options.push({
-        key: `P:${p.presentacion_id}`,
-        id: p.item_id as string,
-        presentacionId: p.presentacion_id as string,
-        nombre: `${p.nombre} (${p.item_nombre ?? 'PT'})${stock <= 0 ? ' · sin stock' : ''}`,
+        key: `PT:${it.id}`,
+        id: it.id,
+        presentacionId: botella.id,
+        presentacionPackId: packDefault?.id,
+        factorPack: packDefault?.factor ?? 1,
+        factorPacks,
+        packs,
+        nombre: stock > 0
+          ? `${it.codigo} — ${it.nombre}`
+          : `${it.codigo} — ${it.nombre} · sin stock`,
+        tipo: 'PT',
         isProducto: true,
         stockTeorico: stock,
         unidadMedida: 'bot.',
       });
     }
 
-    // PT presentations with zero stock (conteo inicial / sembrar)
-    for (const p of allPres) {
-      if (p.ma_item?.tipo !== 'PT' || !p.activo) continue;
-      if (seenPres.has(p.id)) continue;
-      seenPres.add(p.id);
-      options.push({
-        key: `P:${p.id}`,
-        id: p.item_id,
-        presentacionId: p.id,
-        nombre: `${p.nombre} (${p.ma_item?.nombre ?? 'PT'}) · sin stock`,
-        isProducto: true,
-        stockTeorico: 0,
-        unidadMedida: 'bot.',
-      });
-    }
-
-    for (const row of stockItems) {
-      if (row.tipo === 'PT') continue;
-      seenItems.add(row.item_id);
-      options.push({
-        key: `I:${row.item_id}`,
-        id: row.item_id,
-        nombre: `${row.codigo} — ${row.nombre}`,
-        isProducto: false,
-        stockTeorico: row.stock_total,
-        unidadMedida: row.unidad_medida,
-      });
-    }
-
+    // Materiales / granel / empaque / insumos (no PT)
     for (const it of allItems) {
-      if (it.tipo === 'PT' || !it.activo) continue;
+      if (it.tipo === 'PT' || it.activo === false) continue;
       if (seenItems.has(it.id)) continue;
+      seenItems.add(it.id);
+      const stock = stockByItem[it.id] ?? 0;
       options.push({
         key: `I:${it.id}`,
         id: it.id,
-        nombre: `${it.codigo} — ${it.nombre} · sin stock`,
+        nombre: stock > 0
+          ? `${it.codigo} — ${it.nombre}`
+          : `${it.codigo} — ${it.nombre} · sin stock`,
+        tipo: (it.tipo || 'MATERIAL').toUpperCase(),
         isProducto: false,
-        stockTeorico: 0,
+        stockTeorico: stock,
         unidadMedida: it.unidad_medida,
       });
     }
 
-    return options.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return options.sort((a, b) => {
+      const ta = a.tipo.localeCompare(b.tipo, 'es');
+      if (ta !== 0) return ta;
+      return a.nombre.localeCompare(b.nombre, 'es');
+    });
   },
 
   async registrarEntradaInsumo(opts: {
@@ -378,7 +386,8 @@ export const bodegaService = {
       delta,
       ubicacionId: opts.ubicacionId,
       motivo: opts.motivo,
-      itemId: opts.option.isProducto ? undefined : opts.option.id,
+      // Stock PT es por item_id (botellas); presentacionId solo ayuda a resolver si falta item.
+      itemId: opts.option.id,
       presentacionId: opts.option.presentacionId,
       loteId: opts.loteId,
       txnId: opts.txnId ?? newTxnId(),

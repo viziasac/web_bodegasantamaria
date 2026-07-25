@@ -95,17 +95,23 @@ export async function getPresentacionesConStock(ubicacionId: string) {
   if (error) throw error;
 
   const stockMap = Object.fromEntries(ptItems.map((i) => [i.item_id, i.stock_total]));
-  return (pres || []).map((p: MaPresentacion & { ma_item?: MaItem }) => ({
-    presentacion_id: p.id,
-    nombre: p.nombre,
-    codigo: p.codigo,
-    item_id: p.item_id,
-    cant_unidades: parseNum(p.cant_unidades) || 1,
-    stock_item: stockMap[p.item_id] ?? 0,
-    stock_unidades: (stockMap[p.item_id] ?? 0) * (parseNum(p.cant_unidades) || 1),
-    categoria: p.ma_item?.categoria,
-    item_nombre: p.ma_item?.nombre,
-  }));
+  return (pres || []).map((p: MaPresentacion & { ma_item?: MaItem }) => {
+    const cant = parseNum(p.cant_unidades) || 1;
+    const stockItem = stockMap[p.item_id] ?? 0;
+    // stock_item = botellas del SKU. packs equivalentes = floor(botellas / factor).
+    const packsEquiv = cant > 1 ? Math.floor(stockItem / cant) : stockItem;
+    return {
+      presentacion_id: p.id,
+      nombre: p.nombre,
+      codigo: p.codigo,
+      item_id: p.item_id,
+      cant_unidades: cant,
+      stock_item: stockItem,
+      stock_unidades: packsEquiv,
+      categoria: p.ma_item?.categoria,
+      item_nombre: p.ma_item?.nombre,
+    };
+  });
 }
 
 export async function getStockSaldo(ubicacionId?: string): Promise<InvStockSaldo[]> {

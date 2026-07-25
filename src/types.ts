@@ -416,8 +416,18 @@ export interface AjusteItemOption {
   key: string;
   id: string;
   nombre: string;
+  /** Tipo de catálogo: PT, GRANEL, INSUMO, EMPAQUE, MATERIAL… */
+  tipo: string;
   isProducto: boolean;
+  /** Presentación botella (o única) — para lotes / resolveItemId */
   presentacionId?: string;
+  presentacionPackId?: string;
+  /** Botellas por pack por defecto (>1 si hay pack comercial) */
+  factorPack?: number;
+  /** Factores de pack disponibles (×6, ×12…) */
+  factorPacks?: number[];
+  /** Presentaciones pack: id + factor */
+  packs?: { id: string; factor: number }[];
   stockTeorico: number;
   unidadMedida?: string;
 }

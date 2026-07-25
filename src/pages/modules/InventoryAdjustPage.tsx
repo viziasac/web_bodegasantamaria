@@ -4,9 +4,11 @@ import { getLotesDisponibles } from '../../services/apiProvider';
 import { labelLote } from '../../utils/lotePolicy';
 import { newTxnId } from '../../utils/txnId';
 import {
-  PageHeader, Alert, FormSelect, FormInput, SubmitButton, fmtNum, toUserMessage,
+  PageHeader, Alert, FormSelect, FormInput, SubmitButton, FormRow, fmtNum, toUserMessage,
 } from '../../components/ui';
+import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import { useCatalog } from '../../context/CatalogContext';
+import type { ModoCantidadEmpaque } from '../../utils/cantidadEmpaque';
 import type { AjusteItemOption } from '../../types';
 
 const LOTE_AUTO = '__auto__';
@@ -21,6 +23,15 @@ const MOTIVO_PRESETS = [
   'Otro (editar texto)',
 ];
 
+const TIPOS_AJUSTE = [
+  { value: '', label: 'Todos los tipos' },
+  { value: 'PT', label: 'Producto terminado (SKU)' },
+  { value: 'GRANEL', label: 'Granel' },
+  { value: 'INSUMO', label: 'Insumo' },
+  { value: 'EMPAQUE', label: 'Empaque' },
+  { value: 'MATERIAL', label: 'Material' },
+];
+
 interface Props {
   embedded?: boolean;
 }
@@ -28,9 +39,12 @@ interface Props {
 const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const { ubicaciones, ensureCatalogLoaded } = useCatalog();
   const [ubicacionId, setUbicacionId] = useState('');
+  const [tipoFilter, setTipoFilter] = useState('');
   const [itemsStock, setItemsStock] = useState<AjusteItemOption[]>([]);
   const [selectedKey, setSelectedKey] = useState('');
   const [loteId, setLoteId] = useState(LOTE_AUTO);
+  const [modoEmpaque, setModoEmpaque] = useState<ModoCantidadEmpaque>('botella');
+  const [factorPackSel, setFactorPackSel] = useState(1);
   const [conteo, setConteo] = useState('');
   const [motivoPreset, setMotivoPreset] = useState(MOTIVO_PRESETS[0]);
   const [motivo, setMotivo] = useState(MOTIVO_PRESETS[0]);
@@ -40,15 +54,33 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const almacenes = ubicaciones.filter((u) => !u.es_punto_venta);
+  /** Almacenes + PV (excluye tránsito). */
+  const ubicacionesAjuste = useMemo(
+    () => ubicaciones.filter((u) => u.activo !== false && u.codigo !== 'TRANSIT'),
+    [ubicaciones],
+  );
+
   const selected = itemsStock.find((o) => o.key === selectedKey);
+  const packFactores = selected?.isProducto
+    ? (selected.factorPacks?.length ? selected.factorPacks : ((selected.factorPack ?? 1) > 1 ? [selected.factorPack!] : []))
+    : [];
+  const factorPack = packFactores.includes(factorPackSel)
+    ? factorPackSel
+    : (packFactores[0] ?? 1);
+  const usaPack = selected?.isProducto === true && modoEmpaque === 'pack' && factorPack > 1;
   const conteoNum = parseFloat(conteo);
+
+  const itemsFiltrados = useMemo(() => {
+    if (!tipoFilter) return itemsStock;
+    return itemsStock.filter((o) => o.tipo === tipoFilter);
+  }, [itemsStock, tipoFilter]);
 
   const onMotivoPreset = (v: string) => {
     setMotivoPreset(v);
     if (v !== 'Otro (editar texto)') setMotivo(v);
   };
 
+  /** Stock de referencia siempre en unidad de inventario (botellas para PT). */
   const stockReferencia = useMemo(() => {
     if (loteId !== LOTE_AUTO) {
       const lote = lotes.find((l) => String(l.lote_id) === loteId);
@@ -57,14 +89,24 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
     return selected?.stockTeorico ?? 0;
   }, [loteId, lotes, selected]);
 
-  const delta = selected && Number.isFinite(conteoNum) ? conteoNum - stockReferencia : null;
+  /** Conteo del usuario convertido a unidad de inventario (botellas si PT+pack). */
+  const conteoEnInventario = useMemo(() => {
+    if (!Number.isFinite(conteoNum)) return null;
+    if (usaPack) return conteoNum * factorPack;
+    return conteoNum;
+  }, [conteoNum, usaPack, factorPack]);
+
+  const delta = selected && conteoEnInventario != null
+    ? conteoEnInventario - stockReferencia
+    : null;
 
   useEffect(() => {
-    if (!ubicacionId && almacenes.length > 0) {
-      const almMp = almacenes.find((u) => u.codigo === 'ALM_MP');
-      setUbicacionId(almMp?.id ?? almacenes[0].id);
+    if (!ubicacionId && ubicacionesAjuste.length > 0) {
+      const almMp = ubicacionesAjuste.find((u) => u.codigo === 'ALM_MP');
+      const almPt = ubicacionesAjuste.find((u) => u.codigo === 'ALM_PT');
+      setUbicacionId(almMp?.id ?? almPt?.id ?? ubicacionesAjuste[0].id);
     }
-  }, [almacenes, ubicacionId]);
+  }, [ubicacionesAjuste, ubicacionId]);
 
   const loadItems = async (ubi: string) => {
     if (!ubi) { setItemsStock([]); return; }
@@ -83,10 +125,10 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const loadLotes = async (ubi: string, opt: AjusteItemOption | undefined) => {
     if (!ubi || !opt) { setLotes([]); return; }
     try {
+      // Stock/lotes siempre por item_id (PT y materiales).
       setLotes(await getLotesDisponibles({
         ubicacionId: ubi,
-        presentacionId: opt.presentacionId,
-        itemId: opt.isProducto ? undefined : opt.id,
+        itemId: opt.id,
       }));
     } catch {
       setLotes([]);
@@ -94,43 +136,84 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   };
 
   useEffect(() => {
-    if (ubicacionId) loadItems(ubicacionId);
+    if (ubicacionId) void loadItems(ubicacionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load on location only
   }, [ubicacionId]);
 
   const onUbicacionChange = (v: string) => {
     setUbicacionId(v);
     setSelectedKey('');
     setLoteId(LOTE_AUTO);
-    loadItems(v);
+    setModoEmpaque('botella');
+    setFactorPackSel(1);
+    setConteo('');
+    void loadItems(v);
+  };
+
+  const onTipoFilterChange = (v: string) => {
+    setTipoFilter(v);
+    setSelectedKey('');
+    setLoteId(LOTE_AUTO);
+    setModoEmpaque('botella');
+    setFactorPackSel(1);
+    setConteo('');
+    setLotes([]);
+  };
+
+  const syncConteoDesdeStock = (
+    opt: AjusteItemOption | undefined,
+    modo: ModoCantidadEmpaque,
+    lote: string,
+    factor: number,
+  ) => {
+    if (!opt) return;
+    let base = opt.stockTeorico;
+    if (lote !== LOTE_AUTO) {
+      const l = lotes.find((x) => String(x.lote_id) === lote);
+      if (l?.cantidad != null) base = Number(l.cantidad);
+    }
+    const f = opt.isProducto && modo === 'pack' && factor > 1 ? factor : 1;
+    setConteo(String(f > 1 ? base / f : base));
   };
 
   const onItemChange = (key: string) => {
     setSelectedKey(key);
     setLoteId(LOTE_AUTO);
-    setConteo('');
-    const opt = itemsStock.find((o) => o.key === key);
-    loadLotes(ubicacionId, opt);
-    if (opt) setConteo(String(opt.stockTeorico));
+    setModoEmpaque('botella');
+    const opt = itemsFiltrados.find((o) => o.key === key) ?? itemsStock.find((o) => o.key === key);
+    const nextFactor = opt?.factorPack ?? 1;
+    setFactorPackSel(nextFactor);
+    void loadLotes(ubicacionId, opt);
+    syncConteoDesdeStock(opt, 'botella', LOTE_AUTO, nextFactor);
+  };
+
+  const onModoEmpaqueChange = (m: ModoCantidadEmpaque) => {
+    setModoEmpaque(m);
+    syncConteoDesdeStock(selected, m, loteId, factorPack);
+  };
+
+  const onFactorPackChange = (f: number) => {
+    setFactorPackSel(f);
+    syncConteoDesdeStock(selected, 'pack', loteId, f);
   };
 
   const onLoteChange = (id: string) => {
     setLoteId(id);
-    if (id === LOTE_AUTO) {
-      if (selected) setConteo(String(selected.stockTeorico));
-      return;
-    }
-    const lote = lotes.find((l) => String(l.lote_id) === id);
-    if (lote?.cantidad != null) setConteo(String(lote.cantidad));
+    syncConteoDesdeStock(selected, modoEmpaque, id, factorPack);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected) {
-      setError('Seleccione un ítem.');
+      setError('Seleccione un ítem o SKU.');
       return;
     }
-    if (!Number.isFinite(conteoNum)) {
+    if (conteoEnInventario == null || !Number.isFinite(conteoEnInventario)) {
       setError('Ingrese conteo físico válido.');
+      return;
+    }
+    if (conteoEnInventario < 0) {
+      setError('El conteo no puede ser negativo.');
       return;
     }
     if (delta === 0) {
@@ -145,15 +228,22 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
       await bodegaService.registrarAjusteInventario({
         ubicacionId,
         option: selected,
-        conteoFisico: conteoNum,
+        conteoFisico: conteoEnInventario,
         motivo,
         stockReferencia,
         loteId: loteId !== LOTE_AUTO ? loteId : undefined,
         txnId: newTxnId(),
       });
-      setSuccess(`Ajuste registrado: delta ${delta! > 0 ? '+' : ''}${fmtNum(delta!, 2)} ${selected.unidadMedida ?? ''}`);
+      const um = selected.isProducto ? 'bot.' : (selected.unidadMedida ?? '');
+      setSuccess(
+        `Ajuste registrado en ${ubicacionesAjuste.find((u) => u.id === ubicacionId)?.codigo ?? 'ubicación'}: `
+        + `delta ${delta! > 0 ? '+' : ''}${fmtNum(delta!, 2)} ${um}`,
+      );
       setConteo('');
       setSelectedKey('');
+      setLoteId(LOTE_AUTO);
+      setModoEmpaque('botella');
+      setFactorPackSel(1);
       await loadItems(ubicacionId);
     } catch (err) {
       setError(toUserMessage(err, 'Error al registrar ajuste'));
@@ -162,50 +252,135 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
     }
   };
 
+  const ubiSel = ubicacionesAjuste.find((u) => u.id === ubicacionId);
+
   return (
     <div className={embedded ? '' : 'animate-in'}>
       {!embedded && (
-        <PageHeader title="Ajuste Manual" subtitle="Conteo físico — calcula delta automáticamente" moduleId="ver_stock" />
+        <PageHeader
+          title="Ajuste Manual"
+          subtitle="Conteo físico en almacenes y puntos de venta"
+          moduleId="ver_stock"
+        />
       )}
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       <div className="card">
         <form onSubmit={handleSubmit}>
-          <FormSelect label="Ubicación" value={ubicacionId} onChange={onUbicacionChange} required
-            options={almacenes.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
-          {loadingItems && <p className="kpi-sub">Cargando ítems (incluye sin stock)…</p>}
-          {!loadingItems && itemsStock.length === 0 && (
-            <p className="kpi-sub">No hay ítems activos en el catálogo para esta ubicación.</p>
+          <Alert type="info">
+            Puede ajustar stock en <strong>almacenes</strong> y <strong>puntos de venta</strong>.
+            Los PT se cuentan por <strong>SKU (ítem)</strong> en botellas (o packs equivalentes).
+          </Alert>
+
+          <FormRow>
+            <FormSelect
+              label="Ubicación"
+              value={ubicacionId}
+              onChange={onUbicacionChange}
+              required
+              options={ubicacionesAjuste.map((u) => ({
+                value: u.id,
+                label: u.es_punto_venta
+                  ? `PV · ${u.codigo} — ${u.nombre}`
+                  : `${u.codigo} — ${u.nombre}`,
+              }))}
+            />
+            <FormSelect
+              label="Tipo de material"
+              value={tipoFilter}
+              onChange={onTipoFilterChange}
+              options={TIPOS_AJUSTE}
+            />
+          </FormRow>
+
+          {ubiSel?.es_punto_venta && (
+            <p className="kpi-sub" style={{ marginBottom: '0.75rem' }}>
+              Ajuste en punto de venta — el stock afecta ventas/despacho en este PV.
+            </p>
           )}
-          <FormSelect label="Ítem (insumo o presentación PT)" value={selectedKey} onChange={onItemChange} required
+
+          {loadingItems && <p className="kpi-sub">Cargando ítems / SKUs (incluye sin stock)…</p>}
+          {!loadingItems && itemsFiltrados.length === 0 && (
+            <p className="kpi-sub">
+              {itemsStock.length === 0
+                ? 'No hay ítems activos en el catálogo.'
+                : 'No hay ítems de ese tipo. Cambie el filtro de tipo.'}
+            </p>
+          )}
+
+          <FormSelect
+            label={tipoFilter === 'PT' ? 'SKU (producto terminado)' : 'Ítem / SKU'}
+            value={selectedKey}
+            onChange={onItemChange}
+            required
             options={[
-              { value: '', label: itemsStock.length ? '— Seleccionar ítem —' : 'Sin ítems en catálogo' },
-              ...itemsStock.map((o) => ({
+              {
+                value: '',
+                label: itemsFiltrados.length
+                  ? '— Seleccionar —'
+                  : 'Sin coincidencias',
+              },
+              ...itemsFiltrados.map((o) => ({
                 value: o.key,
-                label: `${o.nombre} · stock ${fmtNum(o.stockTeorico, 2)} ${o.unidadMedida ?? ''}`,
+                label: `[${o.tipo}] ${o.nombre} · stock ${fmtNum(o.stockTeorico, 2)} ${o.unidadMedida ?? ''}`,
               })),
-            ]} />
+            ]}
+          />
+
+          {selected?.isProducto && packFactores.length > 0 && (
+            <CantidadEmpaqueToggle
+              modo={modoEmpaque}
+              onChange={onModoEmpaqueChange}
+              cantUnidades={factorPack}
+              packFactores={packFactores}
+              onFactorChange={onFactorPackChange}
+            />
+          )}
+
           {selected && (
             <p className="qty-base-summary">
               Stock de referencia: {fmtNum(stockReferencia, 2)} {selected.unidadMedida ?? ''}
-              {loteId !== LOTE_AUTO ? ' (lote seleccionado)' : selected.isProducto ? ' (botellas)' : ''}
+              {loteId !== LOTE_AUTO ? ' (lote seleccionado)' : ''}
+              {selected.isProducto ? ' · inventario en botellas' : ''}
+              {usaPack ? ` · ingresando packs (×${factorPack})` : ''}
               {selected.stockTeorico === 0 ? ' — puede sembrar stock con conteo > 0' : ''}
             </p>
           )}
-          <FormSelect label="Lote" value={loteId} onChange={onLoteChange}
+
+          <FormSelect
+            label="Lote"
+            value={loteId}
+            onChange={onLoteChange}
             options={[
-              { value: LOTE_AUTO, label: 'Automático (FIFO/FEFO)' },
+              { value: LOTE_AUTO, label: 'Automático (FIFO/FEFO o lote nuevo si ingreso)' },
               ...lotes.map((l) => ({ value: l.lote_id as string, label: labelLote(l) })),
-            ]} />
-          <FormInput
-            label={selected?.isProducto ? 'Conteo físico (botellas)' : `Conteo físico (${selected?.unidadMedida ?? 'uds'})`}
-            type="number" value={conteo} onChange={setConteo} required step="any"
+            ]}
           />
-          {delta != null && Number.isFinite(conteoNum) && (
+
+          <FormInput
+            label={
+              selected?.isProducto
+                ? (usaPack ? `Conteo físico (packs ×${factorPack})` : 'Conteo físico (botellas)')
+                : `Conteo físico (${selected?.unidadMedida ?? 'uds'})`
+            }
+            type="number"
+            value={conteo}
+            onChange={setConteo}
+            required
+            min={0}
+            step="any"
+          />
+
+          {delta != null && conteoEnInventario != null && (
             <p className={`qty-base-summary ${delta === 0 ? '' : delta > 0 ? 'text-ok' : 'text-danger'}`}>
-              Delta: {delta > 0 ? '+' : ''}{fmtNum(delta, 2)} {selected?.unidadMedida ?? ''}
+              Delta inventario: {delta > 0 ? '+' : ''}{fmtNum(delta, 2)}{' '}
+              {selected?.unidadMedida ?? ''}
+              {usaPack && Number.isFinite(conteoNum) && (
+                <> · ({fmtNum(conteoNum, 2)} pack(s) = {fmtNum(conteoEnInventario, 2)} bot.)</>
+              )}
             </p>
           )}
+
           <FormSelect
             label="Motivo (preset)"
             value={motivoPreset}

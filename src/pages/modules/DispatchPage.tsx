@@ -9,7 +9,7 @@ import {
 } from '../../utils/cantidadEmpaque';
 import {
   categoriasSkus, filtrarSkusPorCategoria, etiquetaSkuConStock,
-  presentacionParaModo, factorParaModo, skusDesdeProductosPv,
+  presentacionParaFactor, factorActivoSku, factoresPackSku, skusDesdeProductosPv,
 } from '../../utils/skuVenta';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
@@ -36,6 +36,7 @@ const DispatchPage: React.FC = () => {
   const [categoria, setCategoria] = useState('');
   const [itemId, setItemId] = useState('');
   const [modoCantidad, setModoCantidad] = useState<ModoCantidadEmpaque>('botella');
+  const [factorPackSel, setFactorPackSel] = useState(1);
   const [cantidad, setCantidad] = useState('');
   const [precioBotella, setPrecioBotella] = useState('');
   const [clienteId, setClienteId] = useState('');
@@ -66,10 +67,15 @@ const DispatchPage: React.FC = () => {
   const skuSel = skus.find((s) => s.itemId === itemId)
     ?? skusFiltrados.find((s) => s.itemId === itemId);
 
-  const factorPack = skuSel ? factorParaModo(skuSel, 'pack') : 1;
-  const puedePack = Boolean(skuSel?.presentacionPack && factorPack > 1);
-  const factorActivo = skuSel ? factorParaModo(skuSel, modoCantidad) : 1;
-  const presComercial = skuSel ? presentacionParaModo(skuSel, modoCantidad) : undefined;
+  const packFactores = skuSel ? factoresPackSku(skuSel) : [];
+  const puedePack = packFactores.length > 0;
+  const factorPackSelSafe = puedePack && packFactores.includes(factorPackSel)
+    ? factorPackSel
+    : (packFactores[0] ?? 1);
+  const factorActivo = skuSel ? factorActivoSku(skuSel, modoCantidad, factorPackSelSafe) : 1;
+  const presComercial = skuSel
+    ? presentacionParaFactor(skuSel, modoCantidad, factorPackSelSafe)
+    : undefined;
 
   const cantIngresada = parseFloat(cantidad);
   const botellas = skuSel && !Number.isNaN(cantIngresada) && cantIngresada > 0
@@ -146,6 +152,7 @@ const DispatchPage: React.FC = () => {
     setCategoria('');
     setLoteId('');
     setModoCantidad('botella');
+    setFactorPackSel(1);
     void loadProductos(v);
     void loadVentasHoy(v);
   };
@@ -155,6 +162,7 @@ const DispatchPage: React.FC = () => {
     setLoteId('');
     setModoCantidad('botella');
     const sku = skus.find((s) => s.itemId === v);
+    setFactorPackSel(sku?.factorPack ?? 1);
     if (!sku) return;
     void loadLotes(ubicacionId, sku.itemId);
     try {
@@ -258,7 +266,9 @@ const DispatchPage: React.FC = () => {
               <CantidadEmpaqueToggle
                 modo={modoCantidad}
                 onChange={setModoCantidad}
-                cantUnidades={factorPack}
+                cantUnidades={factorPackSelSafe}
+                packFactores={packFactores}
+                onFactorChange={setFactorPackSel}
               />
             )}
             <FormRow>

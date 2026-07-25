@@ -1557,6 +1557,30 @@ label {
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
+.qty-mode-block { margin-bottom: 0.25rem; }
+.qty-mode-block .qty-mode-toggle { margin-bottom: 0.5rem; }
+.qty-pack-factors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.qty-pack-factor-btn {
+  min-width: 3rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--color-border, var(--border-light));
+  border-radius: var(--radius-sm);
+  background: var(--color-surface, #fff);
+  color: var(--color-text-muted, var(--text-muted));
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.qty-pack-factor-btn.active {
+  border-color: var(--color-primary, var(--sm-green));
+  background: rgba(94, 102, 79, 0.08);
+  color: var(--color-primary, var(--sm-green));
+}
 .qty-mode-btn {
   flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
   padding: 0.65rem 0.85rem; border: 1px solid var(--color-border, var(--border-light)); border-radius: var(--radius-sm);

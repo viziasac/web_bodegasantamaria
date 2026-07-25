@@ -1,7 +1,12 @@
-/** SKU de venta: un ítem PT con varias presentaciones (botella / pack). Alineado a Flutter SkuProduccion. */
-import type { ProductoPv } from '../types';
+/** SKU de venta: un ítem PT con varias presentaciones (botella / packs ×N). Stock siempre en botellas. */
+import type { MaPresentacion, ProductoPv } from '../types';
 import type { ModoCantidadEmpaque } from './cantidadEmpaque';
 import { formatStockBotellas } from './presentacionLabels';
+
+export interface PackSku {
+  presentacion: ProductoPv;
+  factor: number;
+}
 
 export interface SkuVenta {
   itemId: string;
@@ -10,9 +15,12 @@ export interface SkuVenta {
   categoria: string;
   stockItem: number;
   presentacionBotella: ProductoPv;
+  /** Pack comercial por defecto (menor factor > 1). */
   presentacionPack?: ProductoPv;
-  /** Factor del pack comercial (p.ej. 6). 1 si no hay pack. */
+  /** Factor del pack por defecto. 1 si no hay pack. */
   factorPack: number;
+  /** Todos los packs comerciales (×6, ×12, …) ordenados por factor. */
+  packs: PackSku[];
   presentaciones: ProductoPv[];
 }
 
@@ -42,6 +50,37 @@ function categoriaSku(p: ProductoPv): string {
   return n.split(/\s+/)[0] || 'Sin categoría';
 }
 
+function buildSkuFromList(itemId: string, list: ProductoPv[]): SkuVenta {
+  const sorted = [...list].sort((a, b) => (a.cant_unidades ?? 1) - (b.cant_unidades ?? 1));
+  const botella = sorted.find((p) => (p.cant_unidades ?? 1) <= 1) ?? sorted[0];
+  const packsRaw = sorted.filter((p) => (p.cant_unidades ?? 1) > 1);
+  // Un factor único por tamaño (si hay duplicados, conserva el primero).
+  const packs: PackSku[] = [];
+  const seenFactors = new Set<number>();
+  for (const p of packsRaw) {
+    const factor = p.cant_unidades ?? 1;
+    if (factor <= 1 || seenFactors.has(factor)) continue;
+    seenFactors.add(factor);
+    packs.push({ presentacion: p, factor });
+  }
+  packs.sort((a, b) => a.factor - b.factor);
+  const packDefault = packs[0];
+  const stockItem = Math.max(...sorted.map((p) => p.stock_item || 0), botella.stock_item || 0);
+
+  return {
+    itemId,
+    codigo: botella.item_codigo?.trim() || '',
+    nombre: nombreSku(botella, sorted),
+    categoria: categoriaSku(botella),
+    stockItem,
+    presentacionBotella: botella,
+    presentacionPack: packDefault?.presentacion,
+    factorPack: packDefault?.factor ?? 1,
+    packs,
+    presentaciones: sorted,
+  };
+}
+
 /** Agrupa presentaciones PT por item_id (1 fila = 1 SKU). */
 export function skusDesdeProductosPv(productos: ProductoPv[]): SkuVenta[] {
   const byItem = new Map<string, ProductoPv[]>();
@@ -54,28 +93,31 @@ export function skusDesdeProductosPv(productos: ProductoPv[]): SkuVenta[] {
 
   const skus: SkuVenta[] = [];
   for (const [itemId, list] of byItem) {
-    const sorted = [...list].sort((a, b) => (a.cant_unidades ?? 1) - (b.cant_unidades ?? 1));
-    const botella = sorted.find((p) => (p.cant_unidades ?? 1) <= 1) ?? sorted[0];
-    const packs = sorted.filter((p) => (p.cant_unidades ?? 1) > 1);
-    const pack = packs.sort((a, b) => (a.cant_unidades ?? 0) - (b.cant_unidades ?? 0))[0];
-    const factorPack = pack ? (pack.cant_unidades ?? 1) : 1;
-    const stockItem = Math.max(...sorted.map((p) => p.stock_item || 0), botella.stock_item || 0);
-
-    skus.push({
-      itemId,
-      codigo: botella.item_codigo?.trim() || '',
-      nombre: nombreSku(botella, sorted),
-      categoria: categoriaSku(botella),
-      stockItem,
-      presentacionBotella: botella,
-      presentacionPack: pack,
-      factorPack,
-      presentaciones: sorted,
-    });
+    skus.push(buildSkuFromList(itemId, list));
   }
 
   skus.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   return skus;
+}
+
+/** SKUs PT desde catálogo (transferencias / producción) + stock opcional por ítem. */
+export function skusDesdeCatalogoPt(
+  presentaciones: MaPresentacion[],
+  stockByItem: Record<string, number> = {},
+): SkuVenta[] {
+  const asPv: ProductoPv[] = presentaciones
+    .filter((p) => p.ma_item?.tipo === 'PT' && p.activo !== false)
+    .map((p) => ({
+      presentacion_id: p.id,
+      item_id: p.item_id,
+      nombre: p.nombre,
+      cant_unidades: p.cant_unidades ?? 1,
+      stock_item: stockByItem[p.item_id] ?? 0,
+      categoria: p.ma_item?.categoria,
+      item_nombre: p.ma_item?.nombre,
+      item_codigo: p.ma_item?.codigo,
+    }));
+  return skusDesdeProductosPv(asPv);
 }
 
 export function categoriasSkus(skus: SkuVenta[]): string[] {
@@ -94,14 +136,31 @@ export function etiquetaSkuConStock(sku: SkuVenta): string {
   return `${base} · sin stock`;
 }
 
-/** Presentación comercial según modo botella/pack (stock siempre en botellas del ítem). */
-export function presentacionParaModo(sku: SkuVenta, modo: ModoCantidadEmpaque): ProductoPv {
-  if (modo === 'pack' && sku.presentacionPack && sku.factorPack > 1) {
-    return sku.presentacionPack;
+export function factoresPackSku(sku: SkuVenta): number[] {
+  return sku.packs.map((p) => p.factor);
+}
+
+/** Presentación comercial según modo + factor de pack seleccionado. */
+export function presentacionParaFactor(sku: SkuVenta, modo: ModoCantidadEmpaque, factorPack: number): ProductoPv {
+  if (modo === 'pack' && factorPack > 1) {
+    const pack = sku.packs.find((p) => p.factor === factorPack);
+    if (pack) return pack.presentacion;
+    if (sku.presentacionPack) return sku.presentacionPack;
   }
   return sku.presentacionBotella;
 }
 
+/** @deprecated Prefer presentacionParaFactor con factor explícito. */
+export function presentacionParaModo(sku: SkuVenta, modo: ModoCantidadEmpaque): ProductoPv {
+  return presentacionParaFactor(sku, modo, sku.factorPack);
+}
+
+export function factorActivoSku(sku: SkuVenta, modo: ModoCantidadEmpaque, factorPackSel: number): number {
+  if (modo === 'pack' && factorPackSel > 1) return factorPackSel;
+  return 1;
+}
+
+/** @deprecated Prefer factorActivoSku. */
 export function factorParaModo(sku: SkuVenta, modo: ModoCantidadEmpaque): number {
   if (modo === 'pack' && sku.factorPack > 1) return sku.factorPack;
   return 1;

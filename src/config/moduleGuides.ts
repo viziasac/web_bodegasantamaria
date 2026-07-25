@@ -34,12 +34,13 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     summary: 'Consulta el stock por almacén y corrige saldos con ajustes de conteo físico.',
     steps: [
       'Pestaña Resumen: filtre por ubicación, tipo, categoría o alertas de mínimo.',
-      'Pestaña Ajuste / conteo: indique lo contado; el sistema calcula el delta.',
-      'Use /inventory?tab=ajuste para ir directo al ajuste.',
+      'Pestaña Ajuste / conteo: elija almacén o punto de venta y tipo de material.',
+      'En PT seleccione el SKU (un ítem); cuente botellas o packs — el stock queda en botellas.',
+      'Indique lo contado; el sistema calcula el delta (incluye ítems sin stock para sembrar).',
     ],
     tips: [
       'Un ajuste genera movimientos AJUSTE_ING / AJUSTE_SAL en el ledger.',
-      'MERMA se reporta con motivo claro.',
+      'Puede ajustar stock directamente en PV sin transferir primero.',
     ],
     related: [
       { label: 'Transferencias', path: '/transfers' },
