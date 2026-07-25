@@ -3,6 +3,7 @@
  */
 import * as api from './apiProvider';
 import { newTxnId } from '../utils/txnId';
+import { normalizarTipoItem, tiposPermitidosParaUbicacion } from '../utils/ubicacionItemPolicy';
 import type {
   VentaLinea, CompraLinea, TransferLinea, ProductoPv, AjusteItemOption, EgresoLineaDraft,
 } from '../types';
@@ -46,11 +47,16 @@ export const bodegaService = {
   },
 
   async itemsConStockParaAjuste(ubicacionId: string): Promise<AjusteItemOption[]> {
-    const [stockItems, allItems, allPres] = await Promise.all([
+    const [stockItems, allItems, allPres, ubicaciones] = await Promise.all([
       api.getStockAgregadoPorUbicacion(ubicacionId),
       api.getItems(),
       api.getPresentaciones(),
+      api.getUbicaciones(),
     ]);
+    const ubi = ubicaciones.find((u) => u.id === ubicacionId);
+    const allowed = new Set(tiposPermitidosParaUbicacion(ubi).map((t) => t));
+    if (allowed.size === 0) return [];
+
     const stockByItem: Record<string, number> = {};
     for (const row of stockItems) {
       stockByItem[row.item_id] = Number(row.stock_total) || 0;
@@ -59,48 +65,52 @@ export const bodegaService = {
     const options: AjusteItemOption[] = [];
     const seenItems = new Set<string>();
 
-    // PT: un SKU por ítem (no una fila por pack/botella). Stock siempre en botellas.
-    const ptItems = allItems.filter((i) => i.tipo === 'PT' && i.activo !== false);
-    for (const it of ptItems) {
-      const presList = allPres.filter((p) => p.item_id === it.id && p.activo !== false);
-      if (presList.length === 0) continue;
-      const sorted = [...presList].sort((a, b) => (a.cant_unidades ?? 1) - (b.cant_unidades ?? 1));
-      const botella = sorted.find((p) => (p.cant_unidades ?? 1) <= 1) ?? sorted[0];
-      const packsRaw = sorted.filter((p) => (p.cant_unidades ?? 1) > 1);
-      const packs: { id: string; factor: number }[] = [];
-      const seen = new Set<number>();
-      for (const p of packsRaw) {
-        const factor = p.cant_unidades ?? 1;
-        if (factor <= 1 || seen.has(factor)) continue;
-        seen.add(factor);
-        packs.push({ id: p.id, factor });
+    // PT: un SKU por ítem (solo si la ubicación admite PT).
+    if (allowed.has('PT')) {
+      const ptItems = allItems.filter((i) => i.tipo === 'PT' && i.activo !== false);
+      for (const it of ptItems) {
+        const presList = allPres.filter((p) => p.item_id === it.id && p.activo !== false);
+        if (presList.length === 0) continue;
+        const sorted = [...presList].sort((a, b) => (a.cant_unidades ?? 1) - (b.cant_unidades ?? 1));
+        const botella = sorted.find((p) => (p.cant_unidades ?? 1) <= 1) ?? sorted[0];
+        const packsRaw = sorted.filter((p) => (p.cant_unidades ?? 1) > 1);
+        const packs: { id: string; factor: number }[] = [];
+        const seen = new Set<number>();
+        for (const p of packsRaw) {
+          const factor = p.cant_unidades ?? 1;
+          if (factor <= 1 || seen.has(factor)) continue;
+          seen.add(factor);
+          packs.push({ id: p.id, factor });
+        }
+        packs.sort((a, b) => a.factor - b.factor);
+        const factorPacks = packs.map((p) => p.factor);
+        const packDefault = packs[0];
+        const stock = stockByItem[it.id] ?? 0;
+        seenItems.add(it.id);
+        options.push({
+          key: `PT:${it.id}`,
+          id: it.id,
+          presentacionId: botella.id,
+          presentacionPackId: packDefault?.id,
+          factorPack: packDefault?.factor ?? 1,
+          factorPacks,
+          packs,
+          nombre: stock > 0
+            ? `${it.codigo} — ${it.nombre}`
+            : `${it.codigo} — ${it.nombre} · sin stock`,
+          tipo: 'PT',
+          isProducto: true,
+          stockTeorico: stock,
+          unidadMedida: 'bot.',
+        });
       }
-      packs.sort((a, b) => a.factor - b.factor);
-      const factorPacks = packs.map((p) => p.factor);
-      const packDefault = packs[0];
-      const stock = stockByItem[it.id] ?? 0;
-      seenItems.add(it.id);
-      options.push({
-        key: `PT:${it.id}`,
-        id: it.id,
-        presentacionId: botella.id,
-        presentacionPackId: packDefault?.id,
-        factorPack: packDefault?.factor ?? 1,
-        factorPacks,
-        packs,
-        nombre: stock > 0
-          ? `${it.codigo} — ${it.nombre}`
-          : `${it.codigo} — ${it.nombre} · sin stock`,
-        tipo: 'PT',
-        isProducto: true,
-        stockTeorico: stock,
-        unidadMedida: 'bot.',
-      });
     }
 
-    // Materiales / granel / empaque / insumos (no PT)
+    // Materiales / granel / empaque / insumos según almacén.
     for (const it of allItems) {
-      if (it.tipo === 'PT' || it.activo === false) continue;
+      if (it.activo === false) continue;
+      const tipo = normalizarTipoItem(it.tipo);
+      if (tipo === 'PT' || !allowed.has(tipo as 'GRANEL' | 'INSUMO' | 'EMPAQUE' | 'MATERIAL')) continue;
       if (seenItems.has(it.id)) continue;
       seenItems.add(it.id);
       const stock = stockByItem[it.id] ?? 0;
@@ -110,7 +120,7 @@ export const bodegaService = {
         nombre: stock > 0
           ? `${it.codigo} — ${it.nombre}`
           : `${it.codigo} — ${it.nombre} · sin stock`,
-        tipo: (it.tipo || 'MATERIAL').toUpperCase(),
+        tipo,
         isProducto: false,
         stockTeorico: stock,
         unidadMedida: it.unidad_medida,

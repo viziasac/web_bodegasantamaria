@@ -34,13 +34,13 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     summary: 'Consulta el stock por almacén y corrige saldos con ajustes de conteo físico.',
     steps: [
       'Pestaña Resumen: filtre por ubicación, tipo, categoría o alertas de mínimo.',
-      'Pestaña Ajuste / conteo: elija almacén o punto de venta y tipo de material.',
-      'En PT seleccione el SKU (un ítem); cuente botellas o packs — el stock queda en botellas.',
-      'Indique lo contado; el sistema calcula el delta (incluye ítems sin stock para sembrar).',
+      'Pestaña Ajuste / conteo: elija almacén (ALM_MP / ALM_GR / ALM_PT / PV).',
+      'El filtro de tipo solo muestra materiales permitidos en ese almacén.',
+      'Indique conteo; el sistema calcula el delta (incluye ítems sin stock para sembrar).',
     ],
     tips: [
+      'ALM_MP = material/insumo/empaque · ALM_GR = granel · ALM_PT/PV = producto terminado.',
       'Un ajuste genera movimientos AJUSTE_ING / AJUSTE_SAL en el ledger.',
-      'Puede ajustar stock directamente en PV sin transferir primero.',
     ],
     related: [
       { label: 'Transferencias', path: '/transfers' },
@@ -50,13 +50,14 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
   ingreso_materiales: {
     id: 'ingreso_materiales',
     title: 'Ingreso de Insumos',
-    summary: 'Registra compras y entradas de materiales al almacén, con opción de egreso automático.',
+    summary: 'Compras a ALM_MP (material/insumo/empaque) o ALM_GR (granel), con egreso opcional.',
     steps: [
-      'Elija ubicación destino, ítem, cantidad y precio.',
-      'Active egreso si la compra debe generar gasto en el mismo flujo.',
+      'Elija almacén: ALM_MP o ALM_GR (solo se listan ítems compatibles).',
+      'Complete ítem, cantidad y precio; active egreso si aplica.',
       'Confirme; el stock queda disponible de inmediato.',
     ],
     tips: [
+      'El producto terminado no se ingresa aquí: use Producción → ALM_PT.',
       'Si marcó egreso al comprar, puede corregirlo o anularlo en Modificaciones → Egresos.',
     ],
     related: [

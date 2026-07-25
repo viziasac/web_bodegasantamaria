@@ -10,6 +10,14 @@ import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import { useCatalog } from '../../context/CatalogContext';
 import type { ModoCantidadEmpaque } from '../../utils/cantidadEmpaque';
 import type { AjusteItemOption } from '../../types';
+import {
+  ubicacionesParaAjuste,
+  etiquetaFamiliaUbicacion,
+  resumenTiposPermitidos,
+  opcionesTipoParaUbicacion,
+  tiposPermitidosParaUbicacion,
+  isPuntoVenta,
+} from '../../utils/ubicacionItemPolicy';
 
 const LOTE_AUTO = '__auto__';
 
@@ -21,15 +29,6 @@ const MOTIVO_PRESETS = [
   'MERMA: muestreo / calidad',
   'Corrección de registro',
   'Otro (editar texto)',
-];
-
-const TIPOS_AJUSTE = [
-  { value: '', label: 'Todos los tipos' },
-  { value: 'PT', label: 'Producto terminado (SKU)' },
-  { value: 'GRANEL', label: 'Granel' },
-  { value: 'INSUMO', label: 'Insumo' },
-  { value: 'EMPAQUE', label: 'Empaque' },
-  { value: 'MATERIAL', label: 'Material' },
 ];
 
 interface Props {
@@ -54,11 +53,10 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  /** Almacenes + PV (excluye tránsito). */
-  const ubicacionesAjuste = useMemo(
-    () => ubicaciones.filter((u) => u.activo !== false && u.codigo !== 'TRANSIT'),
-    [ubicaciones],
-  );
+  const ubicacionesAjuste = useMemo(() => ubicacionesParaAjuste(ubicaciones), [ubicaciones]);
+  const ubiSel = ubicacionesAjuste.find((u) => u.id === ubicacionId);
+  const tiposPermitidos = useMemo(() => tiposPermitidosParaUbicacion(ubiSel), [ubiSel]);
+  const opcionesTipo = useMemo(() => opcionesTipoParaUbicacion(ubiSel), [ubiSel]);
 
   const selected = itemsStock.find((o) => o.key === selectedKey);
   const packFactores = selected?.isProducto
@@ -71,9 +69,13 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
   const conteoNum = parseFloat(conteo);
 
   const itemsFiltrados = useMemo(() => {
-    if (!tipoFilter) return itemsStock;
-    return itemsStock.filter((o) => o.tipo === tipoFilter);
-  }, [itemsStock, tipoFilter]);
+    let list = itemsStock;
+    if (tiposPermitidos.length) {
+      list = list.filter((o) => tiposPermitidos.includes(o.tipo as typeof tiposPermitidos[number]));
+    }
+    if (tipoFilter) list = list.filter((o) => o.tipo === tipoFilter);
+    return list;
+  }, [itemsStock, tipoFilter, tiposPermitidos]);
 
   const onMotivoPreset = (v: string) => {
     setMotivoPreset(v);
@@ -107,6 +109,12 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
       setUbicacionId(almMp?.id ?? almPt?.id ?? ubicacionesAjuste[0].id);
     }
   }, [ubicacionesAjuste, ubicacionId]);
+
+  useEffect(() => {
+    if (tipoFilter && tiposPermitidos.length && !tiposPermitidos.includes(tipoFilter as typeof tiposPermitidos[number])) {
+      setTipoFilter('');
+    }
+  }, [tiposPermitidos, tipoFilter]);
 
   const loadItems = async (ubi: string) => {
     if (!ubi) { setItemsStock([]); return; }
@@ -142,6 +150,7 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
 
   const onUbicacionChange = (v: string) => {
     setUbicacionId(v);
+    setTipoFilter('');
     setSelectedKey('');
     setLoteId(LOTE_AUTO);
     setModoEmpaque('botella');
@@ -252,14 +261,12 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
     }
   };
 
-  const ubiSel = ubicacionesAjuste.find((u) => u.id === ubicacionId);
-
   return (
     <div className={embedded ? '' : 'animate-in'}>
       {!embedded && (
         <PageHeader
           title="Ajuste Manual"
-          subtitle="Conteo físico en almacenes y puntos de venta"
+          subtitle="Conteo físico por almacén — solo materiales de esa ubicación"
           moduleId="ver_stock"
         />
       )}
@@ -268,19 +275,21 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
       <div className="card">
         <form onSubmit={handleSubmit}>
           <Alert type="info">
-            Puede ajustar stock en <strong>almacenes</strong> y <strong>puntos de venta</strong>.
-            Los PT se cuentan por <strong>SKU (ítem)</strong> en botellas (o packs equivalentes).
+            Cada almacén admite solo su familia de materiales:
+            <strong> ALM_MP</strong> (material/insumo/empaque),
+            <strong> ALM_GR</strong> (granel),
+            <strong> ALM_PT / PV</strong> (producto terminado en botellas).
           </Alert>
 
           <FormRow>
             <FormSelect
-              label="Ubicación"
+              label="Almacén / ubicación"
               value={ubicacionId}
               onChange={onUbicacionChange}
               required
               options={ubicacionesAjuste.map((u) => ({
                 value: u.id,
-                label: u.es_punto_venta
+                label: isPuntoVenta(u)
                   ? `PV · ${u.codigo} — ${u.nombre}`
                   : `${u.codigo} — ${u.nombre}`,
               }))}
@@ -289,27 +298,34 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
               label="Tipo de material"
               value={tipoFilter}
               onChange={onTipoFilterChange}
-              options={TIPOS_AJUSTE}
+              options={opcionesTipo}
             />
           </FormRow>
 
-          {ubiSel?.es_punto_venta && (
+          {ubiSel && (
             <p className="kpi-sub" style={{ marginBottom: '0.75rem' }}>
-              Ajuste en punto de venta — el stock afecta ventas/despacho en este PV.
+              {etiquetaFamiliaUbicacion(ubiSel)}
+              {' · '}
+              Tipos disponibles: {resumenTiposPermitidos(tiposPermitidos)}.
+              {isPuntoVenta(ubiSel) ? ' El ajuste en PV afecta ventas/despacho.' : ''}
             </p>
           )}
 
-          {loadingItems && <p className="kpi-sub">Cargando ítems / SKUs (incluye sin stock)…</p>}
+          {loadingItems && <p className="kpi-sub">Cargando ítems / SKUs de este almacén…</p>}
           {!loadingItems && itemsFiltrados.length === 0 && (
             <p className="kpi-sub">
               {itemsStock.length === 0
-                ? 'No hay ítems activos en el catálogo.'
-                : 'No hay ítems de ese tipo. Cambie el filtro de tipo.'}
+                ? 'No hay ítems activos compatibles con este almacén.'
+                : 'No hay ítems de ese tipo en este almacén. Cambie el filtro.'}
             </p>
           )}
 
           <FormSelect
-            label={tipoFilter === 'PT' ? 'SKU (producto terminado)' : 'Ítem / SKU'}
+            label={
+              tiposPermitidos.length === 1 && tiposPermitidos[0] === 'PT'
+                ? 'SKU (producto terminado)'
+                : 'Ítem / SKU'
+            }
             value={selectedKey}
             onChange={onItemChange}
             required

@@ -13,6 +13,7 @@ import {
   etiquetaSkuConStock, presentacionParaFactor, factorActivoSku, factoresPackSku,
 } from '../../utils/skuVenta';
 import { etiquetaOrdenPlan } from '../../utils/presentacionLabels';
+import { ubicacionesParaProduccionPt } from '../../utils/ubicacionItemPolicy';
 import { CantidadEmpaqueToggle } from '../../components/CantidadEmpaqueToggle';
 import {
   PageHeader, PageLoader, Alert, FormSelect, FormInput, SubmitButton,
@@ -79,7 +80,7 @@ const ProductionPage: React.FC = () => {
     : 0;
 
   const almacenesDestino = useMemo(
-    () => ubicaciones.filter((u) => !u.es_punto_venta),
+    () => ubicacionesParaProduccionPt(ubicaciones),
     [ubicaciones],
   );
 

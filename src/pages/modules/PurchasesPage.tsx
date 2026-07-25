@@ -12,13 +12,20 @@ import type { CompraLinea, MaItem } from '../../types';
 import {
   clearComprasDocDraft, loadComprasDocDraft, saveComprasDocDraft,
 } from '../../utils/comprasDraft';
+import {
+  ubicacionesParaIngresoInsumos,
+  tiposParaIngresoEnUbicacion,
+  etiquetaFamiliaUbicacion,
+  resumenTiposPermitidos,
+  normalizarTipoItem,
+  mensajeErrorTipoUbicacion,
+} from '../../utils/ubicacionItemPolicy';
 
 interface DocLine extends CompraLinea {
   key: string;
   itemLabel?: string;
 }
 
-const INSUMO_TIPOS = ['INSUMO', 'EMPAQUE', 'MATERIAL', 'GRANEL'];
 const CENTROS_COSTO = [
   { value: 'BODEGA', label: 'Bodega' },
   { value: 'PRODUCCION', label: 'Producción' },
@@ -69,23 +76,28 @@ const PurchasesPage: React.FC = () => {
     });
   }, [mode, ubicacionId, proveedorId, referencia, observaciones, docLineas]);
 
-  const almacenes = ubicaciones.filter((u) => !u.es_punto_venta);
-  const insumos = useMemo(
-    () => items.filter((i) => INSUMO_TIPOS.includes(i.tipo)),
-    [items],
-  );
+  const almacenes = useMemo(() => ubicacionesParaIngresoInsumos(ubicaciones), [ubicaciones]);
+  const ubiSel = almacenes.find((u) => u.id === ubicacionId);
+  const tiposPermitidos = useMemo(() => tiposParaIngresoEnUbicacion(ubiSel), [ubiSel]);
+
+  const insumos = useMemo(() => {
+    const allow = new Set(tiposPermitidos.map((t) => t));
+    if (!allow.size) return [] as MaItem[];
+    return items.filter((i) => i.activo !== false && allow.has(normalizarTipoItem(i.tipo) as typeof tiposPermitidos[number]));
+  }, [items, tiposPermitidos]);
+
   const tipos = useMemo(
-    () => [...new Set(insumos.map((i) => i.tipo))].sort(),
+    () => [...new Set(insumos.map((i) => normalizarTipoItem(i.tipo)))].sort(),
     [insumos],
   );
   const categorias = useMemo(() => {
-    const src = tipoFilter ? insumos.filter((i) => i.tipo === tipoFilter) : insumos;
+    const src = tipoFilter ? insumos.filter((i) => normalizarTipoItem(i.tipo) === tipoFilter) : insumos;
     return [...new Set(src.map((i) => i.categoria?.trim() || 'Sin categoría'))].sort();
   }, [insumos, tipoFilter]);
 
   const insumosFiltrados = useMemo(() => {
     let list = insumos;
-    if (tipoFilter) list = list.filter((i) => i.tipo === tipoFilter);
+    if (tipoFilter) list = list.filter((i) => normalizarTipoItem(i.tipo) === tipoFilter);
     if (categoriaFilter) {
       list = list.filter((i) => (i.categoria?.trim() || 'Sin categoría') === categoriaFilter);
     }
@@ -105,15 +117,31 @@ const PurchasesPage: React.FC = () => {
     if (!ubicacionId && almacenes.length > 0) {
       const almMp = almacenes.find((u) => u.codigo === 'ALM_MP');
       setUbicacionId(almMp?.id ?? almacenes[0].id);
+    } else if (ubicacionId && almacenes.length && !almacenes.some((u) => u.id === ubicacionId)) {
+      const almMp = almacenes.find((u) => u.codigo === 'ALM_MP');
+      setUbicacionId(almMp?.id ?? almacenes[0].id);
     }
   }, [almacenes, ubicacionId]);
 
   useEffect(() => {
-    if (selectedInsumo?.tipo === 'GRANEL') {
-      const almGr = almacenes.find((u) => u.codigo === 'ALM_GR');
-      if (almGr) setUbicacionId(almGr.id);
+    if (tipoFilter && tiposPermitidos.length && !tiposPermitidos.includes(tipoFilter as typeof tiposPermitidos[number])) {
+      setTipoFilter('');
     }
-  }, [itemId, selectedInsumo?.tipo, almacenes]);
+    if (itemId && selectedInsumo && !tiposPermitidos.includes(normalizarTipoItem(selectedInsumo.tipo) as typeof tiposPermitidos[number])) {
+      setItemId('');
+    }
+  }, [tiposPermitidos, tipoFilter, itemId, selectedInsumo]);
+
+  const onUbicacionChange = (v: string) => {
+    setUbicacionId(v);
+    setTipoFilter('');
+    setCategoriaFilter('');
+    setItemId('');
+    if (mode === 'doc' && docLineas.length > 0) {
+      setDocLineas([]);
+      clearComprasDocDraft();
+    }
+  };
 
   const syncPrecioFromQty = (qty: number, unit: string, total: string) => {
     const q = parseFloat(String(qty));
@@ -153,7 +181,15 @@ const PurchasesPage: React.FC = () => {
   const addDocLine = () => {
     const qty = parseFloat(cantidad);
     if (!itemId || !Number.isFinite(qty) || qty <= 0) {
-      setError('Complete insumo y cantidad válida.');
+      setError('Complete ítem y cantidad válida.');
+      return;
+    }
+    if (!ubiSel || !selectedInsumo) {
+      setError('Seleccione almacén e ítem válidos.');
+      return;
+    }
+    if (!tiposPermitidos.includes(normalizarTipoItem(selectedInsumo.tipo) as typeof tiposPermitidos[number])) {
+      setError(mensajeErrorTipoUbicacion(selectedInsumo.tipo, ubiSel));
       return;
     }
     if (!referencia.trim() && mode === 'doc') {
@@ -184,6 +220,10 @@ const PurchasesPage: React.FC = () => {
       setError('La referencia es obligatoria.');
       return;
     }
+    if (!ubiSel) {
+      setError('Seleccione ALM_MP (materiales) o ALM_GR (granel).');
+      return;
+    }
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -193,6 +233,10 @@ const PurchasesPage: React.FC = () => {
       if (mode === 'simple') {
         const qty = parseFloat(cantidad);
         if (!Number.isFinite(qty) || qty <= 0) throw new Error('Cantidad inválida.');
+        if (!selectedInsumo) throw new Error('Seleccione un ítem.');
+        if (!tiposPermitidos.includes(normalizarTipoItem(selectedInsumo.tipo) as typeof tiposPermitidos[number])) {
+          throw new Error(mensajeErrorTipoUbicacion(selectedInsumo.tipo, ubiSel));
+        }
         const pu = getPrecioUnitarioFinal();
         if (registrarEgreso) {
           if (pu == null || pu <= 0) throw new Error('Para registrar egreso indique un precio mayor a 0.');
@@ -223,6 +267,12 @@ const PurchasesPage: React.FC = () => {
           : 'Compra registrada correctamente.');
       } else {
         if (docLineas.length === 0) throw new Error('Agregue al menos una línea al documento.');
+        for (const l of docLineas) {
+          const it = items.find((x) => x.id === l.item_id);
+          if (!it || !tiposPermitidos.includes(normalizarTipoItem(it.tipo) as typeof tiposPermitidos[number])) {
+            throw new Error(mensajeErrorTipoUbicacion(it?.tipo ?? '?', ubiSel));
+          }
+        }
         await bodegaService.registrarCompraDocumentada({
           ubicacionId,
           proveedorId: proveedorId || undefined,
@@ -251,17 +301,28 @@ const PurchasesPage: React.FC = () => {
   const renderInsumoFields = () => (
     <>
       {tipos.length > 1 && (
-        <FormSelect label="Tipo de insumo" value={tipoFilter}
+        <FormSelect label="Tipo de material" value={tipoFilter}
           onChange={(v) => { setTipoFilter(v); setCategoriaFilter(''); setItemId(''); }}
-          options={[{ value: '', label: 'Todos' }, ...tipos.map((t) => ({ value: t, label: t }))]} />
+          options={[{ value: '', label: 'Todos los de este almacén' }, ...tipos.map((t) => ({ value: t, label: t }))]} />
       )}
       {categorias.length > 1 && (
         <FormSelect label="Categoría" value={categoriaFilter}
           onChange={(v) => { setCategoriaFilter(v); setItemId(''); }}
           options={[{ value: '', label: 'Todas' }, ...categorias.map((c) => ({ value: c, label: c }))]} />
       )}
-      <FormSelect label="Insumo" value={itemId} onChange={setItemId} required
-        options={insumosFiltrados.map((i) => ({ value: i.id, label: itemLabel(i) }))} />
+      <FormSelect
+        label={ubiSel?.codigo === 'ALM_GR' ? 'Ítem granel' : 'Material / insumo / empaque'}
+        value={itemId}
+        onChange={setItemId}
+        required
+        options={[
+          { value: '', label: insumosFiltrados.length ? '— Seleccionar —' : 'Sin ítems para este almacén' },
+          ...insumosFiltrados.map((i) => ({
+            value: i.id,
+            label: `[${normalizarTipoItem(i.tipo)}] ${itemLabel(i)}`,
+          })),
+        ]}
+      />
       <FormInput label="Cantidad" type="number" value={cantidad}
         onChange={(v) => { setCantidad(v); syncPrecioFromQty(parseFloat(v), precioUnitario, precioTotal); }}
         required={mode === 'simple'} min={0.001} step="any" />
@@ -281,7 +342,11 @@ const PurchasesPage: React.FC = () => {
 
   return (
     <div className="animate-in">
-      <PageHeader title="Ingreso de Insumos" subtitle="Compras y entradas de materiales" moduleId="ingreso_materiales" />
+      <PageHeader
+        title="Ingreso de Insumos"
+        subtitle="Compras a ALM_MP (materiales) o ALM_GR (granel)"
+        moduleId="ingreso_materiales"
+      />
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
       <TabBar
@@ -294,8 +359,26 @@ const PurchasesPage: React.FC = () => {
       />
       <div className="card">
         <form onSubmit={handleSubmit}>
-          <FormSelect label="Ubicación destino" value={ubicacionId} onChange={setUbicacionId} required
-            options={almacenes.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` }))} />
+          <Alert type="info">
+            <strong>ALM_MP</strong> → material, insumo y empaque.
+            {' '}<strong>ALM_GR</strong> → solo granel.
+            {' '}El producto terminado entra por <strong>Producción</strong>, no por esta pantalla.
+          </Alert>
+          <FormSelect
+            label="Almacén destino"
+            value={ubicacionId}
+            onChange={onUbicacionChange}
+            required
+            options={almacenes.map((u) => ({
+              value: u.id,
+              label: `${u.codigo} — ${u.nombre}`,
+            }))}
+          />
+          {ubiSel && (
+            <p className="kpi-sub" style={{ marginBottom: '0.75rem' }}>
+              {etiquetaFamiliaUbicacion(ubiSel)} · {resumenTiposPermitidos(tiposPermitidos)}.
+            </p>
+          )}
           <FormSelect label="Proveedor (opcional)" value={proveedorId} onChange={setProveedorId}
             options={[
               { value: '', label: '— Sin proveedor —' },
