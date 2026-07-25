@@ -285,6 +285,16 @@ export async function eliminarGasto(gastoId: string) {
   }, 'No se pudo eliminar el gasto.');
 }
 
+/** Anula compra + egreso (stock AJUSTE_SAL). Preferible vía eliminarGasto si origen COMPRA. */
+export async function anularCompraDesdeGasto(gastoId: string, motivo?: string) {
+  const uid = await getUserId();
+  await callRpc(ErpRpc.compraAnularDesdeGasto, {
+    p_gasto_id: gastoId,
+    p_motivo: motivo ?? null,
+    p_usuario_id: uid ?? null,
+  }, 'No se pudo anular la compra.');
+}
+
 export async function actualizarVenta(opts: {
   ventaId: string;
   observaciones?: string | null;

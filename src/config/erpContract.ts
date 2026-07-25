@@ -47,6 +47,8 @@ export const ErpRpc = {
   gastoRegistrar: 'fn_gasto_registrar',
   gastoActualizar: 'fn_gasto_actualizar',
   gastoEliminar: 'fn_gasto_eliminar',
+  /** Anula compra ligada a egreso: revierte stock (AJUSTE_SAL) y borra gas_gasto. */
+  compraAnularDesdeGasto: 'fn_compra_anular_desde_gasto',
   ventaActualizar: 'fn_venta_actualizar',
   ventaAnular: 'fn_venta_anular',
   historialMovimientos: 'fn_historial_movimientos',

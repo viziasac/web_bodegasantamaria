@@ -174,10 +174,7 @@ const ModificacionesPage: React.FC = () => {
   };
 
   const openGastoEdit = (g: GasGasto) => {
-    if (g.origen_tipo === 'COMPRA') {
-      setError('Este egreso viene de una compra. No se edita aquí.');
-      return;
-    }
+    setError(null);
     setGastoEdit(g);
     setGFecha(g.fecha?.slice(0, 10) ?? hoyYmd());
     setGMonto(String(g.monto));
@@ -211,7 +208,11 @@ const ModificacionesPage: React.FC = () => {
         centro_costo: gCentro,
         con_comprobante: !!(gTipoDoc || gNroDoc),
       });
-      setSuccess('Egreso actualizado.');
+      setSuccess(
+        gastoEdit.origen_tipo === 'COMPRA'
+          ? 'Egreso de compra actualizado (costo unitario sincronizado; stock sin cambios).'
+          : 'Egreso actualizado.',
+      );
       setGastoEdit(null);
       await load();
     } catch (err) {
@@ -222,18 +223,19 @@ const ModificacionesPage: React.FC = () => {
   };
 
   const deleteGasto = async (g: GasGasto) => {
-    if (g.origen_tipo === 'COMPRA') {
-      setError('No se puede eliminar un egreso generado por compra.');
-      return;
-    }
-    if (!confirm(`¿Eliminar egreso de ${fmtMoney(g.monto)} — ${g.descripcion || 'sin descripción'}?`)) return;
+    const fromCompra = g.origen_tipo === 'COMPRA';
+    const msg = fromCompra
+      ? `¿Anular la compra y eliminar el egreso de ${fmtMoney(g.monto)} — ${g.descripcion || 'sin descripción'}?\n\nSe revertirá el stock ingresado (si aún está disponible en el lote). Esta acción no se puede deshacer.`
+      : `¿Eliminar egreso de ${fmtMoney(g.monto)} — ${g.descripcion || 'sin descripción'}?`;
+    if (!confirm(msg)) return;
     setError(null);
+    setSuccess(null);
     try {
       await eliminarGasto(g.id);
-      setSuccess('Egreso eliminado.');
+      setSuccess(fromCompra ? 'Compra anulada: stock revertido y egreso eliminado.' : 'Egreso eliminado.');
       await load();
     } catch (err) {
-      setError(toUserMessage(err, 'No se pudo eliminar el egreso'));
+      setError(toUserMessage(err, fromCompra ? 'No se pudo anular la compra' : 'No se pudo eliminar el egreso'));
     }
   };
 
@@ -431,16 +433,17 @@ const ModificacionesPage: React.FC = () => {
                     </td>
                     <td className="cell-money">{fmtMoney(g.monto)}</td>
                     <td className="cell-actions">
-                      {!fromCompra && (
-                        <>
-                          <button type="button" className="btn-icon" title="Editar" onClick={() => openGastoEdit(g)}>
-                            <span className="material-icons-round">edit</span>
-                          </button>
-                          <button type="button" className="btn-icon" title="Eliminar" onClick={() => deleteGasto(g)}>
-                            <span className="material-icons-round">delete_outline</span>
-                          </button>
-                        </>
-                      )}
+                      <button type="button" className="btn-icon" title="Editar" onClick={() => openGastoEdit(g)}>
+                        <span className="material-icons-round">edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-icon"
+                        title={fromCompra ? 'Anular compra y egreso' : 'Eliminar'}
+                        onClick={() => deleteGasto(g)}
+                      >
+                        <span className="material-icons-round">delete_outline</span>
+                      </button>
                     </td>
                   </tr>
                 );
@@ -547,12 +550,19 @@ const ModificacionesPage: React.FC = () => {
       </Modal>
 
       <Modal
-        title="Modificar egreso"
+        title={gastoEdit?.origen_tipo === 'COMPRA' ? 'Modificar egreso de compra' : 'Modificar egreso'}
         isOpen={!!gastoEdit}
         onClose={() => setGastoEdit(null)}
       >
         {gastoEdit && (
           <form onSubmit={saveGasto}>
+            {gastoEdit.origen_tipo === 'COMPRA' && (
+              <p className="kpi-sub" style={{ marginBottom: '1rem' }}>
+                Este egreso nació de una compra. Puede corregir monto, descripción y datos del comprobante;
+                el costo unitario del movimiento se recalcula. La cantidad/stock no cambia aquí:
+                para deshacer la compra use Eliminar (anula e ingresa AJUSTE_SAL).
+              </p>
+            )}
             <FormInput label="Fecha" type="date" value={gFecha} onChange={setGFecha} required />
             <FormInput label="Monto (S/)" type="number" value={gMonto} onChange={setGMonto} min={0.01} step="0.01" required />
             <FormInput label="Descripción" value={gDesc} onChange={setGDesc} required />

@@ -259,7 +259,7 @@ const ExpensesPage: React.FC = () => {
                     <td>{g.fecha ? fmtDate(g.fecha.split('T')[0]) : '—'}</td>
                     <td>{g.gas_categoria?.nombre}</td>
                     <td>{g.descripcion}</td>
-                    <td>{g.origen_tipo === 'COMPRA' ? 'Compra (solo lectura)' : 'Manual'}</td>
+                    <td>{g.origen_tipo === 'COMPRA' ? 'Compra' : 'Manual'}</td>
                     <td className="cell-money">{fmtMoney(g.monto || 0)}</td>
                   </tr>
                 ))}

@@ -55,10 +55,13 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
       'Active egreso si la compra debe generar gasto en el mismo flujo.',
       'Confirme; el stock queda disponible de inmediato.',
     ],
-    tips: ['Los egresos ligados a compra no se eliminan desde Modificaciones.'],
+    tips: [
+      'Si marcó egreso al comprar, puede corregirlo o anularlo en Modificaciones → Egresos.',
+    ],
     related: [
       { label: 'Inventario', path: '/inventory' },
       { label: 'Egresos', path: '/expenses' },
+      { label: 'Modificaciones', path: '/sales/modificaciones?tab=egresos' },
     ],
   },
   transferencias: {
@@ -188,11 +191,12 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     steps: [
       'Pestaña Ingresos: filtre periodo, expanda líneas, edite precios/cliente/canal o anule.',
       'Anular venta restituye stock (AJUSTE_ING); el movimiento VENTA queda en auditoría.',
-      'Pestaña Egresos: edite o elimine gastos manuales (no los de compra).',
+      'Pestaña Egresos: edite o elimine gastos manuales y egresos de compra.',
     ],
     tips: [
       'No se pueden cambiar cantidades ni ubicación de una venta ya hecha.',
-      'Egresos origen COMPRA se gestionan vía flujo de compras.',
+      'Eliminar un egreso de compra anula la compra (AJUSTE_SAL) si el stock del lote sigue disponible.',
+      'Editar monto de compra recalcula el costo unitario; no cambia cantidades en inventario.',
     ],
     related: [
       { label: 'Ingresos', path: '/sales/income' },
