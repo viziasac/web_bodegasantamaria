@@ -215,7 +215,21 @@ const RecipesPage: React.FC = () => {
       openAddToRecipe(filterPt);
       return;
     }
-    openCreateRecipe();
+    if (filterPt && !ptsConReceta.has(filterPt)) {
+      openCreateRecipeForPt(filterPt);
+      return;
+    }
+    if (ptsSinReceta.length > 0) {
+      openCreateRecipe();
+      return;
+    }
+    // Todos los PT ya tienen receta: agregar componentes a la primera visible / filtrada
+    const target = Object.keys(grouped)[0] || [...ptsConReceta][0];
+    if (target) {
+      openAddToRecipe(target);
+      return;
+    }
+    setError('No hay productos terminados en el catálogo. Cree un ítem PT en Materiales / SKUs.');
   };
 
   const openEdit = (line: RecReceta) => {
@@ -280,6 +294,7 @@ const RecipesPage: React.FC = () => {
       );
       setBomModal(false);
       await load();
+      await refreshCatalog();
     } catch (err) {
       setModalError(toUserMessage(err, 'No se pudo guardar la receta'));
     } finally {
@@ -304,6 +319,7 @@ const RecipesPage: React.FC = () => {
       setEditModal(false);
       setEditLine(null);
       await load();
+      await refreshCatalog();
     } catch (err) {
       setModalError(toUserMessage(err, 'No se pudo actualizar la línea'));
     } finally {
@@ -319,6 +335,7 @@ const RecipesPage: React.FC = () => {
       await deleteRecetaLinea(line.id);
       setSuccess('Línea quitada de la receta.');
       await load();
+      await refreshCatalog();
     } catch (err) {
       setError(toUserMessage(err, 'No se pudo quitar la línea'));
     }
@@ -335,6 +352,7 @@ const RecipesPage: React.FC = () => {
       await deleteRecetasDePt(itemProducidoId);
       setSuccess(`Receta de ${label} quitada.`);
       await load();
+      await refreshCatalog();
     } catch (err) {
       setError(toUserMessage(err, 'No se pudo quitar la receta'));
     }

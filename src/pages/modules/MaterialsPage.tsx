@@ -63,9 +63,10 @@ const MaterialsPage: React.FC = () => {
   const [skuItemId, setSkuItemId] = useState('');
   const [skuEmpaqueId, setSkuEmpaqueId] = useState('');
   const [skuActivo, setSkuActivo] = useState(true);
+  const [modalError, setModalError] = useState<string | null>(null);
 
-  const graneles = useMemo(() => items.filter((i) => i.tipo === 'GRANEL'), [items]);
-  const pts = useMemo(() => items.filter((i) => i.tipo === 'PT'), [items]);
+  const graneles = useMemo(() => items.filter((i) => i.tipo === 'GRANEL' && i.activo !== false), [items]);
+  const pts = useMemo(() => items.filter((i) => i.tipo === 'PT' && i.activo !== false), [items]);
   const empSel = empaques.find((e) => e.id === skuEmpaqueId);
 
   const itemsFiltrados = useMemo(() => {
@@ -141,6 +142,7 @@ const MaterialsPage: React.FC = () => {
 
   const openCreateItem = () => {
     resetItemForm();
+    setModalError(null);
     setItemModal(true);
   };
 
@@ -153,12 +155,14 @@ const MaterialsPage: React.FC = () => {
     setCategoria(item.categoria ?? '');
     setStockMin(String(item.stock_minimo ?? 0));
     setActivo(item.activo !== false);
-    setGranelBaseId('');
+    setGranelBaseId(item.granel_base_id ?? '');
+    setModalError(null);
     setItemModal(true);
   };
 
   const openCreateSku = () => {
     resetSkuForm();
+    setModalError(null);
     setSkuModal(true);
   };
 
@@ -169,6 +173,7 @@ const MaterialsPage: React.FC = () => {
     setSkuItemId(sku.item_id);
     setSkuEmpaqueId(sku.empaque_id ?? skuEmpaqueId);
     setSkuActivo(sku.activo !== false);
+    setModalError(null);
     setSkuModal(true);
   };
 
@@ -176,6 +181,7 @@ const MaterialsPage: React.FC = () => {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setModalError(null);
     setSuccess(null);
     try {
       const min = parseFloat(stockMin);
@@ -187,6 +193,7 @@ const MaterialsPage: React.FC = () => {
           categoria: categoria || null,
           stock_minimo: Number.isFinite(min) ? min : 0,
           activo,
+          granel_base_id: editItem.tipo === 'PT' ? (granelBaseId || null) : undefined,
         });
         setSuccess(`Ítem ${editItem.codigo} actualizado.`);
       } else {
@@ -206,7 +213,9 @@ const MaterialsPage: React.FC = () => {
       await load();
       await refreshCatalog();
     } catch (err) {
-      setError(toUserMessage(err, editItem ? 'No se pudo actualizar el ítem' : 'No se pudo crear el ítem'));
+      const msg = toUserMessage(err, editItem ? 'No se pudo actualizar el ítem' : 'No se pudo crear el ítem');
+      setModalError(msg);
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -216,6 +225,7 @@ const MaterialsPage: React.FC = () => {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setModalError(null);
     setSuccess(null);
     try {
       if (editSku) {
@@ -227,6 +237,7 @@ const MaterialsPage: React.FC = () => {
         setSuccess(`SKU ${editSku.codigo ?? ''} actualizado.`);
       } else {
         if (!empSel) throw new Error('Seleccione un empaque.');
+        if (!skuItemId) throw new Error('Seleccione el producto terminado.');
         await createPresentacion({
           codigo: skuCodigo,
           nombre: skuNombre,
@@ -241,7 +252,9 @@ const MaterialsPage: React.FC = () => {
       await load();
       await refreshCatalog();
     } catch (err) {
-      setError(toUserMessage(err, editSku ? 'No se pudo actualizar el SKU' : 'No se pudo crear el SKU'));
+      const msg = toUserMessage(err, editSku ? 'No se pudo actualizar el SKU' : 'No se pudo crear el SKU');
+      setModalError(msg);
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -386,8 +399,9 @@ const MaterialsPage: React.FC = () => {
       <Modal
         title={editItem ? `Editar ítem ${editItem.codigo}` : 'Nuevo ítem / material'}
         isOpen={itemModal}
-        onClose={() => { setItemModal(false); resetItemForm(); }}
+        onClose={() => { if (!saving) { setItemModal(false); resetItemForm(); setModalError(null); } }}
       >
+        {modalError && <Alert type="error" message={modalError} onClose={() => setModalError(null)} />}
         <form onSubmit={handleSaveItem}>
           <FormSection title="Datos del ítem">
             {editItem ? (
@@ -413,7 +427,7 @@ const MaterialsPage: React.FC = () => {
                 ]}
               />
             )}
-            {!editItem && tipo === 'PT' && (
+            {(tipo === 'PT' || editItem?.tipo === 'PT') && (
               <FormSelect
                 label="Granel base (opcional)"
                 value={granelBaseId}
@@ -438,8 +452,9 @@ const MaterialsPage: React.FC = () => {
       <Modal
         title={editSku ? `Editar SKU ${editSku.codigo ?? ''}` : 'Nuevo SKU (presentación)'}
         isOpen={skuModal}
-        onClose={() => { setSkuModal(false); resetSkuForm(); }}
+        onClose={() => { if (!saving) { setSkuModal(false); resetSkuForm(); setModalError(null); } }}
       >
+        {modalError && <Alert type="error" message={modalError} onClose={() => setModalError(null)} />}
         <form onSubmit={handleSaveSku}>
           {editSku ? (
             <>
@@ -463,7 +478,9 @@ const MaterialsPage: React.FC = () => {
               </div>
             </>
           ) : pts.length === 0 ? (
-            <EmptyState icon="precision_manufacturing" title="Primero cree un ítem tipo PT" />
+            <EmptyState icon="precision_manufacturing" title="Primero cree un ítem tipo PT activo" />
+          ) : empaques.length === 0 ? (
+            <EmptyState icon="inventory_2" title="Configure empaques en Maestros" hint="Botella / Pack con factor de botellas" />
           ) : (
             <>
               <FormSelect
@@ -471,7 +488,10 @@ const MaterialsPage: React.FC = () => {
                 value={skuItemId}
                 onChange={onSkuPtChange}
                 required
-                options={pts.map((p) => ({ value: p.id, label: `${p.codigo} — ${p.nombre}` }))}
+                options={[
+                  { value: '', label: '— Seleccione PT —' },
+                  ...pts.map((p) => ({ value: p.id, label: `${p.codigo} — ${p.nombre}` })),
+                ]}
               />
               <FormSelect
                 label="Empaque"

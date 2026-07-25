@@ -23,7 +23,13 @@ export function friendlyDbError(e: unknown): string {
     if (blob.includes('origen_tipo')) {
       return 'Tipo de origen de movimiento no permitido. Actualice el sistema o contacte a soporte.';
     }
+    if (blob.includes('chk_receta')) {
+      return 'Datos de receta inválidos (cantidad > 0 y el componente no puede ser el mismo producto).';
+    }
     return 'Los datos no cumplen una regla de validación de la base de datos.';
+  }
+  if (err?.code === '42501' || blob.includes('row-level security') || blob.includes('rls')) {
+    return 'Sin permiso para esta operación. Debe ser administrador.';
   }
   if (err?.code === '42703' && err.message) {
     return 'Error de consulta en base de datos. Recargue la página e intente de nuevo.';

@@ -48,6 +48,8 @@ export interface MaItem {
   stock_minimo: number;
   activo: boolean;
   categoria?: string | null;
+  granel_base_id?: string | null;
+  pct_merma?: number | null;
 }
 
 export interface MaPresentacion {

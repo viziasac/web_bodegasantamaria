@@ -13,8 +13,9 @@ export async function getRecetas(): Promise<RecReceta[]> {
       id, item_producido_id, componente_id, cantidad, es_variable,
       item_producido:ma_item!rec_receta_item_producido_id_fkey(id, codigo, nombre, tipo, categoria),
       componente:ma_item!rec_receta_base_componente_id_fkey(id, codigo, nombre, tipo, unidad_medida)
-    `);
-  if (error) throw error;
+    `)
+    .order('item_producido_id');
+  if (error) throw new Error(friendlyDbError(error));
   return (data || []).map((r: Record<string, unknown>) => ({
     ...r,
     item_componente_id: r.componente_id,
@@ -32,6 +33,9 @@ export async function createRecetaLinea(opts: {
 }): Promise<RecReceta> {
   if (!opts.itemProducidoId) throw new Error('Seleccione el producto terminado.');
   if (!opts.componenteId) throw new Error('Seleccione el componente.');
+  if (opts.itemProducidoId === opts.componenteId) {
+    throw new Error('El componente no puede ser el mismo producto terminado.');
+  }
   if (!Number.isFinite(opts.cantidad) || opts.cantidad <= 0) {
     throw new Error('Cantidad debe ser > 0 (por 1 botella).');
   }
@@ -99,6 +103,9 @@ export async function createRecetaLineas(
   }[] = [];
   for (const line of lines) {
     if (!line.componenteId) throw new Error('Cada línea requiere un componente.');
+    if (line.componenteId === itemProducidoId) {
+      throw new Error('El componente no puede ser el mismo producto terminado.');
+    }
     if (ids.has(line.componenteId)) {
       throw new Error('Hay componentes duplicados en el borrador.');
     }
