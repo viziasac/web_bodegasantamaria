@@ -35,6 +35,220 @@ ROW_ALT = colors.HexColor("#F4F7FB")
 GRID = colors.HexColor("#C5CDD8")
 ACCENT = colors.HexColor("#2C5282")
 
+DIAGRAM_BG = colors.HexColor("#EEF4FA")
+DIAGRAM_BORDER = colors.HexColor("#2C5282")
+DIAGRAM_BOX_BG = colors.HexColor("#1F3A5F")
+DIAGRAM_BOX_FG = colors.white
+ARROW_COLOR = colors.HexColor("#475569")
+
+
+def _diagram_style():
+    styles = getSampleStyleSheet()
+    return ParagraphStyle(
+        "ViziaDiagramBox",
+        parent=styles["BodyText"],
+        fontName="Helvetica-Bold",
+        fontSize=9,
+        leading=12,
+        alignment=TA_CENTER,
+        textColor=DIAGRAM_BOX_FG,
+    )
+
+
+def _diagram_caption_style():
+    styles = getSampleStyleSheet()
+    return ParagraphStyle(
+        "ViziaDiagramCaption",
+        parent=styles["BodyText"],
+        fontName="Helvetica-Oblique",
+        fontSize=8,
+        leading=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor("#64748B"),
+        spaceBefore=2,
+        spaceAfter=8,
+    )
+
+
+def _parse_mermaid_flowchart(src: str) -> list[str] | None:
+    """
+    Extrae secuencia lineal de nodos de un flowchart mermaid simple (TD/LR).
+    Soporta: A[Texto] --> B[Texto] | A([Texto]) --> B
+    """
+    lines = [ln.strip() for ln in src.splitlines() if ln.strip() and not ln.strip().startswith("%%")]
+    if not lines:
+        return None
+    head = lines[0].lower()
+    if not (head.startswith("flowchart") or head.startswith("graph")):
+        return None
+
+    node_labels: dict[str, str] = {}
+    edges: list[tuple[str, str]] = []
+    node_re = re.compile(
+        r"([A-Za-z0-9_]+)\s*(?:\[([^\]]+)\]|\(([^\)]+)\)|\{([^\}]+)\}|\(\[([^\]]+)\]\))"
+    )
+    edge_re = re.compile(
+        r"([A-Za-z0-9_]+)\s*(?:-->|---|==>|-.->)\s*(?:\|[^|]*\|\s*)?([A-Za-z0-9_]+)"
+    )
+
+    for ln in lines[1:]:
+        for m in node_re.finditer(ln):
+            nid = m.group(1)
+            label = next(g for g in m.groups()[1:] if g)
+            node_labels[nid] = label.strip()
+        for m in edge_re.finditer(ln):
+            edges.append((m.group(1), m.group(2)))
+            for nid in (m.group(1), m.group(2)):
+                if nid not in node_labels:
+                    node_labels[nid] = nid
+
+    if not edges:
+        # Solo nodos sueltos
+        if node_labels:
+            return list(node_labels.values())
+        return None
+
+    # Orden topológico simple (cadena)
+    successors: dict[str, list[str]] = {}
+    predecessors: dict[str, int] = {n: 0 for n in node_labels}
+    for a, b in edges:
+        successors.setdefault(a, []).append(b)
+        predecessors[b] = predecessors.get(b, 0) + 1
+        predecessors.setdefault(a, predecessors.get(a, 0))
+
+    starts = [n for n, deg in predecessors.items() if deg == 0]
+    if not starts:
+        starts = [edges[0][0]]
+
+    ordered: list[str] = []
+    seen: set[str] = set()
+    queue = list(starts)
+    while queue:
+        n = queue.pop(0)
+        if n in seen:
+            continue
+        seen.add(n)
+        ordered.append(n)
+        for nxt in successors.get(n, []):
+            if nxt not in seen:
+                queue.append(nxt)
+
+    for n in node_labels:
+        if n not in seen:
+            ordered.append(n)
+
+    return [node_labels.get(n, n) for n in ordered]
+
+
+def _build_flow_diagram(steps: list[str], *, caption: str | None = None) -> list:
+    """Diagrama vertical con cajas y flechas (PDF)."""
+    if not steps:
+        return []
+    box_style = _diagram_style()
+    caption_style = _diagram_caption_style()
+    arrow_style = ParagraphStyle(
+        "ViziaArrow",
+        parent=getSampleStyleSheet()["BodyText"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        leading=14,
+        alignment=TA_CENTER,
+        textColor=ARROW_COLOR,
+    )
+    blocks: list = [Spacer(1, 6)]
+    for idx, step in enumerate(steps):
+        cell = Paragraph(html.escape(step), box_style)
+        t = Table([[cell]], colWidths=[CONTENT_WIDTH * 0.72])
+        t.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), DIAGRAM_BOX_BG),
+                    ("BOX", (0, 0), (-1, -1), 1.2, DIAGRAM_BORDER),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ]
+            )
+        )
+        t.hAlign = "CENTER"
+        blocks.append(t)
+        if idx < len(steps) - 1:
+            blocks.append(Paragraph("▼", arrow_style))
+    if caption:
+        blocks.append(Paragraph(html.escape(caption), caption_style))
+    else:
+        blocks.append(Spacer(1, 8))
+    return blocks
+
+
+def _build_ascii_diagram_box(text: str) -> list:
+    """Caja sombreada para diagramas ASCII / código de flujo."""
+    code_style = ParagraphStyle(
+        "ViziaAsciiDiagram",
+        parent=getSampleStyleSheet()["Code"],
+        fontName="Courier",
+        fontSize=8,
+        leading=10.5,
+        textColor=colors.HexColor("#1E293B"),
+        alignment=TA_LEFT,
+    )
+    # Preformatted dentro de tabla con fondo
+    pre = Preformatted(text, code_style)
+    wrapper = Table([[pre]], colWidths=[CONTENT_WIDTH])
+    wrapper.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), DIAGRAM_BG),
+                ("BOX", (0, 0), (-1, -1), 1.0, DIAGRAM_BORDER),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    wrapper.hAlign = "LEFT"
+    return [Spacer(1, 4), wrapper, Spacer(1, 8)]
+
+
+def _looks_like_flow_ascii(text: str) -> bool:
+    """Heurística: bloques con flechas ↓ / → / --> típicos de flujos."""
+    markers = ("→", "↓", "▼", "-->", "==>", "┌", "└", "│", "├")
+    hits = sum(1 for m in markers if m in text)
+    return hits >= 2 or text.count("↓") >= 2 or text.count("→") >= 2
+
+
+def _code_fence_to_flowables(lang: str, body: str, styles: dict) -> list:
+    lang_l = (lang or "").strip().lower()
+    body = body.strip("\n")
+
+    if lang_l in ("mermaid", "mmd"):
+        steps = _parse_mermaid_flowchart(body)
+        if steps:
+            return _build_flow_diagram(steps, caption="Flujo operativo")
+        return _build_ascii_diagram_box(body)
+
+    if lang_l in ("flow", "diagram", "ascii"):
+        return _build_ascii_diagram_box(body)
+
+    if not lang_l and _looks_like_flow_ascii(body):
+        return _build_ascii_diagram_box(body)
+
+    # Código genérico
+    safe_lines = []
+    for cl in body.splitlines() or [""]:
+        if len(cl) > 95:
+            while len(cl) > 95:
+                safe_lines.append(cl[:95])
+                cl = cl[95:]
+            if cl:
+                safe_lines.append(cl)
+        else:
+            safe_lines.append(cl)
+    return [Preformatted("\n".join(safe_lines), styles["code"])]
+
 
 def _inline_md(text: str) -> str:
     """Markdown inline → ReportLab rich text (escapado, sin romper tags)."""
@@ -229,6 +443,7 @@ def _md_to_flowables(md: str, *, skip_first_h1: bool = True):
     out: list = []
     lines = md.splitlines()
     in_code = False
+    code_lang = ""
     code_buf: list[str] = []
     para_buf: list[str] = []
     bullet_buf: list[str] = []
@@ -283,27 +498,19 @@ def _md_to_flowables(md: str, *, skip_first_h1: bool = True):
     while i < len(lines):
         line = lines[i].rstrip("\n")
 
-        if line.strip().startswith("```"):
+        fence = re.match(r"^```(\w*)\s*$", line.strip())
+        if fence:
             if in_code:
                 flush_all()
                 block = "\n".join(code_buf)
-                # Truncar líneas muy largas para que no desborden
-                safe_lines = []
-                for cl in block.splitlines() or [""]:
-                    if len(cl) > 95:
-                        while len(cl) > 95:
-                            safe_lines.append(cl[:95])
-                            cl = cl[95:]
-                        if cl:
-                            safe_lines.append(cl)
-                    else:
-                        safe_lines.append(cl)
-                out.append(Preformatted("\n".join(safe_lines), styles["code"]))
+                out.extend(_code_fence_to_flowables(code_lang, block, styles))
                 code_buf = []
+                code_lang = ""
                 in_code = False
             else:
                 flush_all()
                 in_code = True
+                code_lang = fence.group(1) or ""
             i += 1
             continue
 
@@ -394,7 +601,7 @@ def _md_to_flowables(md: str, *, skip_first_h1: bool = True):
 
     flush_all()
     if in_code and code_buf:
-        out.append(Preformatted("\n".join(code_buf), styles["code"]))
+        out.extend(_code_fence_to_flowables(code_lang, "\n".join(code_buf), styles))
 
     return out
 
@@ -537,19 +744,19 @@ PDF_TARGETS = [
         "input": "00_resumen_general_vizia_web.md",
         "output": "Resumen_General_WEB_VIZIA_Bodega_Santa_Maria.pdf",
         "title": "Resumen general — Web ERP",
-        "subtitle": "Visión ejecutiva · Web 1.0.0 · Julio 2026",
+        "subtitle": "Visión ejecutiva · Web 1.0.0 · Julio 2026 · Actualizado",
     },
     {
         "input": "02_resumen_tecnico_vizia_web.md",
         "output": "Resumen_Tecnico_WEB_VIZIA_Bodega_Santa_Maria.pdf",
         "title": "Resumen técnico — Web ERP",
-        "subtitle": "Arquitectura · RPC · Cloudflare · Web 1.0.0",
+        "subtitle": "Arquitectura · SKU/botellas · RPC · Cloudflare · Web 1.0.0",
     },
     {
         "input": "01_manual_usuario_cliente_web.md",
         "output": "Manual_Usuario_WEB_VIZIA_Bodega_Santa_Maria.pdf",
         "title": "Manual de uso detallado — Web ERP",
-        "subtitle": "Guía módulo a módulo · Web 1.0.0 · Personal operativo",
+        "subtitle": "Guía módulo a módulo · SKU · Packs · PV · Web 1.0.0",
     },
 ]
 

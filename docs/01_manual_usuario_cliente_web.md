@@ -3,9 +3,9 @@
 **VIZIA S.A.C.** · Bodega Santa María · 2026  
 **Versión del sistema web:** 1.0.0  
 **Público:** personal de bodega, producción, punto de venta y administración  
-**Última actualización:** Julio 2026
+**Última actualización:** 25 julio 2026
 
-Este manual describe el uso día a día del **ERP web** en el navegador. No requiere conocimiento técnico. Los nombres coinciden con el menú lateral.
+Este manual describe el uso día a día del **ERP web** en el navegador. Los nombres coinciden con el menú lateral.
 
 **Secciones del menú:** Panel de control · Inventario · Producción · Comercial · Consulta · Administración.
 
@@ -22,40 +22,54 @@ Este manual describe el uso día a día del **ERP web** en el navegador. No requ
 
 - La sesión se guarda en el navegador y se **renueva sola** mientras la pestaña esté abierta.
 - Puede trabajar varios minutos u horas sin que lo eche por timeouts de red al renovar el token.
-- Si cierra la pestaña o el navegador, al volver normalmente seguirá autenticado (persistencia local).
 - En equipos compartidos: use **Configuración → Cerrar sesión** al terminar.
 
 ### Si no puede entrar
 
 - Revise mayúsculas y minúsculas.
 - Confirme que su usuario tiene **acceso web** activo.
-- Pida al administrador que reactive la cuenta si fue deshabilitada.
 - Use un navegador actualizado (Chrome, Edge, Firefox).
 
 ---
 
-## 2. Unidades y almacenes (léalo una vez)
+## 2. Unidades, SKU y packs (léalo una vez)
 
 | Qué maneja | En pantalla puede elegir | En inventario queda |
 |------------|--------------------------|---------------------|
-| Producto terminado (vino, pisco embotellado) | Botella o pack | Siempre **botellas** |
+| Producto terminado | Botella o pack ×6 / ×12… | Siempre **botellas** |
 | Insumos / empaque | Su unidad (und, kg…) | Esa misma unidad |
 | Granel | Litros | Litros en bodega de granel |
 
-**Ejemplo:** elige «Pack ×6» y escribe **10** → el sistema registra **60 botellas**.
+```mermaid
+flowchart TD
+  A[Un SKU = un producto] --> B[Stock en botellas]
+  B --> C[Vender o transferir en botellas]
+  B --> D[O contar packs ×N]
+  D --> E[El sistema convierte a botellas]
+  E --> B
+```
 
-### Idea clave de ventas y despacho
+**Ejemplos**
 
-- En el listado aparece **un solo ítem** por producto (código · nombre), con stock en **botellas**.
-- **No** aparecen dos filas «Botella» y «Pack» como productos distintos.
-- Después elige **cómo vender**: en botellas o en packs. El stock siempre baja en botellas.
+- Elige Pack ×6 y escribe **10** → registra **60 botellas**.
+- Elige Pack ×12 y escribe **5** → registra **60 botellas**.
+- Elige Botellas y escribe **60** → registra **60 botellas**.
+
+### Idea clave de ventas, despacho, transferencias y producción
+
+- En el listado aparece **un solo ítem (SKU)** por producto, con stock en **botellas**.
+- **No** aparecen filas separadas «Botella» y «Pack» como si fueran stocks distintos.
+- Después elige **cómo contar**: botellas o packs (si hay varios tamaños, ×6 / ×12…).
+- Puede **vender en botellas** aunque el stock se haya producido o ajustado pensando en packs.
 
 **Almacenes habituales**
 
-- **Materias primas (ALM_MP)** — insumos y empaque.
-- **Granel (ALM_GR)** — litros a granel.
-- **Productos terminados (ALM_PT)** — botellas listas.
-- **Puntos de venta** — tiendas desde donde se vende.
+| Código | Uso |
+|--------|-----|
+| ALM_MP | Materias primas / insumos / empaque |
+| ALM_GR | Granel (litros) |
+| ALM_PT | Productos terminados (botellas) |
+| PV_* | Puntos de venta |
 
 ---
 
@@ -96,14 +110,28 @@ Consulta stock y corrige saldos con conteo físico.
 
 ### Ajuste / conteo
 
-1. Vaya a la pestaña de **ajuste** (o use el enlace de ajuste).
-2. Indique ubicación, ítem, cantidad contada (el sistema calcula el delta) o ajuste directo.
-3. Motive el movimiento (obligatorio en mermas).
-4. Confirme. Queda `AJUSTE_ING` o `AJUSTE_SAL`.
+Funciona en **almacenes y puntos de venta** (no en tránsito).
+
+1. Vaya a la pestaña **Ajuste / conteo** (o `/inventory?tab=ajuste`).
+2. Elija **ubicación** (incluye `PV · …`).
+3. Filtre por **tipo de material** (PT, GRANEL, INSUMO, EMPAQUE, MATERIAL o Todos).
+4. Seleccione el **SKU / ítem** (un PT = una fila; incluye sin stock para sembrar).
+5. Si es PT con pack: elija **Botellas** o **Packs** (y el tamaño ×N si hay varios).
+6. Indique el **conteo físico**; el sistema calcula el delta.
+7. Motive el movimiento y confirme → `AJUSTE_ING` o `AJUSTE_SAL`.
+
+```mermaid
+flowchart TD
+  A[Elegir almacén o PV] --> B[Filtrar tipo de material]
+  B --> C[Seleccionar SKU]
+  C --> D[Contar botellas o packs]
+  D --> E[Registrar ajuste en botellas]
+```
 
 ### Ejemplo
 
-- Conteo: faltan 3 botellas → ajuste de salida −3 con motivo «Inventario julio».
+- En el PV faltan 3 botellas → conteo menor → ajuste de salida −3 con motivo «Inventario julio».
+- Sembrar stock: ítem en 0 + conteo 24 botellas → ingreso +24.
 
 ---
 
@@ -121,33 +149,43 @@ Registra la **entrada de materiales** a bodega.
 
 ### Modo documento
 
-Permite varias líneas en un mismo documento de compra (útil con proveedor).
+Varias líneas en un mismo documento de compra (útil con proveedor).
 
 ### Importante
 
 - Con egreso: se crea un gasto origen **COMPRA**.
-- Si se equivocó en monto o debe anular: vaya a **Modificaciones → Egresos** (editar o eliminar/anular compra).
+- Si se equivocó: **Modificaciones → Egresos** (editar o eliminar/anular compra).
 - **No** vuelva a cargar el mismo gasto en el módulo Egresos.
 
 ### Ejemplo
 
-- Compra 200 L de mosto a S/ 5,00 → stock +200; con egreso → gasto S/ 1 000 (si el precio fuera erróneo, corríjalo en Modificaciones).
+- Compra 200 L de mosto a S/ 5,00 → stock +200; con egreso → gasto S/ 1 000.
 
 ---
 
 ## 7. Transferencias
 
+Mueve stock entre ubicaciones. **PT se elige por SKU** (no por presentación duplicada).
+
 1. Abra **Transferencias**.
-2. Cree documento: origen y destino distintos.
+2. Origen y destino distintos.
 3. Agregue líneas:
-   - **PT:** producto + empaque (botella/pack) → se mueve en botellas.
+   - **PT:** SKU → Botellas o Packs → cantidad (se mueve en **botellas**).
    - **Material:** ítem + cantidad en su unidad.
-4. No mezcle familias (PT y material) en el mismo documento.
+4. No mezcle PT y material en el mismo documento.
 5. **Envíe**. Quedará en tránsito hasta **recibir** en destino.
+
+```mermaid
+flowchart TD
+  A[Origen con stock] --> B[Carrito por SKU en botellas]
+  B --> C[Enviar EN_TRANSITO]
+  C --> D[Recibir en destino]
+  D --> E[Stock disponible en destino]
+```
 
 ### Ejemplo
 
-- 5 packs ×12 (= 60 botellas) del almacén PT al punto de venta → confirme recepción en destino.
+- 5 packs ×12 (= 60 botellas) de ALM_PT al PV → confirme recepción en el PV.
 
 ---
 
@@ -155,10 +193,10 @@ Permite varias líneas en un mismo documento de compra (útil con proveedor).
 
 Define la fórmula (**BOM**) por **1 botella** de cada producto terminado.
 
-- **Consulta:** todos los usuarios con acceso al módulo.
+- **Consulta:** usuarios con acceso al módulo.
 - **Alta / edición:** normalmente **admin** (una receta por PT).
 - Cantidades **por botella**, no por pack.
-- Al producir: granel se toma de **ALM_GR**; el resto de **ALM_MP**.
+- Al producir: granel desde **ALM_GR**; el resto desde **ALM_MP**.
 
 ---
 
@@ -179,8 +217,9 @@ Define la fórmula (**BOM**) por **1 botella** de cada producto terminado.
 ### Crear orden
 
 1. Abra **Producción**.
-2. Elija PT, presentación (botella/pack) y cantidad planificada.
-3. Guarde como **BORRADOR**.
+2. Elija el **SKU** a producir (no una fila pack y otra botella).
+3. Planifique en **botellas** o **packs** (la orden guarda botellas).
+4. Valide insumos si desea; guarde como **BORRADOR**.
 
 ### Completar
 
@@ -197,7 +236,7 @@ Define la fórmula (**BOM**) por **1 botella** de cada producto terminado.
 
 ## 11. Reempaque
 
-Convierte un **ítem en otro** en la misma ubicación (origen se consume, destino se produce).
+Convierte un **ítem en otro** en la misma ubicación.
 
 **No use reempaque** solo para «cambiar de Pack×6 a Pack×8»: el stock de PT ya está en botellas.
 
@@ -211,8 +250,8 @@ Requiere **acceso ventas**. Ventas en punto de venta.
 
 - Elija el **PV**; el stock mostrado es el de ese almacén.
 - **Canal** desde el catálogo.
-- **Cliente opcional** (Sin cliente o uno activo).
-- Un producto por ítem; luego **botellas o packs**.
+- **Cliente opcional**.
+- Un producto por SKU; luego **botellas o packs** (×6 / ×12 si existen).
 - Stock y descuento siempre en **botellas** (FIFO si no elige lote).
 - La venta nueva queda con fecha de **hoy** (Lima). El selector de fecha sirve para el **historial**.
 
@@ -226,9 +265,18 @@ Requiere **acceso ventas**. Ventas en punto de venta.
 
 Una línea: producto, empaque, cantidad, monto; confirme al instante.
 
+```mermaid
+flowchart TD
+  A[Elegir SKU con stock en PV] --> B[Botellas o Packs ×N]
+  B --> C[Cantidad convertida a botellas]
+  C --> D[Registrar venta]
+  D --> E[Baja stock del mismo pool]
+```
+
 ### Ejemplo
 
-- 2 packs ×12 = 24 botellas; precio acorde → baja 24 botellas del PV.
+- 2 packs ×12 = 24 botellas → baja **24 botellas** del PV.
+- Tiene 60 botellas (aunque entraron como packs) → puede vender **15 botellas** sueltas sin problema.
 
 Si hubo error de captura: **Modificaciones → Ingresos**.
 
@@ -239,7 +287,7 @@ Si hubo error de captura: **Modificaciones → Ingresos**.
 Venta rápida de **una línea** (mostrador / delivery). Misma lógica de stock que Ingresos.
 
 1. PV, canal, cliente (opcional).
-2. Producto → botellas o packs → cantidad y precio.
+2. Producto (SKU) → botellas o packs → cantidad y precio.
 3. Lote opcional (vacío = FIFO).
 4. Registrar.
 
@@ -254,7 +302,7 @@ Gastos operativos que **no** nacen de una compra de insumos.
 1. Fecha y centro de costo.
 2. Agregue líneas: categoría, monto, proveedor/comprobante.
 3. Registre el lote.
-4. En el listado verá origen **Manual** o **Compra** (las de compra se crearon en Ingreso Insumos).
+4. En el listado verá origen **Manual** o **Compra**.
 
 Corrija o elimine en **Modificaciones → Egresos**.
 
@@ -269,20 +317,20 @@ Corrige capturas erróneas **sin romper el inventario a ciegas**.
 1. Filtre por periodo (incluya anuladas si necesita).
 2. Expanda líneas; edite **precios**, cliente, canal u observaciones.
 3. **No** se cambian cantidades ni ubicación.
-4. **Anular venta:** marca ANULADA y restituye stock (`AJUSTE_ING`). El movimiento de venta queda en auditoría.
+4. **Anular venta:** marca ANULADA y restituye stock (`AJUSTE_ING`).
 
 ### Pestaña Egresos
 
 1. Filtre periodo.
 2. **Manual:** editar o eliminar.
 3. **Compra:**
-   - **Editar:** corrige monto, descripción, proveedor, comprobante. Recalcula costo unitario del movimiento; **no** cambia cantidades de stock.
-   - **Eliminar:** **anula la compra**: revierte el ingreso con `AJUSTE_SAL` (si el lote aún tiene stock disponible), borra el egreso y marca la compra documentada como anulada si existe.
-4. Si el lote ya se consumió (producción/venta), la anulación se rechaza con mensaje claro: ajuste inventario primero.
+   - **Editar:** corrige monto, descripción, proveedor, comprobante (**no** cambia cantidades de stock).
+   - **Eliminar:** **anula la compra** (revierte ingreso si el lote aún tiene stock).
+4. Si el lote ya se consumió, la anulación se rechaza con mensaje claro.
 
 ### Ejemplo
 
-- Egreso «Compra: Pisco Mosto…» por S/ 1 000 000 mal capturado → Eliminar en Modificaciones → stock del lote se revierte y desaparece el gasto.
+- Egreso «Compra: …» mal capturado → Eliminar en Modificaciones → stock del lote se revierte y desaparece el gasto.
 
 ---
 
@@ -290,11 +338,8 @@ Corrige capturas erróneas **sin romper el inventario a ciegas**.
 
 1. Pestaña Proveedores o Clientes.
 2. Nuevo / Editar.
-3. **Eliminar** = baja lógica (`activo = false`); puede **reactivar** y «Ver inactivos».
-4. Códigos se generan automáticamente cuando aplica.
-5. En operaciones el partner suele ser **opcional**.
-
-Solo activos aparecen en los desplegables de compras y ventas.
+3. **Eliminar** = baja lógica; puede **reactivar** y «Ver inactivos».
+4. Solo activos aparecen en los desplegables de operaciones.
 
 ---
 
@@ -303,7 +348,7 @@ Solo activos aparecen en los desplegables de compras y ventas.
 1. Pestaña **Historial:** filtros por fecha y tipo de movimiento.
 2. Pestaña **Trazabilidad:** por número de lote.
 
-Útil para revisar COMPRA, VENTA, AJUSTE, PRODUCCIÓN, transferencias, etc.
+Útil para COMPRA, VENTA, AJUSTE, PRODUCCIÓN, transferencias, etc.
 
 ---
 
@@ -317,9 +362,9 @@ Solo activos aparecen en los desplegables de compras y ventas.
 ## 19. Materiales / SKUs (admin)
 
 - Crear o editar **ítems** (materiales, granel, PT).
-- Crear o editar **presentaciones** (botella, pack; `cant_unidades` = botellas por pack).
+- Crear o editar **presentaciones** (botella `cant_unidades=1`, pack ×6 / ×12…).
 - Activar / desactivar (sin borrado físico).
-- Crear un ítem o SKU **no** genera stock; el stock entra por compra, producción o ajuste.
+- Crear un ítem o presentación **no** genera stock; el stock entra por compra, producción o ajuste.
 
 ---
 
@@ -336,7 +381,7 @@ Pestañas típicas: canales de venta, empaques, categorías de gasto.
 
 **Solo lectura:** correo, rol y flags (`acceso_web`, `acceso_ventas`, etc.).
 
-Altas, contraseñas y permisos se gestionan fuera de esta pantalla (Auth / administración VIZIA).
+Altas y contraseñas se gestionan fuera de esta pantalla (Auth / VIZIA).
 
 ---
 
@@ -352,7 +397,7 @@ Altas, contraseñas y permisos se gestionan fuera de esta pantalla (Auth / admin
 
 - Ver correo, rol y permisos de la sesión.
 - Preferencias de la interfaz web.
-- **Recargar catálogos** / limpiar caché local del navegador.
+- **Recargar catálogos** / limpiar caché local.
 - **Cerrar sesión**.
 
 ---
@@ -363,7 +408,8 @@ Altas, contraseñas y permisos se gestionan fuera de esta pantalla (Auth / admin
 |-----------|-----------|
 | Sin permiso / módulo no visible | Pedir acceso ventas o rol admin |
 | Catálogo vacío o desactualizado | Configuración → recargar catálogos |
-| Sin stock en el PV | Transferir desde PT o revisar producción |
+| Sin stock en el PV | Transferir desde PT, producir o **ajustar** en el PV |
+| No puedo vender botellas sueltas | Use modo **Botellas**; el stock ya está unificado |
 | No se puede anular compra | El lote ya tiene salidas; ajustar inventario o revisar auditoría |
 | Sesión expirada / login | Volver a autenticarse; verificar acceso web |
 | Error al guardar | Anote el mensaje; reintente; si persiste, contacte soporte |
@@ -372,13 +418,24 @@ Altas, contraseñas y permisos se gestionan fuera de esta pantalla (Auth / admin
 
 ## 25. Flujo típico del día (web)
 
-1. Revisar **Panel** del mes (gerencia) o **Inventario**.
-2. **Ingreso Insumos** si hay compras (con o sin egreso).
+```mermaid
+flowchart TD
+  A[Panel o Inventario] --> B[Ingreso Insumos]
+  B --> C[Granel / Producción]
+  C --> D[Transferir a PV]
+  D --> E[Vender Ingresos o Despacho]
+  E --> F[Egresos sueltos]
+  F --> G[Modificaciones si hubo error]
+  G --> H[Descargas / Reportes / Auditoría]
+```
+
+1. Revisar **Panel** del mes o **Inventario**.
+2. **Ingreso Insumos** si hay compras.
 3. **Granel** / **Producción** según campaña.
 4. **Transferir** a puntos de venta.
-5. **Vender** (Ingresos o Despacho).
+5. **Vender** (Ingresos o Despacho) en botellas o packs.
 6. Cargar **Egresos** sueltos (no los ya ligados a compra).
-7. Corregir errores en **Modificaciones**.
+7. Corregir en **Modificaciones**.
 8. Exportar en **Descargas** o revisar **Reportes** / **Auditoría**.
 
 ---
@@ -387,9 +444,10 @@ Altas, contraseñas y permisos se gestionan fuera de esta pantalla (Auth / admin
 
 - No registre la misma operación dos veces (web y app).
 - Prefiera **Modificaciones** antes de «compensar» con otra venta/compra inventada.
-- En PT piense siempre en **botellas**.
+- En PT piense siempre en **botellas**; el pack solo facilita el conteo.
+- Puede ajustar stock **directo en el PV** cuando el conteo físico lo exija.
 - En equipos compartidos, cierre sesión al terminar.
-- Para catálogos nuevos (ítems, clientes), use los módulos admin y luego recargue catálogos.
+- Tras crear ítems o presentaciones nuevas, **recargue catálogos**.
 
 ---
 
@@ -405,4 +463,4 @@ Documentación técnica: **Resumen técnico web** entregado junto a este manual.
 
 ---
 
-*VIZIA S.A.C. · Bodega Santa María · Manual de usuario Web v1.0.0 · 2026*
+*VIZIA S.A.C. · Bodega Santa María · Manual de usuario Web v1.0.0 · Julio 2026*

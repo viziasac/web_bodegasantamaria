@@ -87,7 +87,7 @@ Tras el deploy: hard refresh (`Ctrl+F5`) si el navegador cacheó un JS viejo.
 
 ## Documentación de usuario
 
-Manuales profesionales (mismo formato que la app móvil) en [`docs/`](docs/):
+Manuales profesionales (MD + PDF con diagramas) en [`docs/`](docs/):
 
 | Para compartir | Archivo |
 |----------------|---------|
@@ -95,7 +95,9 @@ Manuales profesionales (mismo formato que la app móvil) en [`docs/`](docs/):
 | Resumen gerencia | [`docs/pdf/Resumen_General_WEB_VIZIA_Bodega_Santa_Maria.pdf`](docs/pdf/Resumen_General_WEB_VIZIA_Bodega_Santa_Maria.pdf) |
 | Resumen técnico | [`docs/pdf/Resumen_Tecnico_WEB_VIZIA_Bodega_Santa_Maria.pdf`](docs/pdf/Resumen_Tecnico_WEB_VIZIA_Bodega_Santa_Maria.pdf) |
 
-Regenerar: `python docs/build_pdf.py` (requiere `reportlab`).
+Índice y novedades: [`docs/README.md`](docs/README.md).
+
+Regenerar PDFs: `python docs/build_pdf.py` (requiere `reportlab`). Los diagramas **mermaid** del markdown se renderizan como flujos visuales en el PDF.
 
 ## Referencia
 

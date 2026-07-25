@@ -4,24 +4,20 @@
 **Versión del sistema web:** 1.0.0  
 **Backend:** Supabase · proyecto `cztnnkxvwiwpeifqygta`  
 **Repo:** `github.com/viziasac/web_bodegasantamaria`  
-**Última actualización:** Julio 2026
+**Última actualización:** 25 julio 2026
 
-Este documento resume la arquitectura del cliente web y su contrato con Supabase. El diccionario de tablas, triggers y flujos de stock compartidos con la app móvil está en la documentación BD del repositorio de la app.
+Este documento resume la arquitectura del cliente web y su contrato con Supabase. El diccionario completo de tablas/triggers compartidos con la app móvil está en la documentación BD del repositorio de la app.
 
 ---
 
 ## 1. Arquitectura
 
-```
-UI React (páginas /modules/**)
-        ↓
-AuthContext + CatalogContext
-        ↓
-apiProvider / services/api/*  +  bodegaService
-        ↓
-supabase-js (Auth + PostgREST + RPC fn_*)
-        ↓
-PostgreSQL (mismos esquemas que la app móvil)
+```mermaid
+flowchart TD
+  A[UI React pages/modules] --> B[AuthContext + CatalogContext]
+  B --> C[apiProvider / bodegaService]
+  C --> D[supabase-js Auth PostgREST RPC]
+  D --> E[PostgreSQL mismos esquemas que app móvil]
 ```
 
 | Capa | Rol |
@@ -30,8 +26,10 @@ PostgreSQL (mismos esquemas que la app móvil)
 | `src/config/moduleRegistry.ts` | Menú, secciones, `adminOnly` |
 | `src/config/erpContract.ts` | Nombres RPC y códigos de error |
 | `src/services/api/*` | Lecturas PostgREST + escrituras RPC |
-| `src/services/bodegaService.ts` | Orquestación de compras / flujos compuestos |
-| `src/utils/skuVenta.ts` | Agrupa presentaciones por `item_id` (un SKU = un PT) |
+| `src/services/bodegaService.ts` | Orquestación (ventas, compras, ajustes, transferencias) |
+| `src/utils/skuVenta.ts` | Agrupa presentaciones por `item_id` (1 SKU = 1 PT) |
+| `src/utils/cantidadEmpaque.ts` | Pack × N → botellas antes del RPC |
+| `src/components/CantidadEmpaqueToggle.tsx` | UI Botellas / Packs (×6, ×12…) |
 | `src/context/AuthContext.tsx` | Sesión, refresh suave, gate `acceso_web` |
 
 ---
@@ -42,7 +40,7 @@ PostgreSQL (mismos esquemas que la app móvil)
 |------------|------------|
 | Cliente | React 19 + TypeScript + Vite 6 |
 | Routing | React Router (`BrowserRouter`) |
-| Backend | Supabase (PostgreSQL 17, PostgREST, Auth) |
+| Backend | Supabase (PostgreSQL, PostgREST, Auth) |
 | Escrituras críticas | RPC `fn_*` (SECURITY DEFINER donde aplica) |
 | Stock | `inv_movimiento` → trigger → `inv_stock_saldo` |
 | Hosting | Cloudflare Pages (`dist/`, `_redirects` SPA) |
@@ -50,20 +48,41 @@ PostgreSQL (mismos esquemas que la app móvil)
 
 ---
 
-## 3. Principio de stock y UM botellas
+## 3. Principio de stock: botellas unificadas
 
-El stock físico se guarda por **`item_id` + `lote_id` + `ubicacion_id`**.
+### Modelo físico
 
-| Contexto | Entrada en UI | Persistencia |
-|----------|---------------|--------------|
-| Producto terminado | Un SKU por `ma_item` PT + empaque | Siempre **botellas** |
-| Pack / caja | Factor del empaque | `cantidad × factor` → botellas **antes** del RPC |
+`inv_stock_saldo` guarda **`(ubicacion_id, item_id, lote_id, cantidad)`**.  
+**No** hay `presentacion_id` en el saldo: las presentaciones (`ma_presentacion.cant_unidades`) son metadata comercial.
+
+```mermaid
+flowchart TD
+  A[UI: botellas o packs ×N] --> B[cantidadBaseDesdeEntrada]
+  B --> C[RPC con cantidad en botellas + item_id]
+  C --> D[inv_movimiento]
+  D --> E[inv_stock_saldo por item_id]
+```
+
+| Contexto | Entrada UI | Persistencia |
+|----------|------------|--------------|
+| Producto terminado | 1 SKU por `ma_item` PT | Siempre **botellas** |
+| Pack ×6 / ×12 | Factor del empaque | `cantidad × factor` → botellas **antes** del RPC |
 | Insumos / empaque | Unidad del ítem | Misma unidad |
 | Granel | Litros | Litros en `ALM_GR` |
 
-**UI ventas/despacho:** utilidades `skuVenta` agrupan Botella + Pack del mismo `item_id` en **una fila**. El usuario elige después el modo de empaque.
+**Ejemplo:** 10 × Pack×6 → movimiento de **60 botellas**, aunque el usuario haya elegido la presentación comercial pack.
 
-**Ejemplo:** 10 × Pack×6 → movimiento de **60 botellas**.
+### UI alineada al modelo
+
+| Módulo | Comportamiento |
+|--------|----------------|
+| Ingresos / Despacho | 1 fila por SKU; toggle Botellas/Packs; stock = botellas del ítem |
+| Transferencias | 1 fila por SKU; reserva stock por `item_id` en el carrito |
+| Producción | Orden por SKU; `cant_planificada` / `cant_real` en botellas |
+| Inventario (ajuste) | Almacenes + PV; filtro por tipo; PT una vez; conteo botellas o packs |
+| Reempaque | Solo ítem→ítem distinto (no “flip” pack×6↔pack×8) |
+
+Utilidades: `skusDesdeProductosPv`, `skusDesdeCatalogoPt`, `presentacionParaFactor`, `factoresPackSku`.
 
 ---
 
@@ -72,23 +91,23 @@ El stock físico se guarda por **`item_id` + `lote_id` + `ubicacion_id`**.
 | Tema | Comportamiento |
 |------|----------------|
 | Persistencia | `localStorage` + `autoRefreshToken` |
-| Gate web | Perfil `app_user_role` / flags → `accesoWeb` |
+| Gate web | Perfil / flags → `accesoWeb` |
 | Refresh | En `TOKEN_REFRESHED`, fallos de red **no** fuerzan `signOut` |
-| Visibilidad | Al volver a la pestaña se llama `refreshSession` de forma suave |
+| Visibilidad | Al volver a la pestaña: `refreshSession` suave |
 | Cierre | Explícito en Configuración, o sesión inválida definitiva |
 
-Flags relevantes: `acceso_web`, `acceso_app`, `acceso_ventas`, rol admin.
+Flags: `acceso_web`, `acceso_app`, `acceso_ventas`, rol admin.
 
 ---
 
 ## 5. Maestros cliente / proveedor
 
-| Tabla | Uso web | Filtro | Notas |
-|-------|---------|--------|-------|
-| `ma_cliente` | Ingresos, Despacho | Activos en dropdowns | `cliente_id` nullable |
-| `ma_proveedor` | Compras, Egresos | Activos en dropdowns | Soft-delete `activo=false` |
+| Tabla | Uso web | Notas |
+|-------|---------|-------|
+| `ma_cliente` | Ingresos, Despacho | `cliente_id` nullable |
+| `ma_proveedor` | Compras, Egresos | Soft-delete `activo=false` |
 
-Módulo **Clientes y proveedores** (admin): CRUD con baja lógica; reactivación; ver inactivos.
+Módulo **Clientes y proveedores** (admin): CRUD con baja lógica.
 
 ---
 
@@ -99,16 +118,18 @@ Módulo **Clientes y proveedores** (admin): CRUD con baja lógica; reactivación
 | `fn_compra_registrar` | Entrada simple + lote |
 | `fn_compra_registrar_con_gasto` | Compra + egreso opcional |
 | `fn_compra_registrar_doc` | Compra documentada |
-| `fn_compra_anular_desde_gasto` | Anula compra desde egreso COMPRA (`AJUSTE_SAL` + borra gasto) |
-| `fn_gasto_registrar` / `fn_gasto_actualizar` / `fn_gasto_eliminar` | Egresos; eliminar COMPRA delega en anulación |
+| `fn_compra_anular_desde_gasto` | Anula compra desde egreso COMPRA |
+| `fn_gasto_registrar` / `actualizar` / `eliminar` | Egresos; eliminar COMPRA delega en anulación |
 | `fn_granel_registrar` | Producción a granel |
 | `fn_orden_completar` / `fn_anular_orden` | Órdenes de envasado |
-| `fn_ajuste_registrar` | Ajuste / merma |
-| `fn_venta_registrar` | Ingresos y Despacho |
+| `fn_ajuste_registrar` | Ajuste / merma por `item_id` |
+| `fn_venta_registrar` | Ingresos y Despacho (`ven_detalle` → movimiento VENTA) |
 | `fn_venta_actualizar` / `fn_venta_anular` | Modificaciones de ventas |
-| `fn_transferencia_registrar` / `fn_transferencia_recibir` | Traslado |
+| `fn_transferencia_registrar` / recepción | Traslado (stock al recibir) |
 | `fn_reempaque_registrar` | Conversión ítem→ítem |
-| `fn_resumen_stock_items` / historial / reportes | Consultas |
+| `fn_resumen_stock_items` / reportes | Consultas |
+
+Trigger de venta: `fn_ven_detalle_genera_movimiento` inserta `VENTA` con **`NEW.item_id` / `NEW.cantidad`** (botellas).
 
 ---
 
@@ -118,14 +139,14 @@ Módulo **Clientes y proveedores** (admin): CRUD con baja lógica; reactivación
 |--------|-----------|-----------|
 | Ingreso Insumos | Sí | Compra / compra+gasto / doc |
 | Granel / Producción / Reempaque | Sí | RPC correspondientes |
-| Inventario (ajuste) | Sí | `fn_ajuste_registrar` |
+| Inventario (ajuste) | Sí | `fn_ajuste_registrar` (PV y almacenes) |
 | Ingresos / Despacho | Sí | `fn_venta_registrar` |
 | Egresos | Sí | `fn_gasto_registrar` |
-| Modificaciones | Sí | venta actualizar/anular; gasto actualizar/eliminar (+ anular compra) |
+| Modificaciones | Sí | venta actualizar/anular; gasto + anular compra |
 | Transferencias | Sí | registrar + recibir |
 | Materiales / Maestros / Partners | Sí (admin) | PostgREST + RLS |
 | Recetas | Lectura / escritura admin | BOM |
-| Panel / Auditoría / Descargas / Reportes / Usuarios | Lectura | SELECT / RPC / export XLSX |
+| Panel / Auditoría / Descargas / Reportes / Usuarios | Lectura | SELECT / RPC / XLSX |
 | Configuración | Local + auth | Preferencias, signOut, refresh catálogo |
 
 ---
@@ -144,7 +165,7 @@ Fallback embebido: `src/config/supabaseConfig.ts` si faltan variables.
 
 ---
 
-## 9. Diferencias relevantes vs app móvil
+## 9. Diferencias vs app móvil
 
 | Tema | Web | App |
 |------|-----|-----|
@@ -160,11 +181,22 @@ Ambos escriben las mismas tablas vía el mismo contrato RPC.
 
 ## 10. Errores de negocio
 
-Códigos en `ErpErrorCode` / mensajes `ErpErrorMessages`: `STOCK_INSUFICIENTE`, `ESTADO_INVALIDO`, `NO_ENCONTRADO`, `DATOS_INVALIDOS`, etc. La UI muestra mensajes amigables vía `toUserMessage` / `friendlyDbError`.
+Códigos en `ErpErrorCode` / `ErpErrorMessages`: `STOCK_INSUFICIENTE`, `ESTADO_INVALIDO`, `NO_ENCONTRADO`, `DATOS_INVALIDOS`, etc. La UI muestra mensajes vía `toUserMessage` / `friendlyDbError`.
 
 ---
 
-## 11. Documentos relacionados
+## 11. Documentación de usuario
+
+| Documento | Generación PDF |
+|-----------|----------------|
+| Manual + resúmenes MD en `docs/` | `python docs/build_pdf.py` |
+| PDFs | `docs/pdf/*.pdf` |
+
+El generador convierte diagramas **mermaid** en cajas de flujo y resalta bloques ASCII.
+
+---
+
+## 12. Documentos relacionados
 
 | Documento | Uso |
 |-----------|-----|
@@ -176,4 +208,4 @@ Soporte técnico: **VIZIA S.A.C.** · Bodega Santa María.
 
 ---
 
-*VIZIA S.A.C. · Bodega Santa María · Resumen técnico Web v1.0.0 · 2026*
+*VIZIA S.A.C. · Bodega Santa María · Resumen técnico Web v1.0.0 · Julio 2026*
