@@ -125,7 +125,7 @@ Constantes en `src/utils/uiFeedback.ts`. Patrón en módulos de escritura:
 
 ---
 
-## 5. Auth y sesión
+## 6. Auth y sesión
 
 | Tema | Comportamiento |
 |------|----------------|
@@ -138,7 +138,7 @@ Flags: `acceso_web`, `acceso_app`, `acceso_ventas`, admin.
 
 ---
 
-## 6. RPC principales
+## 7. RPC principales
 
 | RPC | Uso |
 |-----|-----|
@@ -157,7 +157,7 @@ Trigger venta: movimiento `VENTA` por `item_id` / cantidad (botellas).
 
 ---
 
-## 7. Módulos ↔ escritura
+## 8. Módulos ↔ escritura
 
 | Módulo | Escritura |
 |--------|-----------|
@@ -171,7 +171,7 @@ Trigger venta: movimiento `VENTA` por `item_id` / cantidad (botellas).
 
 ---
 
-## 8. Despliegue
+## 9. Despliegue
 
 | Campo | Valor |
 |-------|--------|
@@ -182,7 +182,7 @@ Trigger venta: movimiento `VENTA` por `item_id` / cantidad (botellas).
 
 ---
 
-## 9. Documentación
+## 10. Documentación
 
 | Artefacto | Generación |
 |-----------|------------|
@@ -193,7 +193,7 @@ Mermaid → cajas de flujo en PDF.
 
 ---
 
-## 10. Relacionados
+## 11. Relacionados
 
 Manual de uso · Resumen general · Documentación BD (repo app).
 
