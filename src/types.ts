@@ -50,6 +50,8 @@ export interface MaItem {
   categoria?: string | null;
   granel_base_id?: string | null;
   pct_merma?: number | null;
+  /** Capacidad del envase en ml (PT multi-envase). */
+  envase_ml?: number | null;
 }
 
 export interface MaPresentacion {
@@ -69,6 +71,17 @@ export interface MaEmpaqueTipo {
   nombre: string;
   factor: number;
   activo?: boolean;
+  codigo_prefijo?: string | null;
+  item_material_id?: string | null;
+}
+
+/** BOM de materiales EMPAQUE por tipo de empaque comercial (p.ej. caja ×12). */
+export interface MaEmpaqueMaterial {
+  id: string;
+  empaque_id: string;
+  item_id: string;
+  cantidad: number;
+  ma_item?: Pick<MaItem, 'id' | 'codigo' | 'nombre' | 'unidad_medida' | 'tipo'>;
 }
 
 export interface MaProveedor {

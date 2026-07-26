@@ -163,11 +163,12 @@ const TransfersPage: React.FC = () => {
     }
     const destino = ubiOps.find((u) => u.id === destinoId);
     if (tipo === 'pt') {
-      if (!skuSel || !presComercial) { setError('Seleccione un SKU.'); return; }
-      if (modoCantidad === 'pack' && !puedePack) {
-        setError('Este SKU no tiene presentación pack configurada.');
+      if (!skuSel) { setError('Seleccione un SKU.'); return; }
+      if (modoCantidad === 'pack' && (!puedePack || !presComercial)) {
+        setError('Seleccione un pack con presentación comercial configurada (matriz SKU × empaque).');
         return;
       }
+      if (!presComercial) { setError('Seleccione un SKU.'); return; }
       if (!tiposPermitidosParaUbicacion(origenSel).includes('PT')) {
         setError('El origen no admite producto terminado. Use ALM_PT o un PV.');
         return;

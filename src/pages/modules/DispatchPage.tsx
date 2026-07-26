@@ -173,12 +173,16 @@ const DispatchPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    if (!skuSel || !presComercial || botellas <= 0) {
+    if (!skuSel || botellas <= 0) {
       setError('Seleccione producto y cantidad válida.');
       return;
     }
-    if (modoCantidad === 'pack' && !puedePack) {
-      setError('Este producto no tiene presentación pack configurada.');
+    if (modoCantidad === 'pack' && (!puedePack || !presComercial)) {
+      setError('Seleccione un pack con presentación comercial configurada (matriz SKU × empaque).');
+      return;
+    }
+    if (!presComercial) {
+      setError('Seleccione producto y cantidad válida.');
       return;
     }
     if (Number.isNaN(precio) || precio <= 0) {

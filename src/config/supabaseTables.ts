@@ -7,6 +7,7 @@ export const Tables = {
   maItem: 'ma_item',
   maPresentacion: 'ma_presentacion',
   maEmpaqueTipo: 'ma_empaque_tipo',
+  maEmpaqueMaterial: 'ma_empaque_material',
   maCliente: 'ma_cliente',
   maProveedor: 'ma_proveedor',
   invStockSaldo: 'inv_stock_saldo',

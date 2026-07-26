@@ -1,5 +1,5 @@
 /**
- * Escrituras RPC: compras, ajustes, granel, reempaque, ventas, gastos, órdenes.
+ * Escrituras RPC: compras, ajustes, granel, ventas, gastos, órdenes.
  */
 import { supabase } from '../supabaseClient';
 import { Tables } from '../../config/supabaseTables';
@@ -105,6 +105,13 @@ export async function registrarCompraDoc(opts: {
   referencia?: string;
   observaciones?: string;
   txnId?: string;
+  registrarGasto?: boolean;
+  gastoCategoriaId?: string;
+  gastoCentroCosto?: string;
+  gastoDescripcion?: string;
+  gastoProveedorNombre?: string;
+  gastoTipoComprobante?: string;
+  gastoNroComprobante?: string;
 }) {
   const uid = await getUserId();
   return callRpc<{ compra_id?: string }>(ErpRpc.compraRegistrarDoc, {
@@ -115,6 +122,13 @@ export async function registrarCompraDoc(opts: {
     p_observaciones: opts.observaciones ?? null,
     p_usuario_id: uid ?? null,
     p_lineas: opts.lineas,
+    p_registrar_gasto: opts.registrarGasto ?? false,
+    p_gasto_categoria_id: opts.gastoCategoriaId ?? null,
+    p_gasto_centro_costo: opts.gastoCentroCosto ?? 'BODEGA',
+    p_gasto_descripcion: opts.gastoDescripcion ?? null,
+    p_gasto_proveedor_nombre: opts.gastoProveedorNombre ?? null,
+    p_gasto_tipo_comprobante: opts.gastoTipoComprobante ?? null,
+    p_gasto_nro_comprobante: opts.gastoNroComprobante ?? null,
   }, 'No se pudo registrar la compra documentada.');
 }
 
@@ -187,28 +201,6 @@ export async function registrarGranel(opts: {
     p_observacion: opts.observacion ?? null,
     p_usuario_id: uid ?? null,
   }, 'No se pudo registrar producción de granel.');
-}
-
-export async function registrarReempaque(opts: {
-  ubicacionId: string;
-  itemOrigenId: string;
-  itemDestinoId: string;
-  cantidadOrigen: number;
-  cantidadDestino: number;
-  observacion?: string;
-  txnId?: string;
-}) {
-  const uid = await getUserId();
-  await callRpc(ErpRpc.reempaqueRegistrar, {
-    p_txn_id: opts.txnId ?? newTxnId(),
-    p_ubicacion_id: opts.ubicacionId,
-    p_item_origen_id: opts.itemOrigenId,
-    p_item_destino_id: opts.itemDestinoId,
-    p_cantidad_origen: opts.cantidadOrigen,
-    p_cantidad_destino: opts.cantidadDestino,
-    p_observacion: opts.observacion ?? null,
-    p_usuario_id: uid ?? null,
-  }, 'No se pudo registrar el reempaque.');
 }
 
 export async function validarStockDisponible(opts: {

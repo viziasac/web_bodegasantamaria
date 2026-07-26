@@ -60,6 +60,7 @@ const MaterialsPage: React.FC = () => {
   const [stockMin, setStockMin] = useState('0');
   const [activo, setActivo] = useState(true);
   const [granelBaseId, setGranelBaseId] = useState('');
+  const [envaseMl, setEnvaseMl] = useState('750');
 
   const [skuCodigo, setSkuCodigo] = useState('');
   const [skuNombre, setSkuNombre] = useState('');
@@ -132,6 +133,7 @@ const MaterialsPage: React.FC = () => {
     setStockMin('0');
     setActivo(true);
     setGranelBaseId('');
+    setEnvaseMl('750');
     setEditItem(null);
   };
 
@@ -208,6 +210,7 @@ const MaterialsPage: React.FC = () => {
           categoria: categoria || undefined,
           stock_minimo: Number.isFinite(min) ? min : 0,
           granel_base_id: tipo === 'PT' && granelBaseId ? granelBaseId : undefined,
+          envase_ml: tipo === 'PT' ? (parseInt(envaseMl, 10) || 750) : undefined,
         });
         setSuccess(MSG_GUARDADO);
       }
@@ -435,15 +438,33 @@ const MaterialsPage: React.FC = () => {
               />
             )}
             {(tipo === 'PT' || editItem?.tipo === 'PT') && (
-              <FormSelect
-                label="Granel base (opcional)"
-                value={granelBaseId}
-                onChange={setGranelBaseId}
-                options={[
-                  { value: '', label: 'Sin vincular' },
-                  ...graneles.map((g) => ({ value: g.id, label: `${g.codigo} — ${g.nombre}` })),
-                ]}
-              />
+              <>
+                <FormSelect
+                  label="Granel base (opcional)"
+                  value={granelBaseId}
+                  onChange={setGranelBaseId}
+                  options={[
+                    { value: '', label: 'Sin vincular' },
+                    ...graneles.map((g) => ({ value: g.id, label: `${g.codigo} — ${g.nombre}` })),
+                  ]}
+                />
+                {!editItem && (
+                  <FormInput
+                    label="Envase (ml)"
+                    type="number"
+                    value={envaseMl}
+                    onChange={setEnvaseMl}
+                    min={1}
+                    step="1"
+                  />
+                )}
+                {!editItem && (
+                  <p className="kpi-sub">
+                    El alta de PT usa el catálogo (matriz botella + packs). Vincular granel permite
+                    recetas y consumo en producción.
+                  </p>
+                )}
+              </>
             )}
           </FormSection>
           <div className="form-actions">

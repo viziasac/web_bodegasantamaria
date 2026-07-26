@@ -337,6 +337,13 @@ export const bodegaService = {
     referencia?: string;
     observaciones?: string;
     clientTxnId?: string;
+    registrarGasto?: boolean;
+    gastoCategoriaId?: string;
+    gastoCentroCosto?: string;
+    gastoDescripcion?: string;
+    gastoProveedorNombre?: string;
+    gastoTipoComprobante?: string;
+    gastoNroComprobante?: string;
   }) {
     return api.registrarCompraDoc({
       ...opts,

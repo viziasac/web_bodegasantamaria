@@ -140,18 +140,21 @@ export function factoresPackSku(sku: SkuVenta): number[] {
   return sku.packs.map((p) => p.factor);
 }
 
-/** Presentación comercial según modo + factor de pack seleccionado. */
-export function presentacionParaFactor(sku: SkuVenta, modo: ModoCantidadEmpaque, factorPack: number): ProductoPv {
+/** Presentación comercial según modo + factor. Pack sin fila comercial → null (sin inventar botella). */
+export function presentacionParaFactor(
+  sku: SkuVenta,
+  modo: ModoCantidadEmpaque,
+  factorPack: number,
+): ProductoPv | null {
   if (modo === 'pack' && factorPack > 1) {
     const pack = sku.packs.find((p) => p.factor === factorPack);
-    if (pack) return pack.presentacion;
-    if (sku.presentacionPack) return sku.presentacionPack;
+    return pack?.presentacion ?? null;
   }
   return sku.presentacionBotella;
 }
 
 /** @deprecated Prefer presentacionParaFactor con factor explícito. */
-export function presentacionParaModo(sku: SkuVenta, modo: ModoCantidadEmpaque): ProductoPv {
+export function presentacionParaModo(sku: SkuVenta, modo: ModoCantidadEmpaque): ProductoPv | null {
   return presentacionParaFactor(sku, modo, sku.factorPack);
 }
 

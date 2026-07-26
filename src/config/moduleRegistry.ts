@@ -41,7 +41,6 @@ export const ALL_MODULES: ModuleDefExt[] = [
   { id: 'recetas', title: 'Recetas', icon: 'menu_book', subtitle: 'Fórmulas por botella', path: '/recipes', section: 'produccion' },
   { id: 'produccion_granel', title: 'Granel', icon: 'wine_bar', subtitle: 'Entrada a ALM_GR', path: '/production/bulk', section: 'produccion' },
   { id: 'produccion_envasado', title: 'Producción', icon: 'precision_manufacturing', subtitle: 'Envasado botellas/packs', path: '/production', section: 'produccion' },
-  { id: 'reempaque', title: 'Reempaque', icon: 'transform', subtitle: 'Cambio de formato', path: '/repack', section: 'produccion' },
   // Comercial
   { id: 'ingresos', title: 'Ingresos', icon: 'attach_money', subtitle: 'Ventas POS multi-línea', path: '/sales/income', section: 'comercial' },
   { id: 'despacho', title: 'Despacho', icon: 'local_shipping', subtitle: 'Venta rápida una línea', path: '/sales/dispatch', section: 'comercial' },

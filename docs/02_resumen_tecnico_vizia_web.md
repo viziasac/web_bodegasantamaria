@@ -98,7 +98,7 @@ Integrada en:
 - `fn_ajuste_registrar`
 - `fn_compra_registrar`
 - `fn_compra_registrar_doc`
-- `fn_reempaque_registrar` (origen y destino)
+- `fn_orden_completar` (consumo receta + BOM `ma_empaque_material`)
 
 (`fn_compra_registrar_con_gasto` delega en `fn_compra_registrar`.)
 
@@ -150,7 +150,7 @@ Flags: `acceso_web`, `acceso_app`, `acceso_ventas`, admin.
 | `fn_ajuste_registrar` | Ajuste (+ assert) |
 | `fn_venta_registrar` / actualizar / anular | Ventas |
 | `fn_transferencia_registrar` + recepción | Traslados |
-| `fn_reempaque_registrar` | Reempaque |
+| `fn_sku_pt_crear` / bootstrap | Alta PT + matriz presentaciones |
 | `fn_assert_item_ubicacion` | Validación tipo↔almacén |
 
 Trigger venta: movimiento `VENTA` por `item_id` / cantidad (botellas).
@@ -161,12 +161,12 @@ Trigger venta: movimiento `VENTA` por `item_id` / cantidad (botellas).
 
 | Módulo | Escritura |
 |--------|-----------|
-| Ingreso / Granel / Producción / Reempaque | RPC |
+| Ingreso / Granel / Producción | RPC |
 | Inventario ajuste | `fn_ajuste_registrar` |
 | Ingresos / Despacho | `fn_venta_registrar` |
 | Egresos / Modificaciones | gasto + venta anular/actualizar |
 | Transferencias | registrar + recibir |
-| Materiales / Maestros / Partners | PostgREST + RLS (admin) |
+| Materiales / Maestros / Partners | PostgREST + RLS (admin); PT vía `fn_sku_pt_crear` |
 | Panel / Auditoría / Descargas / Reportes | Lectura |
 
 ---

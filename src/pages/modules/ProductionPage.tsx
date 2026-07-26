@@ -133,7 +133,11 @@ const ProductionPage: React.FC = () => {
   const crearOrden = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!skuSel || !presComercial || botellasPlan <= 0) {
-      setError('Indique SKU y cantidad válida.');
+      setError(
+        modoCantidad === 'pack' && !presComercial
+          ? 'Seleccione un pack con presentación comercial configurada (matriz SKU × empaque).'
+          : 'Indique SKU y cantidad válida.',
+      );
       return;
     }
     if (modoCantidad === 'pack' && !puedePack) {
@@ -202,6 +206,14 @@ const ProductionPage: React.FC = () => {
     const real = parseInt(cantReal, 10);
     if (!real || real <= 0) {
       setError('Indique cantidad real en botellas.');
+      return;
+    }
+    const factorEmpaque = selectedOrden.ma_presentacion?.cant_unidades ?? 1;
+    if (factorEmpaque > 1 && real % factorEmpaque !== 0) {
+      setError(
+        `La cantidad real debe ser múltiplo de ${factorEmpaque} botellas `
+        + `(empaque de la orden). Ej.: ${factorEmpaque}, ${factorEmpaque * 2}, ${factorEmpaque * 3}…`,
+      );
       return;
     }
     if (real > selectedOrden.cant_planificada) {

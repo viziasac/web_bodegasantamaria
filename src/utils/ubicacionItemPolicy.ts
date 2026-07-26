@@ -87,15 +87,6 @@ export function ubicacionesParaProduccionPt(ubicaciones: CatUbicacion[]): CatUbi
   return ubicaciones.filter((u) => u.activo !== false && (u.codigo || '').toUpperCase() === 'ALM_PT');
 }
 
-/** Ubicaciones para reempaque: almacenes físicos (no PV, no tránsito). */
-export function ubicacionesParaReempaque(ubicaciones: CatUbicacion[]): CatUbicacion[] {
-  return ubicaciones.filter((u) => {
-    if (u.activo === false || isTransito(u) || isPuntoVenta(u)) return false;
-    const code = (u.codigo || '').toUpperCase();
-    return code === 'ALM_MP' || code === 'ALM_GR' || code === 'ALM_PT';
-  });
-}
-
 export function etiquetaFamiliaUbicacion(
   u: Pick<CatUbicacion, 'codigo' | 'es_punto_venta' | 'nombre'> | null | undefined,
 ): string {

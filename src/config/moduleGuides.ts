@@ -122,21 +122,15 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
       'Revise el preview de insumos (GRANEL→ALM_GR / resto→ALM_MP).',
       'Complete con cantidad real en botellas; el stock PT se registra por botella.',
     ],
-    tips: ['No se puede completar si faltan insumos. Anule solo órdenes en borrador sin movimientos.'],
+    tips: [
+      'No se puede completar si faltan insumos o materiales de caja (BOM empaque).',
+      'Si la orden es pack (p.ej. ×12), la cantidad real debe ser múltiplo del factor.',
+      'Anule solo órdenes en borrador sin movimientos.',
+    ],
     related: [
       { label: 'Recetas', path: '/recipes' },
       { label: 'Granel', path: '/production/bulk' },
     ],
-  },
-  reempaque: {
-    id: 'reempaque',
-    title: 'Reempaque',
-    summary: 'Cambia formato/etiqueta de un ítem a otro sin pasar por orden de producción completa.',
-    steps: [
-      'Indique ubicación, ítem origen, ítem destino y cantidades.',
-      'Confirme el movimiento de stock.',
-    ],
-    related: [{ label: 'Inventario', path: '/inventory' }],
   },
   ingresos: {
     id: 'ingresos',
@@ -234,10 +228,14 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     summary: 'Catálogo maestro de ítems y presentaciones comerciales (solo admin).',
     steps: [
       'Cree o edite materiales (nombre, UM, categoría, stock mínimo, activo).',
-      'Cree SKUs (presentaciones) ligados a un PT y un empaque.',
+      'Alta de PT: indique envase (ml) y granel opcional; se crea la matriz botella+packs.',
+      'Cree SKUs (presentaciones) ligados a un PT y un empaque si hace falta ajustar.',
       'No hay eliminación física: desactive si ya no se usa.',
     ],
-    tips: ['Crear ítem/SKU no genera stock; eso entra por compra, granel o producción.'],
+    tips: [
+      'Crear ítem/SKU no genera stock; eso entra por compra, granel o producción.',
+      'El módulo Reempaque fue retirado: el encajado se consume en Producción (BOM empaque).',
+    ],
     related: [
       { label: 'Maestros', path: '/maestros' },
       { label: 'Recetas', path: '/recipes' },

@@ -169,25 +169,22 @@ Alta de litros en **ALM_GR**. Requiere ítems tipo GRANEL y ubicación ALM_GR co
 2. Planifique en botellas o packs (la orden guarda botellas).
 3. Destino obligatorio: **ALM_PT**.
 4. Valide insumos → cree BORRADOR → complete con cantidad real en botellas.
+5. Al completar: se consume la receta (granel en ALM_GR, resto en ALM_MP) y el **BOM de empaque**
+   (`ma_empaque_material`, p. ej. cajas) según el empaque de la presentación.
+6. Si la orden es pack (factor > 1), la cantidad real debe ser múltiplo del factor.
 
 ```mermaid
 flowchart TD
   A[SKU + cantidad en botellas] --> B[Destino ALM_PT]
-  B --> C[Consumo BOM]
+  B --> C[Consumo BOM + empaque]
   C --> D[Entrada PT en botellas]
 ```
 
----
-
-## 11. Reempaque
-
-Convierte un ítem en otro en **ALM_MP, ALM_GR o ALM_PT** (no PV ni TRANSIT).
-
-No use reempaque solo para “cambiar pack×6 por pack×8”: el stock PT ya está en botellas.
+El módulo **Reempaque** ya no se usa en la web ni en la app: el encajado forma parte de la producción.
 
 ---
 
-## 12. Ingresos (POS)
+## 11. Ingresos (POS)
 
 Requiere **acceso ventas**.
 
@@ -204,19 +201,19 @@ Errores: **Modificaciones → Ingresos**.
 
 ---
 
-## 13. Despacho
+## 12. Despacho
 
 Una línea (mostrador/delivery). Misma lógica de SKU/botellas que Ingresos. Lote opcional.
 
 ---
 
-## 14. Egresos
+## 13. Egresos
 
 Gastos que **no** nacen de una compra de insumos. Orígenes Manual o Compra. Corrija en Modificaciones.
 
 ---
 
-## 15. Modificaciones
+## 14. Modificaciones
 
 ### Ingresos (ventas)
 
@@ -229,61 +226,61 @@ Edite precios/cliente/canal; **anular** restituye stock. No cambia cantidades ni
 
 ---
 
-## 16. Clientes y proveedores (admin)
+## 15. Clientes y proveedores (admin)
 
 Alta / edición / baja lógica. Solo activos en desplegables de operación.
 
 ---
 
-## 17. Auditoría
+## 16. Auditoría
 
 Historial de movimientos y trazabilidad por lote.
 
 ---
 
-## 18. Descargas
+## 17. Descargas
 
 Excel por mes y módulo.
 
 ---
 
-## 19. Materiales / SKUs (admin)
+## 18. Materiales / SKUs (admin)
 
-Ítems y presentaciones (botella `cant_unidades=1`, pack ×6 / ×12…). Crear presentación **no** genera stock.
+Ítems y presentaciones (botella `cant_unidades=1`, pack ×6 / ×12…). Alta de PT vía catálogo (`envase_ml` + matriz empaque). Crear presentación **no** genera stock.
 
 ---
 
-## 20. Maestros (admin)
+## 19. Maestros (admin)
 
 Canales, empaques, categorías de gasto. Tras cambios: **Configuración → recargar catálogos**.
 
 ---
 
-## 21. Usuarios (admin)
+## 20. Usuarios (admin)
 
 Solo lectura de cuentas y flags.
 
 ---
 
-## 22. Reportes (admin)
+## 21. Reportes (admin)
 
 Resumen de ventas, gastos, producción y compras por rango.
 
 ---
 
-## 23. Configuración
+## 22. Configuración
 
 Cuenta, preferencias, recargar catálogos, cerrar sesión.
 
 ---
 
-## 24. Mensajes de confirmación y errores
+## 23. Mensajes de confirmación y errores
 
 Tras **guardar o registrar** con éxito, la pantalla muestra una alerta verde con un mensaje fijo:
 
 | Acción | Mensaje |
 |--------|---------|
-| Compra, ingreso, despacho, ajuste, producción, granel, reempaque, transferencia, egreso | **Registrado correctamente** |
+| Compra, ingreso, despacho, ajuste, producción, granel, transferencia, egreso | **Registrado correctamente** |
 | Recepción de transferencia | **Recibido correctamente** |
 | Guardar catálogo (materiales, maestros, recetas, partners) | **Guardado correctamente** / **Actualizado correctamente** |
 | Anular venta o compra | **Anulado correctamente** |
@@ -308,7 +305,7 @@ Los mensajes aparecen en una **ventana emergente** centrada (no arriba de la pá
 
 ---
 
-## 25. Flujo típico del día
+## 24. Flujo típico del día
 
 ```mermaid
 flowchart TD
@@ -322,7 +319,7 @@ flowchart TD
 
 ---
 
-## 26. Buenas prácticas
+## 25. Buenas prácticas
 
 - No duplique operaciones entre web y app.
 - Prefiera Modificaciones antes de “compensar” con otra captura.
@@ -332,7 +329,7 @@ flowchart TD
 
 ---
 
-## 27. Soporte
+## 26. Soporte
 
 Anote mensaje, módulo y hora. Contacte Bodega Santa María / **VIZIA S.A.C.**  
 Técnico: **Resumen técnico web**.

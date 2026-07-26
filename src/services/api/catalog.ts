@@ -3,8 +3,9 @@
  */
 import { supabase } from '../supabaseClient';
 import { Tables } from '../../config/supabaseTables';
+import { ErpRpc } from '../../config/erpContract';
 import { friendlyDbError } from '../../utils/erpErrors';
-import { getUserId, parseNum } from './core';
+import { callRpc, getUserId, parseNum } from './core';
 import type {
   CatUbicacion, MaItem, MaPresentacion, MaEmpaqueTipo, MaProveedor, MaCliente, GasCategoria,
 } from '../../types';
@@ -73,7 +74,7 @@ export async function getPresentaciones(itemId?: string, opts?: { includeInactiv
 export async function getEmpaqueTipos(): Promise<MaEmpaqueTipo[]> {
   const { data, error } = await supabase
     .from(Tables.maEmpaqueTipo)
-    .select('id, nombre, factor, activo')
+    .select('id, nombre, factor, activo, codigo_prefijo, item_material_id')
     .eq('activo', true)
     .order('factor');
   if (error) throw error;
@@ -82,6 +83,8 @@ export async function getEmpaqueTipos(): Promise<MaEmpaqueTipo[]> {
     nombre: String(e.nombre),
     factor: parseNum(e.factor) || 1,
     activo: e.activo !== false,
+    codigo_prefijo: e.codigo_prefijo != null ? String(e.codigo_prefijo) : null,
+    item_material_id: e.item_material_id != null ? String(e.item_material_id) : null,
   }));
 }
 
@@ -94,12 +97,42 @@ export async function createItem(opts: {
   stock_minimo?: number;
   granel_base_id?: string;
   pct_merma?: number;
+  envase_ml?: number;
 }): Promise<MaItem> {
   const codigo = opts.codigo.trim().toUpperCase();
   if (!codigo || codigo.length > 6) throw new Error('Código de ítem: máximo 6 caracteres.');
   if (!opts.nombre.trim()) throw new Error('Nombre obligatorio.');
   if (!opts.tipo) throw new Error('Tipo obligatorio.');
   if (!opts.unidad_medida.trim()) throw new Error('Unidad de medida obligatoria.');
+
+  // PT: crear vía RPC (matriz de presentaciones × empaques; granel opcional).
+  if (opts.tipo === 'PT') {
+    const envase = opts.envase_ml && opts.envase_ml > 0 ? Math.round(opts.envase_ml) : 750;
+    const data = await callRpc<{
+      pt_id?: string;
+      item_id?: string;
+      id?: string;
+    } | string>(ErpRpc.skuPtCrear, {
+      p_codigo: codigo,
+      p_nombre: opts.nombre.trim(),
+      p_granel_base_id: opts.granel_base_id?.trim() || null,
+      p_envase_ml: envase,
+      p_categoria: opts.categoria?.trim() || null,
+      p_unidad_medida: opts.unidad_medida.trim(),
+    }, 'No se pudo crear el SKU PT.');
+    const id = typeof data === 'string'
+      ? data
+      : String(
+        (data as { pt_id?: string }).pt_id
+        ?? (data as { item_id?: string }).item_id
+        ?? (data as { id?: string }).id
+        ?? '',
+      );
+    if (!id) throw new Error('RPC no devolvió el ítem PT.');
+    const { data: row, error } = await supabase.from(Tables.maItem).select('*').eq('id', id).single();
+    if (error) throw new Error(friendlyDbError(error));
+    return row as MaItem;
+  }
 
   const payload: Record<string, unknown> = {
     codigo,
@@ -111,7 +144,6 @@ export async function createItem(opts: {
     pct_merma: opts.pct_merma ?? 0,
   };
   if (opts.categoria?.trim()) payload.categoria = opts.categoria.trim();
-  if (opts.tipo === 'PT' && opts.granel_base_id) payload.granel_base_id = opts.granel_base_id;
 
   const { data, error } = await supabase
     .from(Tables.maItem)

@@ -14,7 +14,6 @@ export const MODULE_PAGES: Record<string, LazyPage> = {
   recetas: lazy(() => import('../pages/modules/RecipesPage')),
   produccion_granel: lazy(() => import('../pages/modules/BulkProductionPage')),
   produccion_envasado: lazy(() => import('../pages/modules/ProductionPage')),
-  reempaque: lazy(() => import('../pages/modules/RepackPage')),
   ingresos: lazy(() => import('../pages/modules/IncomePage')),
   despacho: lazy(() => import('../pages/modules/DispatchPage')),
   gastos: lazy(() => import('../pages/modules/ExpensesPage')),

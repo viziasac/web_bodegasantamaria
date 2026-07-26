@@ -288,12 +288,16 @@ const IncomePage: React.FC = () => {
   );
 
   const addLine = () => {
-    if (!skuSel || !presComercial || !cantidad || !precioInput) {
+    if (!skuSel || !cantidad || !precioInput) {
       setError('Complete producto, cantidad y precio.');
       return;
     }
-    if (modoCantidad === 'pack' && !puedePack) {
-      setError('Este producto no tiene presentación pack configurada.');
+    if (modoCantidad === 'pack' && (!puedePack || !presComercial)) {
+      setError('Seleccione un pack con presentación comercial configurada (matriz SKU × empaque).');
+      return;
+    }
+    if (!presComercial) {
+      setError('Complete producto, cantidad y precio.');
       return;
     }
     if (botellas <= 0 || !Number.isFinite(precioUnitarioBotella) || precioUnitarioBotella <= 0) {

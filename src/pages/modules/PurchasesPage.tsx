@@ -300,6 +300,16 @@ const PurchasesPage: React.FC = () => {
             throw new Error(mensajeErrorTipoUbicacion(it?.tipo ?? '?', ubiSel));
           }
         }
+        if (registrarEgreso) {
+          const totalDoc = docLineas.reduce((s, l) => s + (l.precio_unitario ?? 0) * l.cantidad, 0);
+          if (totalDoc <= 0) throw new Error('Para registrar egreso indique precios en las líneas.');
+          if (!gastoCategoriaId) throw new Error('Seleccione categoría de egreso.');
+          if (!gastoCentroCosto) throw new Error('Seleccione centro de costo.');
+        }
+        const descDoc = (() => {
+          const ref = referencia.trim();
+          return ref ? `Compra documento: ${ref}` : 'Compra documentada';
+        })();
         await bodegaService.registrarCompraDocumentada({
           ubicacionId,
           proveedorId: proveedorId || undefined,
@@ -309,6 +319,13 @@ const PurchasesPage: React.FC = () => {
             item_id, cantidad: c, precio_unitario, fecha_vencimiento,
           })),
           clientTxnId: txnId,
+          registrarGasto: registrarEgreso,
+          gastoCategoriaId: registrarEgreso ? gastoCategoriaId : undefined,
+          gastoCentroCosto: registrarEgreso ? gastoCentroCosto : undefined,
+          gastoDescripcion: registrarEgreso ? descDoc : undefined,
+          gastoProveedorNombre: registrarEgreso
+            ? proveedores.find((p) => p.id === proveedorId)?.nombre
+            : undefined,
         });
       }
       clearFormAfterSuccess();
@@ -414,7 +431,7 @@ const PurchasesPage: React.FC = () => {
           <FormInput label="Observaciones (opcional)" value={observaciones} onChange={setObservaciones} />
           {renderInsumoFields()}
 
-          {mode === 'simple' && (
+          {(mode === 'simple' || mode === 'doc') && (
             <FormSection title="Egreso asociado (opcional)">
               <label className="form-check">
                 <input
@@ -448,7 +465,11 @@ const PurchasesPage: React.FC = () => {
                     required
                     options={CENTROS_COSTO}
                   />
-                  <p className="qty-base-summary">Descripción: {descripcionEgresoAuto}</p>
+                  <p className="qty-base-summary">
+                    Descripción: {mode === 'doc'
+                      ? (referencia.trim() ? `Compra documento: ${referencia.trim()}` : 'Compra documentada')
+                      : descripcionEgresoAuto}
+                  </p>
                 </>
               )}
             </FormSection>
