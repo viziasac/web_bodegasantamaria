@@ -33,20 +33,23 @@ export async function getDashboardKPIs(fechaDesde?: string, fechaHasta?: string)
     getItemsBajoStockMinimo(),
     (async () => {
       const hoy = hoyYmd();
-      const { count } = await supabase.from(Tables.invMovimiento).select('id', { count: 'exact', head: true }).gte('fecha', hoy);
+      const { count, error } = await supabase.from(Tables.invMovimiento).select('id', { count: 'exact', head: true }).gte('fecha', hoy);
+      if (error) throw error;
       return count || 0;
     })(),
     (async () => {
-      const { data } = await supabase.from(Tables.gasGasto).select('monto').gte('fecha', desde).lte('fecha', hasta);
+      const { data, error } = await supabase.from(Tables.gasGasto).select('monto').gte('fecha', desde).lte('fecha', hasta);
+      if (error) throw error;
       return (data || []).reduce((s, r) => s + (r.monto || 0), 0);
     })(),
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from(Tables.invMovimiento)
         .select('cantidad')
         .eq('tipo_mov', 'PRODUCCION')
         .gte('fecha', desde)
         .lte('fecha', `${hasta}T23:59:59`);
+      if (error) throw error;
       return (data || []).reduce((s, r) => s + parseNum(r.cantidad), 0);
     })(),
     (async () => {

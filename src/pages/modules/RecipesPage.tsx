@@ -305,6 +305,7 @@ const RecipesPage: React.FC = () => {
     setSuccess(null);
     try {
       const qty = parseFloat(editCantidad);
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error('La cantidad debe ser mayor a 0.');
       await updateRecetaLinea({
         id: editLine.id,
         cantidad: qty,

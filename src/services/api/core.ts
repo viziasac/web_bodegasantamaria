@@ -58,4 +58,17 @@ export async function callRpc<T = unknown>(
   return (result.data ?? data) as T;
 }
 
+/** Extract a usable string ID from an RPC result that may be string or object. */
+export function rpcResultId(data: unknown): string {
+  if (typeof data === 'string') return data;
+  if (data && typeof data === 'object') {
+    for (const key of Object.keys(data as Record<string, unknown>)) {
+      if (key.endsWith('_id') || key === 'id') {
+        return String((data as Record<string, unknown>)[key]);
+      }
+    }
+  }
+  return String(data ?? '');
+}
+
 export { hoyYmd, inicioMesYmd } from '../../utils/fechaLocal';

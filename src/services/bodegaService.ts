@@ -270,7 +270,7 @@ export const bodegaService = {
       ubicacionId: opts.ubicacionId,
       presentacionId: opts.presentacionId,
       cantidadBotellas: opts.cantidad,
-      precioUnitarioBotella: opts.monto / opts.cantidad,
+      precioUnitarioBotella: opts.cantidad > 0 ? opts.monto / opts.cantidad : 0,
       canal: opts.canal,
       observaciones: opts.observaciones,
       loteId: opts.loteId,

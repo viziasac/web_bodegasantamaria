@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 import { Tables } from '../../config/supabaseTables';
 import { ErpRpc } from '../../config/erpContract';
 import { newTxnId } from '../../utils/txnId';
-import { callRpc, getUserId } from './core';
+import { callRpc, getUserId, rpcResultId } from './core';
 import { getLotesDisponibles } from './inventory';
 import type { TrnTransferencia, TransferLinea } from '../../types';
 
@@ -105,7 +105,7 @@ export async function crearTransferencia(opts: {
       cantidad: l.cantidad,
     })),
   }, 'No se pudo registrar la transferencia.');
-  return typeof data === 'string' ? data : String(data);
+  return rpcResultId(data);
 }
 
 export async function confirmarRecepcionTransferencia(transferenciaId: string) {

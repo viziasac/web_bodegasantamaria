@@ -169,11 +169,11 @@ const TransfersPage: React.FC = () => {
         return;
       }
       if (!presComercial) { setError('Seleccione un SKU.'); return; }
-      if (!tiposPermitidosParaUbicacion(origenSel).includes('PT')) {
+      if (!origenSel || !tiposPermitidosParaUbicacion(origenSel).includes('PT')) {
         setError('El origen no admite producto terminado. Use ALM_PT o un PV.');
         return;
       }
-      if (!tiposPermitidosParaUbicacion(destino).includes('PT')) {
+      if (!destino || !tiposPermitidosParaUbicacion(destino).includes('PT')) {
         setError('El destino no admite producto terminado. Use ALM_PT o un PV.');
         return;
       }
@@ -193,11 +193,11 @@ const TransfersPage: React.FC = () => {
     } else {
       if (!matSel) { setError('Seleccione material.'); return; }
       const tipoMat = normalizarTipoItem(matSel.tipo);
-      if (!tiposPermitidosParaUbicacion(origenSel).includes(tipoMat as 'GRANEL' | 'INSUMO' | 'EMPAQUE' | 'MATERIAL')) {
+      if (!origenSel || !tiposPermitidosParaUbicacion(origenSel).includes(tipoMat as 'GRANEL' | 'INSUMO' | 'EMPAQUE' | 'MATERIAL')) {
         setError(`El origen no admite ${tipoMat}.`);
         return;
       }
-      if (!tiposPermitidosParaUbicacion(destino).includes(tipoMat as 'GRANEL' | 'INSUMO' | 'EMPAQUE' | 'MATERIAL')) {
+      if (!destino || !tiposPermitidosParaUbicacion(destino).includes(tipoMat as 'GRANEL' | 'INSUMO' | 'EMPAQUE' | 'MATERIAL')) {
         setError(`El destino no admite ${tipoMat}.`);
         return;
       }

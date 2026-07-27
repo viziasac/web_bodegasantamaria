@@ -99,6 +99,7 @@ const MaestrosPage: React.FC = () => {
         }
       } else if (tab === 'empaques') {
         const factor = parseInt(campoB, 10);
+        if (!Number.isFinite(factor) || factor < 1) throw new Error('El factor debe ser al menos 1.');
         await upsertEmpaqueTipo({
           id: editId || undefined,
           nombre: campoA,

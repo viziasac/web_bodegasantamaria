@@ -108,7 +108,9 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
     if (!ubicacionId && ubicacionesAjuste.length > 0) {
       const almMp = ubicacionesAjuste.find((u) => u.codigo === 'ALM_MP');
       const almPt = ubicacionesAjuste.find((u) => u.codigo === 'ALM_PT');
-      setUbicacionId(almMp?.id ?? almPt?.id ?? ubicacionesAjuste[0].id);
+      const id = almMp?.id ?? almPt?.id ?? ubicacionesAjuste[0].id;
+      setUbicacionId(id);
+      void loadItems(id);
     }
   }, [ubicacionesAjuste, ubicacionId]);
 
@@ -144,11 +146,6 @@ const InventoryAdjustPage: React.FC<Props> = ({ embedded = false }) => {
       setLotes([]);
     }
   };
-
-  useEffect(() => {
-    if (ubicacionId) void loadItems(ubicacionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load on location only
-  }, [ubicacionId]);
 
   const onUbicacionChange = (v: string) => {
     setUbicacionId(v);

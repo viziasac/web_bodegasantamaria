@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getHistorialMovimientos, getTrazabilidadLote } from '../../services/apiProvider';
 import {
@@ -72,13 +72,13 @@ const AuditPage: React.FC = () => {
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const itemOptions = items
+  const itemOptions = useMemo(() => items
     .filter((i) => {
       if (!itemSearch.trim()) return true;
       const q = itemSearch.trim().toLowerCase();
       return i.codigo.toLowerCase().includes(q) || i.nombre.toLowerCase().includes(q);
     })
-    .slice(0, 200);
+    .slice(0, 200), [items, itemSearch]);
 
   useEffect(() => {
     if (itemId && !itemOptions.some((i) => i.id === itemId)) setItemId('');

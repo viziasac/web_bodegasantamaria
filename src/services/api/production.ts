@@ -73,7 +73,7 @@ export async function validarInsumosPreview(opts: {
   if (!almMpId) return [];
 
   const recetas = await getRecetas();
-  const componentes = recetas.filter((r) => r.item_producido_id === ptId);
+  const componentes = recetas.filter((r) => String(r.item_producido_id) === String(ptId));
   if (componentes.length === 0) return [];
 
   const [stockMp, stockGr] = await Promise.all([

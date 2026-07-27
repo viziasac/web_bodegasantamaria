@@ -60,6 +60,10 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     loadedRef.current = new Set();
+    setVentas([]);
+    setGastos([]);
+    setMovimientosPeriodo([]);
+    setOrdenes([]);
     const load = async () => {
       setLoadingCore(true);
       setEjecutivo(null);

@@ -6,7 +6,7 @@ import { Tables } from '../../config/supabaseTables';
 import { ErpRpc } from '../../config/erpContract';
 import { friendlyDbError } from '../../utils/erpErrors';
 import { newTxnId } from '../../utils/txnId';
-import { callRpc, getUserId } from './core';
+import { callRpc, getUserId, rpcResultId } from './core';
 import { resolveItemId, resolveLoteAllocationsFifo } from './inventory';
 import type { CompraLinea, VentaLinea } from '../../types';
 
@@ -57,7 +57,7 @@ export async function registrarCompra(opts: {
     p_fecha_vencimiento: opts.fechaVencimiento ?? null,
     p_usuario_id: uid ?? null,
   }, 'No se pudo registrar la compra.');
-  return typeof data === 'string' ? data : String(data);
+  return rpcResultId(data);
 }
 
 /** Compra + egreso opcional (`fn_compra_registrar_con_gasto`). */
@@ -99,7 +99,7 @@ export async function registrarCompraConGasto(opts: {
     p_gasto_nro_comprobante: opts.gastoNroComprobante ?? null,
     p_proveedor_id: opts.proveedorId ?? null,
   }, 'No se pudo registrar la compra con egreso.');
-  return typeof data === 'string' ? data : String(data);
+  return rpcResultId(data);
 }
 
 export async function registrarCompraDoc(opts: {
@@ -253,7 +253,7 @@ export async function registrarVentaAtomica(opts: {
     p_usuario_id: uid ?? null,
     p_lineas: opts.lineas,
   }, 'No se pudo registrar la venta.');
-  return typeof data === 'string' ? data : String(data);
+  return rpcResultId(data);
 }
 
 export async function registrarGasto(payload: Record<string, unknown>, txnId?: string) {
