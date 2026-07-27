@@ -385,7 +385,9 @@ const RecipesPage: React.FC = () => {
 
       <Alert type="info">
         Cada producto terminado tiene <strong>una sola receta</strong>. Las cantidades son
-        {' '}<strong>por 1 botella</strong> (no por pack). Al producir, el granel se toma de ALM_GR
+        {' '}<strong>por 1 botella</strong> (no por pack). Incluya granel, botella, tapa, etiqueta
+        u otros EMPAQUE/INSUMO de la botella; el cartón/pack comercial no va en la fórmula
+        (se arma aparte en inventario). Al producir, el granel se toma de ALM_GR
         y el resto de ALM_MP.
         {!isAdmin && ' Solo un administrador puede crear o editar recetas.'}
       </Alert>

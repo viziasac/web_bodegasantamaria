@@ -1,6 +1,7 @@
 /**
  * Órdenes de producción y validación de insumos.
- * Alineado app: receta + BOM ma_empaque_material; GRANEL→ALM_GR; resto→ALM_MP.
+ * Alineado app/Supabase (jul 2026): solo receta; GRANEL→ALM_GR; resto→ALM_MP.
+ * Empaque comercial = factor UI (packs↔botellas). Sin BOM cartón/separadores.
  */
 import { supabase } from '../supabaseClient';
 import { Tables } from '../../config/supabaseTables';
@@ -57,11 +58,10 @@ async function stockPorItemEnUbicacion(ubicacionId: string | undefined): Promise
   return stockPorItem;
 }
 
-/** Preview alineado con fn_validar_insumos_orden: GRANEL en ALM_GR; resto + BOM empaque en ALM_MP. */
+/** Preview alineado con fn_validar_insumos_orden: solo receta; GRANEL en ALM_GR; resto en ALM_MP. */
 export async function validarInsumosPreview(opts: {
   itemProducidoId: string;
   cantPlanificada: number;
-  empaqueId?: string | null;
 }): Promise<InsumoValidacionOrden[]> {
   const ptId = await resolveItemPtId(opts.itemProducidoId);
   const { data: ubiRows } = await supabase
@@ -74,15 +74,14 @@ export async function validarInsumosPreview(opts: {
 
   const recetas = await getRecetas();
   const componentes = recetas.filter((r) => r.item_producido_id === ptId);
-  const empId = opts.empaqueId?.trim() || '';
-  if (componentes.length === 0 && !empId) return [];
+  if (componentes.length === 0) return [];
 
   const [stockMp, stockGr] = await Promise.all([
     stockPorItemEnUbicacion(almMpId),
     stockPorItemEnUbicacion(almGrId),
   ]);
 
-  const out: InsumoValidacionOrden[] = componentes.map((r) => {
+  return componentes.map((r) => {
     const compId = r.componente_id ?? r.item_componente_id;
     const comp = r.componente ?? r.ma_item_componente;
     const tipo = (comp?.tipo ?? '').toUpperCase();
@@ -103,51 +102,6 @@ export async function validarInsumosPreview(opts: {
       suficiente: disp >= req,
     };
   });
-
-  // BOM de empaque (p.ej. Caja ×12 → cartón + separadores)
-  if (empId && opts.cantPlanificada > 0) {
-    const { data: empRow, error: empErr } = await supabase
-      .from(Tables.maEmpaqueTipo)
-      .select('id, factor')
-      .eq('id', empId)
-      .maybeSingle();
-    if (empErr) throw empErr;
-    const factor = Math.round(parseNum(empRow?.factor) || 1);
-    if (factor > 1) {
-      const { data: bom, error: bomErr } = await supabase
-        .from(Tables.maEmpaqueMaterial)
-        .select('cantidad, item_id, ma_item:item_id(id, codigo, nombre, unidad_medida, tipo)')
-        .eq('empaque_id', empId);
-      if (bomErr) throw bomErr;
-      const cajas = opts.cantPlanificada % factor !== 0
-        ? Math.ceil(opts.cantPlanificada / factor)
-        : opts.cantPlanificada / factor;
-      for (const row of bom ?? []) {
-        const mat = row.ma_item as { id?: string; codigo?: string; nombre?: string; unidad_medida?: string; tipo?: string } | null;
-        const matId = String(row.item_id ?? mat?.id ?? '');
-        if (!matId) continue;
-        const qtyUnit = parseNum(row.cantidad) || 1;
-        const req = qtyUnit * cajas;
-        const disp = stockMp[matId] ?? 0;
-        const faltante = Math.max(0, req - disp);
-        const tipo = (mat?.tipo ?? 'EMPAQUE').toUpperCase();
-        out.push({
-          item_id: matId,
-          codigo: mat?.codigo,
-          nombre: mat?.nombre ?? '—',
-          unidad_medida: mat?.unidad_medida,
-          tipo,
-          ubicacion_codigo: 'ALM_MP',
-          requerido: req,
-          disponible: disp,
-          faltante,
-          suficiente: disp >= req,
-        });
-      }
-    }
-  }
-
-  return out;
 }
 
 export async function checkStockProduccion(
@@ -165,16 +119,9 @@ export async function checkStockProduccion(
     faltante: number;
   }[];
 }> {
-  const { data: pres } = await supabase
-    .from(Tables.maPresentacion)
-    .select('item_id, empaque_id')
-    .eq('id', presentacionOrPtId)
-    .maybeSingle();
-
   const preview = await validarInsumosPreview({
     itemProducidoId: presentacionOrPtId,
     cantPlanificada: Math.round(cantidadBotellas),
-    empaqueId: pres?.empaque_id ? String(pres.empaque_id) : null,
   });
   const detalle = preview.map((v) => ({
     nombre: v.nombre,

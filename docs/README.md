@@ -1,6 +1,6 @@
 # Documentación — Bodega Santa María (Web ERP)
 
-**VIZIA S.A.C.** · Web ERP `1.0.0` · Julio 2026 (actualizado 25/07)  
+**VIZIA S.A.C.** · Web ERP `1.0.0` · Julio 2026 (actualizado 27/07)  
 **Repo:** `web_bodegasantamaria` · **Supabase:** `cztnnkxvwiwpeifqygta`  
 **Despliegue:** Cloudflare Pages (SPA)
 
@@ -51,14 +51,17 @@ Incluye portada VIZIA, tablas, diagramas mermaid como flujo visual, encabezado/p
 - **SKU = botellas** — packs ×6/×12 solo convierten cantidad
 - **Almacén ↔ tipo** — ALM_MP (material/insumo/empaque), ALM_GR (granel), ALM_PT/PV (PT)
 - Validación en **web** (`ubicacionItemPolicy`) y **Supabase** (`fn_assert_item_ubicacion`)
-- Ingreso insumos solo ALM_MP/ALM_GR; producción destino ALM_PT (+ BOM empaque)
+- Ingreso insumos solo ALM_MP/ALM_GR; producción destino ALM_PT (solo receta)
 - Ajuste de inventario: filtro almacén + tipo permitido
 - Transferencias sin TRANSIT manual; valida origen/destino
 - Ventas/despacho por SKU (lista catálogo aunque stock = 0); cliente opcional
 - Confirmación UX unificada (`uiFeedback.ts`): éxito limpia formulario; error conserva inputs
 - Catálogo: carga parcial + CatalogGate con reintento; alta PT vía `fn_sku_pt_crear` (`envase_ml`)
-- Compra documentada con egreso opcional (`fn_compra_registrar_doc`)
-- Reempaque retirado (encajado = BOM en producción)
+- SKUs: solo edición de nombre/activo; alta automática al crear PT (matriz × empaque)
+- Compra documentada con egreso opcional (`fn_compra_registrar_doc` + tipo/nro comprobante)
+- Reempaque y BOM empaque retirados (packs = factor UI; cartón se mueve aparte)
+- Producción: preview/consumo = solo `rec_receta` (granel ALM_GR, resto ALM_MP)
+- Filtros/pestañas: reset de formularios y filtros huérfanos (inventario, compras, auditoría, maestros, transferencias)
 - Modificaciones: ventas y egresos / anular compra (txn ∪ compra_id)
 - Panel, descargas, auditoría, catálogos admin
 - Sesión persistente en el navegador

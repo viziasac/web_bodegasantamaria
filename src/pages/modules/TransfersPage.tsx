@@ -289,8 +289,10 @@ const TransfersPage: React.FC = () => {
           active={tipo}
           onChange={(id) => {
             setTipo(id as TipoTransfer);
+            setCart([]);
             setCantidad('');
             setItemId('');
+            setCategoria('');
             setModoCantidad('botella');
             setFactorPackSel(1);
           }}
@@ -305,12 +307,16 @@ const TransfersPage: React.FC = () => {
             setCart([]);
             setItemId('');
             setCategoria('');
+            if (v && v === destinoId) setDestinoId('');
           }} required
             options={[
               { value: '', label: '— Origen —' },
               ...ubiOps.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),
             ]} />
-          <FormSelect label="Destino" value={destinoId} onChange={setDestinoId} required
+          <FormSelect label="Destino" value={destinoId} onChange={(v) => {
+            setDestinoId(v);
+            if (v && v === origenId) setError('Origen y destino deben ser diferentes.');
+          }} required
             options={[
               { value: '', label: '— Destino —' },
               ...ubiOps.map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nombre}` })),

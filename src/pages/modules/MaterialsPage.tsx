@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  createItem, createPresentacion, getEmpaqueTipos, getItems, getPresentaciones,
+  createItem, getItems, getPresentaciones,
   updateItem, updatePresentacion,
 } from '../../services/apiProvider';
 import {
@@ -10,7 +10,7 @@ import {
 } from '../../components/ui';
 import Modal from '../../components/Modal';
 import { useCatalog } from '../../context/CatalogContext';
-import type { MaEmpaqueTipo, MaItem, MaPresentacion } from '../../types';
+import type { MaItem, MaPresentacion } from '../../types';
 import { normalizarTipoItem } from '../../utils/ubicacionItemPolicy';
 import { MSG_ACTUALIZADO, MSG_GUARDADO } from '../../utils/uiFeedback';
 
@@ -39,7 +39,6 @@ const MaterialsPage: React.FC = () => {
   const [tab, setTab] = useState<'items' | 'skus'>('items');
   const [items, setItems] = useState<MaItem[]>([]);
   const [skus, setSkus] = useState<MaPresentacion[]>([]);
-  const [empaques, setEmpaques] = useState<MaEmpaqueTipo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -64,14 +63,10 @@ const MaterialsPage: React.FC = () => {
 
   const [skuCodigo, setSkuCodigo] = useState('');
   const [skuNombre, setSkuNombre] = useState('');
-  const [skuItemId, setSkuItemId] = useState('');
-  const [skuEmpaqueId, setSkuEmpaqueId] = useState('');
   const [skuActivo, setSkuActivo] = useState(true);
   const [modalError, setModalError] = useState<string | null>(null);
 
   const graneles = useMemo(() => items.filter((i) => normalizarTipoItem(i.tipo) === 'GRANEL' && i.activo !== false), [items]);
-  const pts = useMemo(() => items.filter((i) => normalizarTipoItem(i.tipo) === 'PT' && i.activo !== false), [items]);
-  const empSel = empaques.find((e) => e.id === skuEmpaqueId);
 
   const itemsFiltrados = useMemo(() => {
     let list = items;
@@ -97,18 +92,12 @@ const MaterialsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [its, pres, emps] = await Promise.all([
+      const [its, pres] = await Promise.all([
         getItems({ includeInactive: true }),
         getPresentaciones(undefined, { includeInactive: true }),
-        getEmpaqueTipos(),
       ]);
       setItems(its);
       setSkus(pres);
-      setEmpaques(emps);
-      if (!skuEmpaqueId && emps.length) {
-        const botella = emps.find((e) => e.factor === 1) ?? emps[0];
-        setSkuEmpaqueId(botella.id);
-      }
     } catch (err) {
       setError(toUserMessage(err, 'Error cargando catálogo'));
     } finally {
@@ -140,7 +129,6 @@ const MaterialsPage: React.FC = () => {
   const resetSkuForm = () => {
     setSkuCodigo('');
     setSkuNombre('');
-    setSkuItemId('');
     setSkuActivo(true);
     setEditSku(null);
   };
@@ -161,22 +149,15 @@ const MaterialsPage: React.FC = () => {
     setStockMin(String(item.stock_minimo ?? 0));
     setActivo(item.activo !== false);
     setGranelBaseId(item.granel_base_id ?? '');
+    setEnvaseMl(item.envase_ml != null ? String(item.envase_ml) : '');
     setModalError(null);
     setItemModal(true);
-  };
-
-  const openCreateSku = () => {
-    resetSkuForm();
-    setModalError(null);
-    setSkuModal(true);
   };
 
   const openEditSku = (sku: MaPresentacion) => {
     setEditSku(sku);
     setSkuCodigo(sku.codigo ?? '');
     setSkuNombre(sku.nombre);
-    setSkuItemId(sku.item_id);
-    setSkuEmpaqueId(sku.empaque_id ?? skuEmpaqueId);
     setSkuActivo(sku.activo !== false);
     setModalError(null);
     setSkuModal(true);
@@ -190,6 +171,7 @@ const MaterialsPage: React.FC = () => {
     setSuccess(null);
     try {
       const min = parseFloat(stockMin);
+      const envaseNum = envaseMl.trim() ? parseInt(envaseMl, 10) : NaN;
       if (editItem) {
         await updateItem({
           id: editItem.id,
@@ -199,6 +181,9 @@ const MaterialsPage: React.FC = () => {
           stock_minimo: Number.isFinite(min) ? min : 0,
           activo,
           granel_base_id: editItem.tipo === 'PT' ? (granelBaseId || null) : undefined,
+          envase_ml: editItem.tipo === 'PT'
+            ? (Number.isFinite(envaseNum) && envaseNum > 0 ? envaseNum : null)
+            : undefined,
         });
         setSuccess(MSG_ACTUALIZADO);
       } else {
@@ -210,7 +195,9 @@ const MaterialsPage: React.FC = () => {
           categoria: categoria || undefined,
           stock_minimo: Number.isFinite(min) ? min : 0,
           granel_base_id: tipo === 'PT' && granelBaseId ? granelBaseId : undefined,
-          envase_ml: tipo === 'PT' ? (parseInt(envaseMl, 10) || 750) : undefined,
+          envase_ml: tipo === 'PT'
+            ? (Number.isFinite(envaseNum) && envaseNum > 0 ? envaseNum : undefined)
+            : undefined,
         });
         setSuccess(MSG_GUARDADO);
       }
@@ -229,49 +216,28 @@ const MaterialsPage: React.FC = () => {
 
   const handleSaveSku = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editSku) return;
     setSaving(true);
     setError(null);
     setModalError(null);
     setSuccess(null);
     try {
-      if (editSku) {
-        await updatePresentacion({
-          id: editSku.id,
-          nombre: skuNombre,
-          activo: skuActivo,
-        });
-        setSuccess(MSG_ACTUALIZADO);
-      } else {
-        if (!empSel) throw new Error('Seleccione un empaque.');
-        if (!skuItemId) throw new Error('Seleccione el producto terminado.');
-        await createPresentacion({
-          codigo: skuCodigo,
-          nombre: skuNombre,
-          itemId: skuItemId,
-          empaqueId: skuEmpaqueId,
-          cantUnidades: empSel.factor,
-        });
-        setSuccess(MSG_GUARDADO);
-      }
+      await updatePresentacion({
+        id: editSku.id,
+        nombre: skuNombre,
+        activo: skuActivo,
+      });
+      setSuccess(MSG_ACTUALIZADO);
       setSkuModal(false);
       resetSkuForm();
       await load();
       await refreshCatalog();
     } catch (err) {
-      const msg = toUserMessage(err, editSku ? 'No se pudo actualizar el SKU' : 'No se pudo crear el SKU');
+      const msg = toUserMessage(err, 'No se pudo actualizar el SKU');
       setModalError(msg);
       setError(msg);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const onSkuPtChange = (id: string) => {
-    setSkuItemId(id);
-    const pt = pts.find((p) => p.id === id);
-    if (pt && !skuNombre) {
-      const factor = empSel?.factor ?? 1;
-      setSkuNombre(factor > 1 ? `${pt.nombre} · Pack x${factor}` : `${pt.nombre} · Botella`);
     }
   };
 
@@ -291,7 +257,14 @@ const MaterialsPage: React.FC = () => {
 
       <TabBar
         active={tab}
-        onChange={(id) => setTab(id as 'items' | 'skus')}
+        onChange={(id) => {
+          setTab(id as 'items' | 'skus');
+          setItemModal(false);
+          setSkuModal(false);
+          resetItemForm();
+          resetSkuForm();
+          setModalError(null);
+        }}
         tabs={[
           { id: 'items', label: 'Materiales / ítems', icon: 'category' },
           { id: 'skus', label: 'SKUs (presentaciones)', icon: 'qr_code_2' },
@@ -309,14 +282,16 @@ const MaterialsPage: React.FC = () => {
               options={[{ value: '', label: 'Todos' }, ...TIPOS_ITEM]}
             />
           )}
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => (tab === 'items' ? openCreateItem() : openCreateSku())}
-          >
-            <span className="material-icons-round">add</span>
-            {tab === 'items' ? 'Nuevo ítem' : 'Nuevo SKU'}
-          </button>
+          {tab === 'items' ? (
+            <button type="button" className="btn btn-primary" onClick={openCreateItem}>
+              <span className="material-icons-round">add</span>
+              Nuevo ítem
+            </button>
+          ) : (
+            <p className="kpi-sub" style={{ margin: 0, maxWidth: 280 }}>
+              Las presentaciones se generan al crear el PT (matriz × empaque). Aquí solo edita nombre/activo.
+            </p>
+          )}
           <button type="button" className="btn btn-ghost" onClick={load}>
             <span className="material-icons-round">refresh</span>
             Actualizar
@@ -339,6 +314,7 @@ const MaterialsPage: React.FC = () => {
                   <th>Tipo</th>
                   <th>UM</th>
                   <th>Categoría</th>
+                  <th>Envase ml</th>
                   <th>Stock mín.</th>
                   <th>Activo</th>
                   <th />
@@ -352,6 +328,7 @@ const MaterialsPage: React.FC = () => {
                     <td>{i.tipo}</td>
                     <td>{i.unidad_medida}</td>
                     <td>{i.categoria || '—'}</td>
+                    <td className="cell-num">{i.envase_ml ?? '—'}</td>
                     <td className="cell-num">{fmtNum(i.stock_minimo ?? 0, 2)}</td>
                     <td>{i.activo === false ? 'No' : 'Sí'}</td>
                     <td>
@@ -366,7 +343,11 @@ const MaterialsPage: React.FC = () => {
           </div>
         )
       ) : skusFiltrados.length === 0 ? (
-        <EmptyState icon="qr_code_2" title="Sin SKUs" hint="Cree presentaciones para un PT (botella / pack)" />
+        <EmptyState
+          icon="qr_code_2"
+          title="Sin SKUs"
+          hint="Cree un ítem tipo PT: la matriz genera botella y packs automáticamente"
+        />
       ) : (
         <div className="card">
           <DataTable>
@@ -464,6 +445,16 @@ const MaterialsPage: React.FC = () => {
                     recetas y consumo en producción.
                   </p>
                 )}
+                {editItem && (
+                  <FormInput
+                    label="Envase (ml)"
+                    type="number"
+                    value={envaseMl}
+                    onChange={setEnvaseMl}
+                    min={1}
+                    step="1"
+                  />
+                )}
               </>
             )}
           </FormSection>
@@ -478,71 +469,30 @@ const MaterialsPage: React.FC = () => {
       </Modal>
 
       <Modal
-        title={editSku ? `Editar SKU ${editSku.codigo ?? ''}` : 'Nuevo SKU (presentación)'}
-        isOpen={skuModal}
+        title={`Editar SKU ${editSku?.codigo ?? ''}`}
+        isOpen={skuModal && !!editSku}
         onClose={() => { if (!saving) { setSkuModal(false); resetSkuForm(); setModalError(null); } }}
       >
         {modalError && <Alert type="error" message={modalError} onClose={() => setModalError(null)} />}
         <form onSubmit={handleSaveSku}>
-          {editSku ? (
-            <>
-              <p className="kpi-sub">
-                Código <code className="code-tag">{skuCodigo}</code>
-                {' · '}
-                {editSku.ma_item ? `${editSku.ma_item.codigo} — ${editSku.ma_item.nombre}` : 'PT'}
-              </p>
-              <FormInput label="Nombre comercial" value={skuNombre} onChange={setSkuNombre} required />
-              <FormSelect
-                label="Activo"
-                value={skuActivo ? '1' : '0'}
-                onChange={(v) => setSkuActivo(v === '1')}
-                options={[
-                  { value: '1', label: 'Sí' },
-                  { value: '0', label: 'No' },
-                ]}
-              />
-              <div className="form-actions">
-                <SubmitButton loading={saving} label="Guardar cambios" icon="save" />
-              </div>
-            </>
-          ) : pts.length === 0 ? (
-            <EmptyState icon="precision_manufacturing" title="Primero cree un ítem tipo PT activo" />
-          ) : empaques.length === 0 ? (
-            <EmptyState icon="inventory_2" title="Configure empaques en Maestros" hint="Botella / Pack con factor de botellas" />
-          ) : (
-            <>
-              <FormSelect
-                label="Producto terminado"
-                value={skuItemId}
-                onChange={onSkuPtChange}
-                required
-                options={[
-                  { value: '', label: '— Seleccione PT —' },
-                  ...pts.map((p) => ({ value: p.id, label: `${p.codigo} — ${p.nombre}` })),
-                ]}
-              />
-              <FormSelect
-                label="Empaque"
-                value={skuEmpaqueId}
-                onChange={setSkuEmpaqueId}
-                required
-                options={empaques.map((e) => ({
-                  value: e.id,
-                  label: `${e.nombre} (×${e.factor})`,
-                }))}
-              />
-              {empSel && (
-                <p className="qty-base-summary">
-                  cant_unidades = {empSel.factor} (botellas por presentación)
-                </p>
-              )}
-              <FormInput label="Código SKU (máx. 5)" value={skuCodigo} onChange={setSkuCodigo} required maxLength={5} />
-              <FormInput label="Nombre comercial" value={skuNombre} onChange={setSkuNombre} required />
-              <div className="form-actions">
-                <SubmitButton loading={saving} label="Crear SKU" icon="qr_code_2" />
-              </div>
-            </>
-          )}
+          <p className="kpi-sub">
+            Código <code className="code-tag">{skuCodigo}</code>
+            {' · '}
+            {editSku?.ma_item ? `${editSku.ma_item.codigo} — ${editSku.ma_item.nombre}` : 'PT'}
+          </p>
+          <FormInput label="Nombre comercial" value={skuNombre} onChange={setSkuNombre} required />
+          <FormSelect
+            label="Activo"
+            value={skuActivo ? '1' : '0'}
+            onChange={(v) => setSkuActivo(v === '1')}
+            options={[
+              { value: '1', label: 'Sí' },
+              { value: '0', label: 'No' },
+            ]}
+          />
+          <div className="form-actions">
+            <SubmitButton loading={saving} label="Guardar cambios" icon="save" />
+          </div>
         </form>
       </Modal>
     </div>

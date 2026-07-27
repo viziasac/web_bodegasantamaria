@@ -72,16 +72,8 @@ export interface MaEmpaqueTipo {
   factor: number;
   activo?: boolean;
   codigo_prefijo?: string | null;
+  /** Opcional: ítem EMPAQUE asociado al tipo (no se descuenta en producción). */
   item_material_id?: string | null;
-}
-
-/** BOM de materiales EMPAQUE por tipo de empaque comercial (p.ej. caja ×12). */
-export interface MaEmpaqueMaterial {
-  id: string;
-  empaque_id: string;
-  item_id: string;
-  cantidad: number;
-  ma_item?: Pick<MaItem, 'id' | 'codigo' | 'nombre' | 'unidad_medida' | 'tipo'>;
 }
 
 export interface MaProveedor {

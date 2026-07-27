@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getHistorialMovimientos, getTrazabilidadLote } from '../../services/apiProvider';
 import {
@@ -34,7 +34,7 @@ const TIPOS_MOV = [
   { value: 'AJUSTE_SAL', label: 'Ajuste salida' },
   { value: 'PRODUCCION', label: 'Producción' },
   { value: 'TRANSFERENCIA', label: 'Transferencia' },
-  { value: 'REEMPAQUE', label: 'Reempaque' },
+  { value: 'REEMPAQUE', label: 'Reempaque (histórico)' },
   { value: 'GRANEL', label: 'Granel' },
 ];
 
@@ -80,6 +80,10 @@ const AuditPage: React.FC = () => {
     })
     .slice(0, 200);
 
+  useEffect(() => {
+    if (itemId && !itemOptions.some((i) => i.id === itemId)) setItemId('');
+  }, [itemId, itemOptions]);
+
   const switchTab = (t: AuditTab) => {
     setTab(t);
     setRows([]);
@@ -90,6 +94,10 @@ const AuditPage: React.FC = () => {
 
   const buscarHistorial = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+      setError('La fecha Desde no puede ser posterior a Hasta.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setSearched(true);

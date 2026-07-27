@@ -156,7 +156,14 @@ const MaestrosPage: React.FC = () => {
 
       <TabBar
         active={tab}
-        onChange={(id) => setTab(id as MaestroTab)}
+        onChange={(id) => {
+          setTab(id as MaestroTab);
+          setModalOpen(false);
+          setEditId('');
+          setCampoA('');
+          setCampoB('');
+          setActivo('1');
+        }}
         tabs={[
           { id: 'canales', label: 'Canales', icon: 'storefront' },
           { id: 'empaques', label: 'Empaques', icon: 'inventory_2' },

@@ -1,5 +1,5 @@
 -- Reset operativo go-live: limpia stock + ingresos + egresos + docs de movimiento.
--- CONSERVA: app_user_role / auth, rec_receta, rec_encajado, maestros (ma_*, cat_*, gas_categoria).
+-- CONSERVA: app_user_role / auth, rec_receta, maestros (ma_*, cat_*, gas_categoria).
 -- Proyecto: cztnnkxvwiwpeifqygta · Julio 2026
 
 BEGIN;
@@ -13,11 +13,9 @@ DELETE FROM public.gas_gasto;
 DELETE FROM public.cmp_compra_detalle;
 DELETE FROM public.cmp_compra;
 
--- 3) Transferencias y reempaque
+-- 3) Transferencias
 DELETE FROM public.trn_transferencia_detalle;
 DELETE FROM public.trn_transferencia;
-DELETE FROM public.inv_reempaque_detalle;
-DELETE FROM public.inv_reempaque;
 
 -- 4) Ledger de inventario
 DELETE FROM public.inv_movimiento;

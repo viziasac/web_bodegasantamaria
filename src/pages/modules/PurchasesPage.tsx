@@ -35,6 +35,13 @@ const CENTROS_COSTO = [
   { value: 'VENTAS', label: 'Ventas' },
 ];
 
+const TIPOS_COMPROBANTE_EGRESO = [
+  { value: '', label: '— Sin tipo —' },
+  { value: 'BOLETA', label: 'Boleta' },
+  { value: 'FACTURA', label: 'Factura' },
+  { value: 'TICKET', label: 'Ticket' },
+];
+
 const PurchasesPage: React.FC = () => {
   const { ubicaciones, items, proveedores, categoriasGasto, ensureCatalogLoaded } = useCatalog();
   const draft0 = loadComprasDocDraft();
@@ -57,6 +64,8 @@ const PurchasesPage: React.FC = () => {
   const [registrarEgreso, setRegistrarEgreso] = useState(false);
   const [gastoCategoriaId, setGastoCategoriaId] = useState('');
   const [gastoCentroCosto, setGastoCentroCosto] = useState('BODEGA');
+  const [gastoTipoComprobante, setGastoTipoComprobante] = useState('');
+  const [gastoNroComprobante, setGastoNroComprobante] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -136,12 +145,16 @@ const PurchasesPage: React.FC = () => {
   useEffect(() => {
     if (tipoFilter && tiposPermitidos.length && !tiposPermitidos.includes(tipoFilter as typeof tiposPermitidos[number])) {
       setTipoFilter('');
+      setCategoriaFilter('');
+    }
+    if (categoriaFilter && !categorias.includes(categoriaFilter)) {
+      setCategoriaFilter('');
     }
     if (itemId && (!selectedInsumo
       || !tiposPermitidos.includes(normalizarTipoItem(selectedInsumo.tipo) as typeof tiposPermitidos[number]))) {
       setItemId('');
     }
-  }, [tiposPermitidos, tipoFilter, itemId, selectedInsumo]);
+  }, [tiposPermitidos, tipoFilter, categoriaFilter, categorias, itemId, selectedInsumo]);
 
   const onUbicacionChange = (v: string) => {
     setUbicacionId(v);
@@ -238,6 +251,8 @@ const PurchasesPage: React.FC = () => {
     setRegistrarEgreso(false);
     setGastoCategoriaId('');
     setGastoCentroCosto('BODEGA');
+    setGastoTipoComprobante('');
+    setGastoNroComprobante('');
     setModoPrecio('unitario');
     setDocLineas([]);
     clearComprasDocDraft();
@@ -291,6 +306,10 @@ const PurchasesPage: React.FC = () => {
             ? proveedores.find((p) => p.id === proveedorId)?.nombre
             : undefined,
           gastoProveedorId: registrarEgreso ? proveedorId || undefined : undefined,
+          gastoTipoComprobante: registrarEgreso ? (gastoTipoComprobante || undefined) : undefined,
+          gastoNroComprobante: registrarEgreso
+            ? (gastoNroComprobante.trim() || referencia.trim() || undefined)
+            : undefined,
         });
       } else {
         if (docLineas.length === 0) throw new Error('Agregue al menos una línea al documento.');
@@ -325,6 +344,10 @@ const PurchasesPage: React.FC = () => {
           gastoDescripcion: registrarEgreso ? descDoc : undefined,
           gastoProveedorNombre: registrarEgreso
             ? proveedores.find((p) => p.id === proveedorId)?.nombre
+            : undefined,
+          gastoTipoComprobante: registrarEgreso ? (gastoTipoComprobante || undefined) : undefined,
+          gastoNroComprobante: registrarEgreso
+            ? (gastoNroComprobante.trim() || referencia.trim() || undefined)
             : undefined,
         });
       }
@@ -464,6 +487,18 @@ const PurchasesPage: React.FC = () => {
                     onChange={setGastoCentroCosto}
                     required
                     options={CENTROS_COSTO}
+                  />
+                  <FormSelect
+                    label="Tipo comprobante (opcional)"
+                    value={gastoTipoComprobante}
+                    onChange={setGastoTipoComprobante}
+                    options={TIPOS_COMPROBANTE_EGRESO}
+                  />
+                  <FormInput
+                    label="Nro comprobante egreso (opcional)"
+                    value={gastoNroComprobante}
+                    onChange={setGastoNroComprobante}
+                    placeholder="Por defecto usa la referencia"
                   />
                   <p className="qty-base-summary">
                     Descripción: {mode === 'doc'

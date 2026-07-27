@@ -75,6 +75,8 @@ export async function registrarCompraConGasto(opts: {
   gastoCentroCosto?: string;
   gastoDescripcion?: string;
   gastoProveedorNombre?: string;
+  gastoTipoComprobante?: string;
+  gastoNroComprobante?: string;
   proveedorId?: string;
 }) {
   const uid = await getUserId();
@@ -93,6 +95,8 @@ export async function registrarCompraConGasto(opts: {
     p_gasto_centro_costo: opts.gastoCentroCosto ?? 'BODEGA',
     p_gasto_descripcion: opts.gastoDescripcion ?? null,
     p_gasto_proveedor_nombre: opts.gastoProveedorNombre ?? null,
+    p_gasto_tipo_comprobante: opts.gastoTipoComprobante ?? null,
+    p_gasto_nro_comprobante: opts.gastoNroComprobante ?? null,
     p_proveedor_id: opts.proveedorId ?? null,
   }, 'No se pudo registrar la compra con egreso.');
   return typeof data === 'string' ? data : String(data);

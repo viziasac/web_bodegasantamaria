@@ -4,7 +4,7 @@
 **Versión del sistema web:** 1.0.0  
 **Backend:** Supabase · proyecto `cztnnkxvwiwpeifqygta`  
 **Repo:** `github.com/viziasac/web_bodegasantamaria`  
-**Última actualización:** 25 julio 2026
+**Última actualización:** 27 julio 2026
 
 Arquitectura del cliente web y contrato con Supabase. Diccionario completo de tablas/triggers: documentación BD del repo de la app móvil.
 
@@ -86,7 +86,6 @@ Presentaciones (`cant_unidades`) son metadata comercial. Venta/despacho/ajuste P
 | Ajuste | Almacenes + PV (no TRANSIT) | Según ubicación + filtro tipo |
 | Producción destino | Solo ALM_PT | SKU PT |
 | Transferencias | Operativas (no TRANSIT) | Según origen; valida destino |
-| Reempaque | ALM_MP, ALM_GR, ALM_PT | Ítem→ítem |
 | Granel | Implícito ALM_GR | Solo GRANEL |
 
 ### Supabase
@@ -98,7 +97,7 @@ Integrada en:
 - `fn_ajuste_registrar`
 - `fn_compra_registrar`
 - `fn_compra_registrar_doc`
-- `fn_orden_completar` (consumo receta + BOM `ma_empaque_material`)
+- `fn_orden_completar` (consumo solo de receta: GRANEL→ALM_GR, resto→ALM_MP)
 
 (`fn_compra_registrar_con_gasto` delega en `fn_compra_registrar`.)
 

@@ -92,6 +92,12 @@ export function useInventarioData(ensureCatalogLoaded: () => Promise<void>) {
     setSoloAlertas(false);
   };
 
+  const changeUbicacion = (id: string) => {
+    setUbicacionId(id);
+    setTipoFilter('');
+    setCategoriaFilter('');
+  };
+
   const hasActiveFilters = !!(ubicacionId || tipoFilter || categoriaFilter || search || soloAlertas);
 
   return {
@@ -101,7 +107,7 @@ export function useInventarioData(ensureCatalogLoaded: () => Promise<void>) {
     setError,
     reload,
     ubicacionId,
-    setUbicacionId,
+    setUbicacionId: changeUbicacion,
     tipoFilter,
     setTipoFilter,
     categoriaFilter,

@@ -3,7 +3,7 @@
 **VIZIA S.A.C.** · Bodega Santa María · 2026  
 **Versión del sistema web:** 1.0.0  
 **Público:** personal de bodega, producción, punto de venta y administración  
-**Última actualización:** 25 julio 2026
+**Última actualización:** 27 julio 2026
 
 Este manual describe el uso día a día del **ERP web**. Los nombres coinciden con el menú lateral.
 
@@ -153,7 +153,7 @@ Si activa egreso: se crea gasto origen COMPRA. Corrija en **Modificaciones → E
 
 ## 8. Recetas
 
-BOM por **1 botella**. Granel se consume de ALM_GR; el resto de ALM_MP. Alta/edición: admin.
+BOM por **1 botella** (granel, botella, tapa, etiqueta u otros insumos de la botella). El cartón/pack comercial **no** va en la fórmula. Granel se consume de ALM_GR; el resto de ALM_MP. Alta/edición: admin.
 
 ---
 
@@ -169,18 +169,18 @@ Alta de litros en **ALM_GR**. Requiere ítems tipo GRANEL y ubicación ALM_GR co
 2. Planifique en botellas o packs (la orden guarda botellas).
 3. Destino obligatorio: **ALM_PT**.
 4. Valide insumos → cree BORRADOR → complete con cantidad real en botellas.
-5. Al completar: se consume la receta (granel en ALM_GR, resto en ALM_MP) y el **BOM de empaque**
-   (`ma_empaque_material`, p. ej. cajas) según el empaque de la presentación.
-6. Si la orden es pack (factor > 1), la cantidad real debe ser múltiplo del factor.
+5. Al completar: se consume **solo la receta** (granel en ALM_GR, resto en ALM_MP).
+6. Packs convierten a botellas en la UI; cartón/separadores se mueven por transferencia o egreso (no se descuentan en producción).
+7. Si la orden es pack (factor > 1), la cantidad real debe ser múltiplo del factor.
 
 ```mermaid
 flowchart TD
   A[SKU + cantidad en botellas] --> B[Destino ALM_PT]
-  B --> C[Consumo BOM + empaque]
+  B --> C[Consumo receta]
   C --> D[Entrada PT en botellas]
 ```
 
-El módulo **Reempaque** ya no se usa en la web ni en la app: el encajado forma parte de la producción.
+El módulo **Reempaque** ya no existe en la web ni en la app.
 
 ---
 
@@ -246,7 +246,7 @@ Excel por mes y módulo.
 
 ## 18. Materiales / SKUs (admin)
 
-Ítems y presentaciones (botella `cant_unidades=1`, pack ×6 / ×12…). Alta de PT vía catálogo (`envase_ml` + matriz empaque). Crear presentación **no** genera stock.
+Ítems (INSUMO, EMPAQUE, GRANEL, MATERIAL, PT) y presentaciones comerciales. Alta de PT vía catálogo (`envase_ml` + matriz empaque): genera botella y packs automáticamente. En la pestaña SKUs solo se edita nombre/activo; no hay alta manual. Crear o editar presentación **no** genera stock.
 
 ---
 

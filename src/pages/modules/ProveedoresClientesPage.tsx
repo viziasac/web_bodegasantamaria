@@ -113,6 +113,9 @@ const ProveedoresClientesPage: React.FC = () => {
     setQuery('');
     setError(null);
     setSuccess(null);
+    setModalOpen(false);
+    setEditId('');
+    setForm(EMPTY_PROV);
   };
 
   const load = useCallback(async () => {

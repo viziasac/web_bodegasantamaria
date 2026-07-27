@@ -468,7 +468,12 @@ const ProductionPage: React.FC = () => {
 
       <TabBar
         active={filtroEstado}
-        onChange={(id) => setFiltroEstado(id as FiltroEstado)}
+        onChange={(id) => {
+          setFiltroEstado(id as FiltroEstado);
+          setValidacion([]);
+          setSelectedOrden(null);
+          setCantReal('');
+        }}
         tabs={[
           { id: 'BORRADOR', label: 'En borrador', icon: 'edit_note' },
           { id: 'COMPLETADA', label: 'Completadas', icon: 'check_circle' },

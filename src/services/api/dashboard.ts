@@ -17,6 +17,12 @@ import type {
   MovimientoTrendDia, AjusteTopItem, AjustePorUbicacion, CatUbicacion, MaItem,
 } from '../../types';
 
+/** PostgREST may type embedded relations as T | T[]. */
+function asOne<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
 export async function getDashboardKPIs(fechaDesde?: string, fechaHasta?: string): Promise<DashboardKPIs> {
   const desde = fechaDesde ?? inicioMesYmd();
   const hasta = fechaHasta ?? hoyYmd();
@@ -255,8 +261,8 @@ export async function getStockPorUbicacion() {
     .select('cantidad, cat_ubicacion:ubicacion_id(nombre)')
     .gt('cantidad', 0);
   const agrupado: Record<string, number> = {};
-  (data || []).forEach((r: { cantidad: unknown; cat_ubicacion?: { nombre: string } | null }) => {
-    const ubi = r.cat_ubicacion?.nombre || 'Sin ubicación';
+  (data || []).forEach((r) => {
+    const ubi = asOne(r.cat_ubicacion)?.nombre || 'Sin ubicación';
     agrupado[ubi] = (agrupado[ubi] || 0) + parseNum(r.cantidad);
   });
   return Object.entries(agrupado).map(([ubicacion, cantidad]) => ({ ubicacion, cantidad }));
@@ -276,8 +282,8 @@ export async function getInventarioDetallado(): Promise<InventarioFila[]> {
 
   const map = new Map<string, InventarioFila>();
   for (const row of data || []) {
-    const ubi = row.cat_ubicacion as CatUbicacion | null;
-    const item = row.ma_item as MaItem | null;
+    const ubi = asOne(row.cat_ubicacion) as CatUbicacion | null;
+    const item = asOne(row.ma_item) as MaItem | null;
     if (!ubi?.id || !item?.id) continue;
     const key = `${ubi.id}:${item.id}`;
     const qty = parseNum(row.cantidad);
@@ -352,8 +358,8 @@ export function buildResumenPorAlmacen(filas: InventarioFila[]): AlmacenResumenI
 export async function getGastosPorCategoria() {
   const { data } = await supabase.from(Tables.gasGasto).select('monto, gas_categoria(nombre)');
   const agrupado: Record<string, number> = {};
-  (data || []).forEach((r: { monto: number; gas_categoria?: { nombre: string } | null }) => {
-    const cat = r.gas_categoria?.nombre || 'Sin categoría';
+  (data || []).forEach((r) => {
+    const cat = asOne(r.gas_categoria)?.nombre || 'Sin categoría';
     agrupado[cat] = (agrupado[cat] || 0) + (r.monto || 0);
   });
   return Object.entries(agrupado).map(([categoria, total]) => ({ categoria, total }));

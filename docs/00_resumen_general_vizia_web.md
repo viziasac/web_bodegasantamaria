@@ -3,7 +3,7 @@
 **VIZIA S.A.C.** · Bodega Santa María · 2026  
 **Versión del sistema web:** 1.0.0  
 **Público:** dirección, gerencia y personal operativo  
-**Última actualización:** 25 julio 2026
+**Última actualización:** 27 julio 2026
 
 ---
 
@@ -77,8 +77,7 @@ flowchart TD
 | **Transferencias** | Entre almacenes/PV (sin TRANSIT) |
 | **Recetas** | BOM por 1 botella |
 | **Granel** | Alta de litros en ALM_GR |
-| **Producción** | Órdenes SKU → ALM_PT |
-| **Reempaque** | Ítem→ítem en ALM_MP / ALM_GR / ALM_PT |
+| **Producción** | Órdenes SKU → ALM_PT (consume solo receta) |
 | **Ingresos** | POS multi-línea o rápida |
 | **Despacho** | Venta de una línea |
 | **Egresos** | Gastos del día |

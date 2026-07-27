@@ -1,4 +1,4 @@
--- Auditoría 2026-07-25: anulación compra robusta + assert en reempaque
+-- Auditoría 2026-07-25: anulación compra robusta
 -- Aplicado en proyecto cztnnkxvwiwpeifqygta
 
 CREATE OR REPLACE FUNCTION public.fn_compra_origen_ids(p_txn uuid)
@@ -18,6 +18,6 @@ AS $$
   );
 $$;
 
--- Ver migración remota: DROP + CREATE fn_compra_anular_desde_gasto
--- y CREATE OR REPLACE fn_reempaque_registrar con fn_assert_item_ubicacion.
+-- Ver migración remota: DROP + CREATE fn_compra_anular_desde_gasto.
+-- La referencia histórica a reempaque quedó obsoleta tras las migraciones 2026-07-27.
 -- REVOKE EXECUTE fn_assert_item_ubicacion FROM PUBLIC/anon.

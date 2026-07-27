@@ -59,7 +59,7 @@ export async function getItemsPt(): Promise<MaItem[]> {
 export async function getPresentaciones(itemId?: string, opts?: { includeInactive?: boolean }): Promise<MaPresentacion[]> {
   let q = supabase
     .from(Tables.maPresentacion)
-    .select('*, ma_item(id, codigo, nombre, tipo, unidad_medida, categoria), ma_empaque_tipo:empaque_id(id, nombre, factor)')
+    .select('*, ma_item(id, codigo, nombre, tipo, unidad_medida, categoria, envase_ml), ma_empaque_tipo:empaque_id(id, nombre, factor)')
     .order('nombre');
   if (!opts?.includeInactive) q = q.eq('activo', true);
   if (itemId) q = q.eq('item_id', itemId);
@@ -107,7 +107,10 @@ export async function createItem(opts: {
 
   // PT: crear vía RPC (matriz de presentaciones × empaques; granel opcional).
   if (opts.tipo === 'PT') {
-    const envase = opts.envase_ml && opts.envase_ml > 0 ? Math.round(opts.envase_ml) : 750;
+    const envaseRaw = opts.envase_ml != null ? Math.round(opts.envase_ml) : null;
+    if (envaseRaw == null || envaseRaw <= 0) {
+      throw new Error('Indique la capacidad del envase en ml.');
+    }
     const data = await callRpc<{
       pt_id?: string;
       item_id?: string;
@@ -116,7 +119,7 @@ export async function createItem(opts: {
       p_codigo: codigo,
       p_nombre: opts.nombre.trim(),
       p_granel_base_id: opts.granel_base_id?.trim() || null,
-      p_envase_ml: envase,
+      p_envase_ml: envaseRaw,
       p_categoria: opts.categoria?.trim() || null,
       p_unidad_medida: opts.unidad_medida.trim(),
     }, 'No se pudo crear el SKU PT.');
@@ -129,6 +132,10 @@ export async function createItem(opts: {
         ?? '',
       );
     if (!id) throw new Error('RPC no devolvió el ítem PT.');
+    const stockMin = opts.stock_minimo;
+    if (stockMin != null && Number.isFinite(stockMin) && stockMin !== 0) {
+      await supabase.from(Tables.maItem).update({ stock_minimo: stockMin }).eq('id', id);
+    }
     const { data: row, error } = await supabase.from(Tables.maItem).select('*').eq('id', id).single();
     if (error) throw new Error(friendlyDbError(error));
     return row as MaItem;
@@ -163,6 +170,7 @@ export async function updateItem(opts: {
   activo?: boolean;
   granel_base_id?: string | null;
   pct_merma?: number;
+  envase_ml?: number | null;
 }): Promise<MaItem> {
   const patch: Record<string, unknown> = {};
   if (opts.nombre != null) patch.nombre = opts.nombre.trim();
@@ -172,6 +180,11 @@ export async function updateItem(opts: {
   if (opts.activo != null) patch.activo = opts.activo;
   if (opts.granel_base_id !== undefined) patch.granel_base_id = opts.granel_base_id;
   if (opts.pct_merma != null) patch.pct_merma = opts.pct_merma;
+  if (opts.envase_ml !== undefined) {
+    patch.envase_ml = opts.envase_ml != null && opts.envase_ml > 0
+      ? Math.round(opts.envase_ml)
+      : null;
+  }
   if (Object.keys(patch).length === 0) throw new Error('Sin cambios.');
 
   const { data, error } = await supabase

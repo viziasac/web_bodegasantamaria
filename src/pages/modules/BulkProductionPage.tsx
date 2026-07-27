@@ -28,6 +28,15 @@ const BulkProductionPage: React.FC = () => {
       setError('Ingrese referencia del tanque.');
       return;
     }
+    const qty = parseFloat(cantidad);
+    if (!itemId) {
+      setError('Seleccione un ítem granel.');
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setError('Ingrese una cantidad mayor a 0.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -35,7 +44,7 @@ const BulkProductionPage: React.FC = () => {
       await ensureCatalogLoaded();
       await bodegaService.producirGranel({
         materialId: itemId,
-        cantidad: parseFloat(cantidad),
+        cantidad: qty,
         tanque: tanque.trim(),
         clientTxnId: newTxnId(),
       });

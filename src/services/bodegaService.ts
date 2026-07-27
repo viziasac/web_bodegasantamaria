@@ -152,6 +152,8 @@ export const bodegaService = {
     gastoDescripcion?: string;
     gastoProveedorNombre?: string;
     gastoProveedorId?: string;
+    gastoTipoComprobante?: string;
+    gastoNroComprobante?: string;
   }) {
     const txnId = opts.clientTxnId ?? newTxnId();
     const linea = {
@@ -188,6 +190,8 @@ export const bodegaService = {
         gastoCentroCosto: opts.gastoCentroCosto ?? 'BODEGA',
         gastoDescripcion: opts.gastoDescripcion,
         gastoProveedorNombre: opts.gastoProveedorNombre,
+        gastoTipoComprobante: opts.gastoTipoComprobante,
+        gastoNroComprobante: opts.gastoNroComprobante,
         proveedorId: opts.proveedorId ?? opts.gastoProveedorId,
       });
     }
@@ -225,39 +229,21 @@ export const bodegaService = {
     if (precio <= 0) throw new Error('Precio no válido. Ingrese precio o configure ven_precio_ref.');
 
     let lineas: VentaLinea[];
-    if (opts.loteId) {
-      const stock = await api.validarStockDisponible({
-        itemId: pres.item_id,
-        loteId: opts.loteId,
-        ubicacionId: opts.ubicacionId,
-        cantidad: cant,
-      });
-      if (!stock.tiene_stock) {
-        throw new Error(`Stock insuficiente. Faltante: ${stock.faltante ?? cant}`);
-      }
-      lineas = [{
-        item_id: pres.item_id,
-        lote_id: opts.loteId,
-        cantidad: cant,
-        precio_unitario: precio,
-        presentacion_id: opts.presentacionId,
-      }];
-    } else {
-      // FIFO por ítem (stock en botellas), no por presentación pack/botella.
-      const allocations = await api.resolveLoteAllocationsFifo({
-        ubicacionId: opts.ubicacionId,
-        cantidad: cant,
-        itemId: pres.item_id,
-        productoLabel: pres.ma_item?.nombre ?? pres.nombre,
-      });
-      lineas = allocations.map((a) => ({
-        item_id: pres.item_id,
-        lote_id: a.loteId,
-        cantidad: Math.round(a.cantidad),
-        precio_unitario: precio,
-        presentacion_id: opts.presentacionId,
-      }));
-    }
+    // Lote seleccionado = preferencia; el faltante sigue FEFO/FIFO (paridad app).
+    const allocations = await api.resolveLoteAllocationsFifo({
+      ubicacionId: opts.ubicacionId,
+      cantidad: cant,
+      itemId: pres.item_id,
+      productoLabel: pres.ma_item?.nombre ?? pres.nombre,
+      preferLoteId: opts.loteId,
+    });
+    lineas = allocations.map((a) => ({
+      item_id: pres.item_id,
+      lote_id: a.loteId,
+      cantidad: Math.round(a.cantidad),
+      precio_unitario: precio,
+      presentacion_id: opts.presentacionId,
+    }));
 
     return api.registrarVentaAtomica({
       ubicacionId: opts.ubicacionId,

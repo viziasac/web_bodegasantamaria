@@ -9,7 +9,6 @@ import { sortLotesParaConsumo } from '../../utils/lotePolicy';
 import { callRpc, normalizeStockRow, parseNum } from './core';
 import type {
   InvMovimiento, InvStockSaldo, MovimientoFilters, StockResumenItem,
-  MaItem, MaPresentacion,
 } from '../../types';
 
 export async function getResumenStockItems(tipo?: string): Promise<StockResumenItem[]> {
@@ -47,7 +46,7 @@ async function getStockSaldoFallback(tipo?: string): Promise<StockResumenItem[]>
   if (tipo) itemQ = itemQ.eq('tipo', tipo);
   const { data: items, error: itemErr } = await itemQ;
   if (itemErr) throw itemErr;
-  return (items || []).map((m: MaItem) =>
+  return (items || []).map((m) =>
     normalizeStockRow({
       ...m,
       item_id: m.id,
@@ -78,7 +77,7 @@ export async function getStockAgregadoPorUbicacion(ubicacionId: string): Promise
   if (itemErr) throw itemErr;
 
   return (items || [])
-    .map((m: MaItem) =>
+    .map((m) =>
       normalizeStockRow({ ...m, item_id: m.id, stock_total: byItem[m.id] ?? 0 }),
     )
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -97,7 +96,8 @@ export async function getPresentacionesConStock(ubicacionId: string) {
   if (error) throw error;
 
   const stockMap = Object.fromEntries(ptItems.map((i) => [i.item_id, i.stock_total]));
-  return (pres || []).map((p: MaPresentacion & { ma_item?: MaItem }) => {
+  return (pres || []).map((p) => {
+    const item = Array.isArray(p.ma_item) ? p.ma_item[0] : p.ma_item;
     const cant = parseNum(p.cant_unidades) || 1;
     const stockItem = stockMap[p.item_id] ?? 0;
     // stock_item = botellas del SKU. packs equivalentes = floor(botellas / factor).
@@ -110,8 +110,8 @@ export async function getPresentacionesConStock(ubicacionId: string) {
       cant_unidades: cant,
       stock_item: stockItem,
       stock_unidades: packsEquiv,
-      categoria: p.ma_item?.categoria,
-      item_nombre: p.ma_item?.nombre,
+      categoria: item?.categoria,
+      item_nombre: item?.nombre,
     };
   });
 }
@@ -197,6 +197,8 @@ export async function resolveLoteAllocationsFifo(opts: {
   itemId?: string;
   presentacionId?: string;
   productoLabel?: string;
+  /** Si tiene stock, se consume primero; el resto sigue FEFO/FIFO (paridad app). */
+  preferLoteId?: string;
 }): Promise<{ loteId: string; cantidad: number }[]> {
   if (opts.cantidad <= 0) {
     throw new Error('Cantidad inválida para asignación de lotes');
@@ -208,9 +210,16 @@ export async function resolveLoteAllocationsFifo(opts: {
       label ? `Sin lote disponible para ${label} en este punto de venta` : 'Sin lote disponible en este punto de venta',
     );
   }
+  const prefer = opts.preferLoteId?.trim();
+  const ordered = prefer
+    ? [
+      ...lotes.filter((l) => String(l.lote_id) === prefer),
+      ...lotes.filter((l) => String(l.lote_id) !== prefer),
+    ]
+    : lotes;
   let restante = opts.cantidad;
   const result: { loteId: string; cantidad: number }[] = [];
-  for (const l of lotes) {
+  for (const l of ordered) {
     if (restante <= 0) break;
     const disp = (l.cantidad as number) || 0;
     if (disp <= 0) continue;

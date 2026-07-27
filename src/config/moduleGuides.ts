@@ -123,7 +123,8 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
       'Complete con cantidad real en botellas; el stock PT se registra por botella.',
     ],
     tips: [
-      'No se puede completar si faltan insumos o materiales de caja (BOM empaque).',
+      'No se puede completar si faltan insumos de receta (granel en ALM_GR / resto en ALM_MP).',
+      'Packs solo convierten a botellas; cartón/separadores se mueven por transferencia o egreso.',
       'Si la orden es pack (p.ej. ×12), la cantidad real debe ser múltiplo del factor.',
       'Anule solo órdenes en borrador sin movimientos.',
     ],
@@ -234,7 +235,7 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     tips: [
       'Crear ítem/SKU no genera stock; eso entra por compra, granel o producción.',
-      'El módulo Reempaque fue retirado: el encajado se consume en Producción (BOM empaque).',
+      'El módulo Reempaque fue retirado. Packs son factor comercial; cartón se mueve aparte.',
     ],
     related: [
       { label: 'Maestros', path: '/maestros' },
